@@ -1,5 +1,6 @@
 package net.superkat.tidal;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -9,6 +10,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.*;
 import net.minecraft.resource.ResourceType;
 import net.superkat.tidal.duck.TidalWorld;
 import net.superkat.tidal.event.ClientBlockUpdateEvent;
@@ -74,7 +76,30 @@ public class TidalClient implements ClientModInitializer {
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> {
             if(context.world() == null) return;
             TidalWorld tidalWorld = (TidalWorld) context.world();
-            tidalWorld.tidal$tidalWaveHandler().render(context);
+            Tessellator tessellator = Tessellator.getInstance();
+            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
+
+            tidalWorld.tidal$tidalWaveHandler().render(buffer, context);
+
+            BuiltBuffer builtBuffer = buffer.endNullable();
+            if(builtBuffer == null) return;
+
+            LightmapTextureManager lightmapTextureManager = MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager();
+
+            lightmapTextureManager.enable();
+
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.setShader(GameRenderer::getRenderTypeTripwireProgram);
+            RenderSystem.setShaderTexture(0, TidalSpriteHandler.WAVE_ATLAS_ID);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+
+            BufferRenderer.drawWithGlobalProgram(builtBuffer);
+
+            RenderSystem.depthMask(true);
+            RenderSystem.disableBlend();
+            lightmapTextureManager.disable();
         });
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(TIDAL_SPRITE_HANDLER);

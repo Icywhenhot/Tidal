@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.particle.ParticleTypes;
@@ -83,8 +84,8 @@ public class TidalWaveHandler {
 
     }
 
-    public void render(WorldRenderContext context) {
-        this.renderer.render(context);
+    public void render(BufferBuilder buffer, WorldRenderContext context) {
+        this.renderer.render(buffer, context);
     }
 
     /**

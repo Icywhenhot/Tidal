@@ -43,49 +43,33 @@ public class WaveRenderer {
         this.world = world;
     }
 
-    public void render(WorldRenderContext context) {
+    public void render(BufferBuilder buffer, WorldRenderContext context) {
         ObjectArrayList<Wave> waves = this.handler.getWaves();
         if(waves == null || waves.isEmpty()) return;
 
-        MinecraftClient client = MinecraftClient.getInstance();
-
-        LightmapTextureManager lightmapTextureManager = client.gameRenderer.getLightmapTextureManager();
         float tickDelta = context.tickCounter().getTickDelta(false);
         Camera camera = context.camera();
 
-        lightmapTextureManager.enable();
-        RenderSystem.depthMask(true);
-        RenderSystem.enableDepthTest();
-        RenderSystem.setShader(GameRenderer::getRenderTypeTripwireProgram);
-        RenderSystem.setShaderTexture(0, TidalSpriteHandler.WAVE_ATLAS_ID);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
 
         for (Wave wave : waves) {
-            renderWave(camera, wave);
+            renderWave(buffer, camera, wave);
         }
 
-        renderOverlays(camera, handler.coveredBlocks);
+        renderOverlays(buffer, camera, handler.coveredBlocks);
 
         if(MinecraftClient.getInstance().getEntityRenderDispatcher().shouldRenderHitboxes()) {
             for (Wave wave : waves) {
                 MatrixStack matrixStack = new MatrixStack();
-                VertexConsumer buffer = context.consumers().getBuffer(RenderLayer.getLines());
+                VertexConsumer lines = context.consumers().getBuffer(RenderLayer.getLines());
                 Vec3d cameraPos = camera.getPos();
                 matrixStack.translate(-cameraPos.getX(), -cameraPos.getY(), -cameraPos.getZ());
-                WorldRenderer.drawBox(matrixStack, buffer, wave.getBoundingBox(), 1f, 1f, 1f, 1f);
+                WorldRenderer.drawBox(matrixStack, lines, wave.getBoundingBox(), 1f, 1f, 1f, 1f);
             }
         }
-
-        RenderSystem.depthMask(true);
-        RenderSystem.disableBlend();
-        lightmapTextureManager.disable();
     }
 
-    public void renderWave(Camera camera, Wave wave) {
+    public void renderWave(BufferBuilder buffer, Camera camera, Wave wave) {
         if(wave == null) return;
-        BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
-        if(buffer == null) return;
 
         MatrixStack matrices = new MatrixStack();
         matrices.push();
@@ -129,10 +113,6 @@ public class WaveRenderer {
         }
 
         matrices.pop();
-
-        BuiltBuffer builtBuffer = buffer.endNullable();
-        if(builtBuffer == null) return;
-        BufferRenderer.drawWithGlobalProgram(builtBuffer);
     }
 
     private void waveQuad(Matrix4f matrix4f, BufferBuilder buffer, Sprite sprite, int waveAge, float x, float y, float z, float width, float length, float red, float green, float blue, float alpha, int light) {
@@ -163,14 +143,10 @@ public class WaveRenderer {
                 .color(red, green, blue, alpha).texture(u1, v1).light(light);
     }
 
-    public void renderOverlays(Camera camera, Set<BlockPos> coveredBlocks) {
-        BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
+    public void renderOverlays(BufferBuilder buffer, Camera camera, Set<BlockPos> coveredBlocks) {
         for (BlockPos covered : coveredBlocks) {
             renderCoverOverlay(buffer, camera, covered);
         }
-        BuiltBuffer builtBuffer = buffer.endNullable();
-        if(builtBuffer == null) return;
-        BufferRenderer.drawWithGlobalProgram(builtBuffer);
     }
 
     public void renderCoverOverlay(BufferBuilder buffer, Camera camera, BlockPos pos) {
