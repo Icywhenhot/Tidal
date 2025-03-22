@@ -10,7 +10,14 @@ import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.*;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.BuiltBuffer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
 import net.minecraft.resource.ResourceType;
 import net.superkat.tidal.duck.TidalWorld;
 import net.superkat.tidal.event.ClientBlockUpdateEvent;
@@ -47,12 +54,12 @@ public class TidalClient implements ClientModInitializer {
 
         ClientChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
             TidalWorld tidalWorld = (TidalWorld) world;
-            tidalWorld.tidal$tidalWaveHandler().waterHandler.addChunk(chunk);
+            tidalWorld.tidal$tidalWaveHandler().waterHandler.loadChunk(chunk);
         });
 
         ClientChunkEvents.CHUNK_UNLOAD.register((world, chunk) -> {
             TidalWorld tidalWorld = (TidalWorld) world;
-            tidalWorld.tidal$tidalWaveHandler().waterHandler.removeChunk(chunk);
+            tidalWorld.tidal$tidalWaveHandler().waterHandler.unloadChunk(chunk);
         });
 
         //Called when an individual block is updated(placed, broken, state changed, etc.)
@@ -70,7 +77,7 @@ public class TidalClient implements ClientModInitializer {
             if(client.world == null || client.player == null) return;
             TidalWorld tidalWorld = (TidalWorld) client.world;
             tidalWorld.tidal$tidalWaveHandler().reloadNearbyChunks();
-//            tidalWorld.tidal$tidalWaveHandler().waterHandler.rebuild();
+            tidalWorld.tidal$tidalWaveHandler().waterHandler.rebuild();
         });
 
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> {
