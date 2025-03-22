@@ -7,23 +7,20 @@ Waves can also crash against blocks if they're in the way, making rocky cliffs n
 
 **Note: Tidal is currently in alpha!** There's plenty of known bugs and plans for optimizations, some include:
 - Many unique textures for things like the top side of waves which are washing up, waves which just crashed into a wall, and particle textures for crashed waves which just fell into water, are still needed.
-- Waves do not continue spawning after 50 block updates in a chunk(chunk doesn't seem to get rescanned).
-- Waves do not always spawn correctly after moving from a chunk reload(facing wrong way).
 - Waves in areas like rivers are too long after washing up, and should probably be scaled down.
-- The scanning process for finding water blocks can be sped up via multithreading.
+- Waves "wash up" in midair instead of falling.
 - Algorithm to find closest Voronoi site point can be sped up (Quicksort?)
 - Waves don't seem to be connecting at spawn properly(2 hitboxes right next to each other, causing unintended overlap)
-- Waves "wash up" in midair instead of falling.
-- Info calculated for areas to spawn waves, specifically the length of waves & their spawn position, should be cached per chunk instead of recalculating every wave spawn tick.
-- The wet overlay rendering can probably be optimized.
 - There's probably some Z-fighting issues with the waves(they were scaled up to their current scale very last minute)
 - Waves hitbox for crashing into a wall is too small(because of the new scale).
-- Waves cannot be viewed from beneath them.
 - Sounds for the waves
 - Config.
 - Debug mode is inaccessible (should be fixed with config)
-- Possibly use closet shoreline block instead of closest Voronoi sitepos for "distance from shore" if Quicksort + multithreading is fast enough.
+- Waves cannot be viewed from beneath them.
 - Small waves should likely be scaled down(there's already 2 different types of waves, small & big, but the current difference is minor).
+- The wet overlay rendering can probably be optimized.
+- Possibly use closet shoreline block instead of closest Voronoi sitepos for "distance from shore" if Quicksort + multithreading is fast enough.
+- Info calculated for areas to spawn waves, specifically the length of waves & their spawn position, should be cached per chunk instead of recalculating every wave spawn tick.
 
 Lots of work happens behind the scenes to figure out where & how to spawn waves. If waves are not spawning, or spawning unusually(e.g. going wrong way), you can recalculate this info by reloading the chunks via `F3 + a`.
 
