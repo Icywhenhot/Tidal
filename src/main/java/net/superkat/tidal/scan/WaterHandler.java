@@ -45,27 +45,17 @@ import java.util.stream.Collectors;
  * <br><br>
  * How this goofy thing works:<br><br>
  *
- * Chunk loaded -> {@link WaterHandler#loadChunk(Chunk)} -> schedules a {@link ChunkScanner} to the {@link WaterHandler#scanners} Map.<br><br>
+ * Chunk loaded -> {@link WaterHandler#loadChunk(Chunk)} -> adds the ChunkPos to {@link WaterHandler#loadedChunks}.<br><br>
  *
- * A {@link ChunkScanner} iterates through a chunk's blocks(sampling heightmap), checking if each block is water or not.<br>
- * <b>- If water -></b> The BlockPos is added to {@link WaterHandler#waitingWaterBlocks} Queue(split per chunk).<br>
- * That water block's neighbours are also checked for water.<br>
- * <i>--- If neighbour is water -></i> Also added to the waitingWaterBlocks Queue<br>
- * <i>--- If neighbour is not water -></i> Added to the {@link WaterHandler#shoreBlocks} Map(split per chunk).<br>For every 8 shoreline blocks, {@link WaterHandler#createSitePos(BlockPos)} is called, creating a {@link SitePos} with the initial scanned BlockPos and is added to the {@link WaterHandler#sites} Map(split per chunk).<br><br>
- *
- * A ChunkScanner is associated with each loaded chunk, but will not tick unless within the config radius. {@link WaterHandler#tickScheduledScanners(ClientPlayerEntity)} ticks all scheduled ChunkScanners(within range) 10 times, scanning 10 blocks per chunk.<br><br>
- *
- * Once a ChunkScanner is done, <b>IT'S SCANNER VALUE IS SET TO NULL</b> in the scanners Map!!! Meaning the ChunkPos(long) key still exists, but its value will be null.<br>
- * This was done to allow for all loaded chunks to remain accessible for the {@link WaterHandler#rebuild()} method, and to make it easy to start scanning a loaded chunk when it becomes in range.<br><br>
- *
- * For any given chunk, once all nearby ChunkScanners in a 3 chunk radius are finished scanning, {@link WaterHandler#tickWaitingWaterBlocks(boolean)} ticks 10 water blocks per chunk.<br>
- * A "waiting water block" is any water block which has not had a SitePos calculated as the closest yet.<br><br>
- *
- * Ticking a waiting water block finds the closest SitePos via {@link WaterHandler#findClosestSite(long, BlockPos)}, and removes it from the waitingWaterBlocks Queue and placing it in the {@link WaterHandler#waterCache} Map(key being the BlockPos, value being the SitePos).<br><br>
+ * {@link WaterHandler#checkUnscannedChunks()} adds unscanned chunks within scanning distance to {@link WaterHandler#unscannedChunkQueue}.<br>
+ * In {@link WaterHandler#tick()}, that unscannedChunkQueue is iterated though via {@link WaterHandler#scheduleChunkScans()}, where a {@link ChunkScanner} is created, and returns a {@link ScannedChunk} with that chunk's water blocks, shoreline blocks, and created {@link SitePos} sites.<br><br>
+ * Currently, nothing is done to the ChunkScanner if the chunk is unloaded during its scan process, as the CompletableFuture does not get cancelled. That could be an improvement.<br><br>
+ * Once all queued ChunkScanners are finished, the scanner provides the info to here, the WaterHandler.<br><br>
+ * Then, all known water blocks have their closest SitePos calculated via {@link  WaterHandler#scheduleWaterCache()}, and once that is done, the values for {@link WaterHandler#waterCache} & {@link WaterHandler#waterDistCache} are set.<br><br>
  *
  * Chunk unloaded -> {@link WaterHandler#unloadChunk(Chunk)}. Because nearly everything is split per chunk via Maps, all keys with that ChunkPos(as a long) are removed, removing the values with it.<br><br>
  *
- * Join world -> Loads many chunks(calling the chunk load event) -> {@link WaterHandler#build()} is called, which ticks everything until all is finished. This does not use the tickScheduledScanners method, but does use the tickWaitingWaterBlocks method. Called after enough nearby chunks are loaded via {@link TidalWaveHandler#nearbyChunksLoaded(ClientPlayerEntity)}.<br><br>
+ * Join world -> Nearby chunks are added via loadChunk(), then once all nearby chunks are loaded via {@link TidalWaveHandler#nearbyChunksLoaded(ClientPlayerEntity)}, the scheduleChunkScans method is called.<br><br>
  *
  * Block updated -> {@link WaterHandler#onBlockUpdate(BlockPos, BlockState)}. A count of all block updates per chunk is kept track of in {@link WaterHandler#chunkUpdates}.<br>After enough block updates in a chunk(configurable), that chunk will be rescanned via {@link WaterHandler#rescanChunkPos(ChunkPos)}.
  *
