@@ -15,12 +15,11 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
 import net.superkat.tidal.particles.SprayParticleEffect;
 
-import java.awt.*;
 import java.util.List;
 import java.util.Set;
 
 /**
- * A total mess of a class which handles wave position/movement, scale, color, and lifecycle of waves. Along with helper methods for getting sprites to be used for rendering.
+ * A total mess of a class which handles wave position/movement, scale, color, and lifecycle of waves.
  */
 public class Wave {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = MathHelper.square(100.0);
@@ -30,8 +29,8 @@ public class Wave {
     public float yaw; //wave's yaw in degrees (in theory)
     public boolean bigWave;
 
-
     public Box box;
+    public float scale = 1f;
     public float width = 1f;
     public float length = 1.5f;
     public float x;
@@ -64,9 +63,6 @@ public class Wave {
     public float green = 1f;
     public float blue = 1f;
     public float alpha = 1f;
-    public float prevRed;
-    public float prevGreen;
-    public float prevBlue;
 
     public Wave(ClientWorld world, BlockPos spawnPos, float yaw, float yOffset, boolean bigWave) {
         this.world = world;
@@ -169,6 +165,9 @@ public class Wave {
 
         if (velX != 0.0 || velY != 0.0 || velZ != 0.0) {
             this.box = this.box.offset(velX, velY, velZ);
+            this.prevX = this.x;
+            this.prevY = this.y;
+            this.prevZ = this.z;
             this.x = (float) (box.minX + box.maxX) / 2f;
             this.y = (float) box.minY;
             this.z = (float) (box.minZ + box.maxZ) / 2f;
@@ -244,10 +243,6 @@ public class Wave {
         this.setColor(r, g, b);
     }
 
-    public void setColor(Color color) {
-        this.setColor(color.getRed() / 255f, color.getGreen() / 255f, color.getBlue() / 255f);
-    }
-
     /**
      * @param red Float 0f through 1f
      * @param green Float 0f through 1f
@@ -257,6 +252,18 @@ public class Wave {
         this.red = red;
         this.green = green;
         this.blue = blue;
+    }
+
+    public float getX(float delta) {
+        return MathHelper.lerp(delta, this.prevX, this.x);
+    }
+
+    public float getY(float delta) {
+        return MathHelper.lerp(delta, this.prevY, this.y);
+    }
+
+    public float getZ(float delta) {
+        return MathHelper.lerp(delta, this.prevZ, this.z);
     }
 
     public int getLight() {

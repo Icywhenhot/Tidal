@@ -36,7 +36,6 @@ public class ChunkScanner {
     public int shorelinesSinceSite = 0;
 
     public ChunkPos chunkPos;
-    public boolean finished = false;
 
     public ObjectOpenHashSet<BlockPos> waters = new ObjectOpenHashSet<>();
     public ObjectOpenHashSet<BlockPos> shorelines = new ObjectOpenHashSet<>();
@@ -65,19 +64,6 @@ public class ChunkScanner {
 
     private int sampleHeightmap(BlockPos pos) {
         return this.world.getTopY(Heightmap.Type.WORLD_SURFACE, pos.getX(), pos.getZ());
-    }
-
-    /**
-     * Scans the next block which should be scanned
-     */
-    public void tick() {
-        if(cachedIterator.hasNext()) {
-            BlockPos next = cachedIterator.next();
-            int y = this.world.getTopY(Heightmap.Type.WORLD_SURFACE, next.getX(), next.getZ()); //sample heightmap
-            scanPos(next.withY(y - 1));
-        } else {
-            markFinished();
-        }
     }
 
     /**
@@ -112,6 +98,11 @@ public class ChunkScanner {
         for (Direction direction : Direction.Type.HORIZONTAL) {
             BlockPos checkPos = pos.offset(direction);
             if(world.isAir(checkPos)) continue;
+            if(direction == Direction.NORTH && pos.getZ() % 16 == 0) continue;
+            if(direction == Direction.WEST && pos.getX() % 16 == 0) continue;
+            if(direction == Direction.SOUTH && (pos.getZ() - 1) % 16 == 0) continue;
+            if(direction == Direction.EAST && (pos.getX() + 1) % 16 == 0) continue;
+
             boolean neighborIsWater = cacheAndIsWater(checkPos);
             //that is super cursed but okay - no that's actually incredibly cursed(wow I spelt that right first try)
             //if init scan pos is water OR if the check pos is the top of water
@@ -144,13 +135,5 @@ public class ChunkScanner {
      */
     public boolean cacheAndIsWater(BlockPos pos) {
         return cachedBlocks.computeIfAbsent(pos, pos1 -> TidalWaveHandler.posIsWater(world, pos1));
-    }
-
-    public void markFinished() {
-        this.finished = true;
-    }
-
-    public boolean isFinished() {
-        return this.finished;
     }
 }

@@ -10,8 +10,6 @@ public class TidalSprites {
     public static final Identifier WASHING_WHITE_TEXTURE_ID = Identifier.of(TidalSpriteHandler.MOD_ID, "washing_white");
     public static final Identifier WET_OVERLAY_TEXTURE_ID = Identifier.of(TidalSpriteHandler.MOD_ID, "wet_overlay");
 
-    //TODO - remove wave width thing from waveresourcemetadata
-
     public static int getFrameFromAge(Sprite sprite, int age) {
         int frameCount = getFrameCount(sprite);
         int frameTime = getMetadata(sprite).frameTime();

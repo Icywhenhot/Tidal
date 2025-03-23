@@ -144,27 +144,17 @@ public class WaterHandler {
                 this.chunkScanFuture = scheduleChunkScans();
                 this.chunkScanFuture.thenCompose(chunks -> {
                     for (ScannedChunk chunk : chunks) {
-                        //TODO - pleas please please fix this oh my goodness
-                        // make it so that chunk scanners actually only scan blocks in their chunk, not outside
+                        long chunkPosL = chunk.chunkPos;
                         if(chunk.waters != null && !chunk.waters.isEmpty()) {
-                            for (BlockPos water : chunk.waters) {
-                                long chunkPosL = new ChunkPos(water).toLong();
-                                this.waters.computeIfAbsent(chunkPosL, aLong -> Sets.newHashSet()).add(water);
-                            }
+                            this.waters.computeIfAbsent(chunkPosL, aLong -> Sets.newHashSet()).addAll(chunk.waters);
                         }
 
                         if(chunk.sites != null && !chunk.sites.isEmpty()) {
-                            for (SitePos site : chunk.sites) {
-                                long chunkPosL = new ChunkPos(site.getPos()).toLong();
-                                this.sites.computeIfAbsent(chunkPosL, aLong -> new ObjectOpenHashSet<>()).add(site);
-                            }
+                            this.sites.computeIfAbsent(chunkPosL, aLong -> new ObjectOpenHashSet<>()).addAll(chunk.sites);
                         }
 
                         if(chunk.shorelines != null && !chunk.shorelines.isEmpty()) {
-                            for (BlockPos shore : chunk.shorelines) {
-                                long chunkPosL = new ChunkPos(shore).toLong();
-                                this.shoreBlocks.computeIfAbsent(chunkPosL, aLong -> new ObjectOpenHashSet<>()).add(shore);
-                            }
+                            this.shoreBlocks.computeIfAbsent(chunkPosL, aLong -> new ObjectOpenHashSet<>()).addAll(chunk.shorelines);
                         }
                     }
 
@@ -221,6 +211,9 @@ public class WaterHandler {
         }, executor);
     }
 
+    //Gives waterCache/waterDistCache maps to replace current maps with, instead of trying to modify current maps
+    //Trying to modify the current maps via the CompletableFutures, even from `.thenApply()`, (supposed to be main thread I think)
+    //kept resulting with weird, seemingly desync-related issues, so I gave up.
     public record WaterCacheResult(Long2ObjectOpenHashMap<Object2ObjectOpenHashMap<BlockPos, SitePos>> waterCache, Long2ObjectOpenHashMap<Int2ObjectOpenHashMap<ObjectOpenHashSet<BlockPos>>> distCache) {}
 
     public CompletableFuture<WaterCacheResult> scheduleWaterCache() {
@@ -263,15 +256,16 @@ public class WaterHandler {
         }, executor);
     }
 
-    @Nullable
+    @Nullable //FIXME - optimize this(Hama said it should be easy)
     public IntObjectPair<SitePos> calcClosestSite(BlockPos pos) {
         double distance = 0;
         SitePos closest = null;
+
         for (SitePos site : this.cachedSiteSet) {
             double dx = pos.getX() + 0.5 - site.getX();
             double dz = pos.getZ() + 0.5 - site.getZ();
             double checkDist = dx * dx + dz * dz;
-//            double checkDist = Math.max(Math.abs(dx), Math.abs(dz));
+//            double checkDist = Math.max(Math.abs(dx), Math.abs(dz)); //alt distance formulas for future config
 //            double checkDist = Math.abs(dx) + Math.abs(dz);
 
             if(closest == null || checkDist < distance) {
@@ -310,7 +304,7 @@ public class WaterHandler {
                 .computeIfAbsent(chunkPosL,
                         chunkPosL2 -> new Object2ObjectOpenHashMap<>()
                 ).computeIfAbsent(pos, pos1 -> {
-                    SitePos closest = findClosestSite(chunkPosL, pos);
+                    SitePos closest = findAndCacheClosestSite(chunkPosL, pos);
                     if(closest != null) closest.addPos(pos);
                     return closest;
                 });
@@ -322,40 +316,28 @@ public class WaterHandler {
      * @param pos The BlockPos to use for finding the closest SitePos
      * @return The closest SitePos, or null if no SitePos' are currently stored.
      */
-    @Nullable //FIXME - optimize this(Hama said it should be easy)
-    public SitePos findClosestSite(long chunkPosL, BlockPos pos) {
+    @Nullable
+    public SitePos findAndCacheClosestSite(long chunkPosL, BlockPos pos) {
         if(this.sites.isEmpty()) return null;
 
         if(this.cachedSiteSet == null || this.cachedSiteSet.isEmpty()) {
             this.cacheSiteSet();
         }
 
-        double distance = 0;
-        SitePos closest = null;
-        for (SitePos site : this.cachedSiteSet) {
-            double dx = pos.getX() + 0.5 - site.getX();
-            double dz = pos.getZ() + 0.5 - site.getZ();
-            double checkDist = dx * dx + dz * dz;
-//            double checkDist = Math.max(Math.abs(dx), Math.abs(dz));
-//            double checkDist = Math.abs(dx) + Math.abs(dz);
+        IntObjectPair<SitePos> siteDistPair = this.calcClosestSite(pos);
+        if(siteDistPair == null) return null;
+        int distance = siteDistPair.firstInt();
+        SitePos site = siteDistPair.second();
 
-            if(closest == null || checkDist < distance) {
-                closest = site;
-                distance = checkDist;
-            }
-        }
-
-        if(closest != null) {
-            int intDistance = (int) Math.sqrt(distance);
-//            int intDistance = (int) distance;
+        if(site != null) {
             this.waterDistCache.computeIfAbsent(
                     chunkPosL, chunkPosL2 -> new Int2ObjectOpenHashMap<>()
             ).computeIfAbsent(
-                    intDistance, dist -> new ObjectOpenHashSet<>()
+                    distance, dist -> new ObjectOpenHashSet<>()
             ).add(pos);
         }
 
-        return closest;
+        return site;
     }
 
     private void debugTick(MinecraftClient client, ClientPlayerEntity player) {
@@ -460,6 +442,9 @@ public class WaterHandler {
         checkUnscannedChunks();
     }
 
+    /**
+     * Searches through all loaded, unscanned chunks, and queues unscanned chunks which are within scanning distance to {@link WaterHandler#unscannedChunkQueue}
+     */
     public void checkUnscannedChunks() {
         ChunkPos cameraChunk = new ChunkPos(MinecraftClient.getInstance().gameRenderer.getCamera().getBlockPos());
         double radius = TidalConfig.chunkRadius * TidalConfig.chunkRadius;
@@ -483,7 +468,7 @@ public class WaterHandler {
      */
     public boolean rescanChunkPos(ChunkPos chunkPos) {
         long chunkPosL = chunkPos.toLong();
-        this.removeChunk(chunkPosL);
+        this.clearChunk(chunkPosL);
         this.unscannedChunks.add(chunkPos);
         this.checkUnscannedChunks();
         return true;
@@ -497,7 +482,7 @@ public class WaterHandler {
     public void unloadChunk(Chunk chunk) {
         ChunkPos chunkPos = chunk.getPos();
         long chunkPosL = chunkPos.toLong();
-        this.removeChunk(chunkPosL);
+        this.clearChunk(chunkPosL);
         this.chunkUpdates.remove(chunkPosL);
         this.loadedChunks.remove(chunkPos);
         this.unscannedChunks.remove(chunkPos);
@@ -505,11 +490,11 @@ public class WaterHandler {
 
     /**
      * Removes a chunk from all trackers, e.g. waitingWaterBlocks, sites, siteCache, shoreblocks.
-     * <br><br>The chunk remains in the scanners & chunkUpdates maps, as it is assumed it is still loaded.
+     * <br><br>The chunk remains in the scannedChunks & chunkUpdates maps, as it is assumed it is still loaded.
      *
      * @param chunkPosL The ChunkPos(as a long) to remove
      */
-    public void removeChunk(long chunkPosL) {
+    public void clearChunk(long chunkPosL) {
         this.shoreBlocks.remove(chunkPosL);
         this.waterCache.remove(chunkPosL);
         this.waterDistCache.remove(chunkPosL);
@@ -518,6 +503,9 @@ public class WaterHandler {
         this.cachedSiteSet.clear(); //resets it
     }
 
+    /**
+     * Clears all maps/sets EXCEPT {@link WaterHandler#loadedChunks}! Used for rebuilding via f3+a
+     */
     public void clear() {
         this.shoreBlocks.clear();
         this.sites.clear();
@@ -525,5 +513,6 @@ public class WaterHandler {
         this.waterDistCache.clear();
         this.cachedSiteSet.clear();
         this.unscannedChunks.clear();
+        this.chunkUpdates.clear();
     }
 }

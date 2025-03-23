@@ -1,20 +1,13 @@
 package net.superkat.tidal.renderer;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.util.math.MatrixStack;
@@ -50,9 +43,8 @@ public class WaveRenderer {
         float tickDelta = context.tickCounter().getTickDelta(false);
         Camera camera = context.camera();
 
-
         for (Wave wave : waves) {
-            renderWave(buffer, camera, wave);
+            renderWave(buffer, camera, wave, tickDelta);
         }
 
         renderOverlays(buffer, camera, handler.coveredBlocks);
@@ -68,7 +60,7 @@ public class WaveRenderer {
         }
     }
 
-    public void renderWave(BufferBuilder buffer, Camera camera, Wave wave) {
+    public void renderWave(BufferBuilder buffer, Camera camera, Wave wave, float delta) {
         if(wave == null) return;
 
         MatrixStack matrices = new MatrixStack();
@@ -91,24 +83,29 @@ public class WaveRenderer {
         Sprite whiteSprite = getMovingWhiteSprite();
 
         boolean washingUp = wave.isWashingUp();
-        Sprite washingColorableSprite = getWashedSprite();
-        Sprite washingWhiteSprite = getWashedWhiteSprite();
 
         int light = wave.getLight();
 
+        float red = wave.red;
+        float green = wave.green;
+        float blue = wave.blue;
+        float alpha = wave.alpha;
+
         //normal wave texture
         for (int i = 0; i < wave.width; i++) {
-            waveQuad(posMatrix, buffer, colorableSprite, wave.age, i, 0, 0, 1, wave.length, wave.red, wave.green, wave.blue, wave.alpha, light);
-            waveQuad(posMatrix, buffer, whiteSprite, wave.age, i, 0.05f, 0, 1, wave.length, 1f, 1f, 1f, wave.alpha, light);
+            waveQuad(posMatrix, buffer, colorableSprite, wave.age, i, 0, 0, 1, wave.length, red, green, blue, alpha, light);
+            waveQuad(posMatrix, buffer, whiteSprite, wave.age, i, 0.05f, 0, 1, wave.length, 1f, 1f, 1f, alpha, light);
         }
 
         //beneath wave texture after hitting shore
         if(washingUp && wave.bigWave) {
+            Sprite washingColorableSprite = getWashedSprite();
+            Sprite washingWhiteSprite = getWashedWhiteSprite();
             float washingZ = (float) Math.sin((double) wave.getWashingAge() / 40) + 1.15f;
             matrices.scale(1.25f, 1, 1);
             for (int i = 0; i < wave.width; i++) {
-                waveQuad(posMatrix, buffer, washingColorableSprite, wave.getWashingAge(), i - 0.15f, -0.05f, washingZ, 1, 2, wave.red, wave.green, wave.blue, wave.alpha, light);
-                waveQuad(posMatrix, buffer, washingWhiteSprite, wave.getWashingAge(), i - 0.15f, -0.01f, washingZ, 1, 2, 1f, 1f, 1f, wave.alpha, light);
+                waveQuad(posMatrix, buffer, washingColorableSprite, wave.getWashingAge(), i - 0.15f, -0.05f, washingZ, 1, 2, red, green, blue, alpha, light);
+                waveQuad(posMatrix, buffer, washingWhiteSprite, wave.getWashingAge(), i - 0.15f, -0.01f, washingZ, 1, 2, 1f, 1f, 1f, alpha, light);
             }
         }
 
