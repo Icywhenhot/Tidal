@@ -43,12 +43,12 @@ public class SprayParticle extends SpriteBillboardParticle {
 
         this.maxAge = (int) (50 + (intensity * 5f));
 
-        this.scale = MathHelper.clamp(intensity * 4f, 2f, 8f);
+        this.scale = MathHelper.clamp(intensity * 4f, 1f, params.getScale() * 2f);
         this.collidesWithWorld = true;
         this.gravityStrength = 0.5f;
 
         if(spawnWhite()) {
-            this.world.addParticle(new WhiteSprayParticleEffect(yaw, intensity), x, y, z, velX, velY, velZ);
+            this.world.addParticle(new WhiteSprayParticleEffect(yaw, intensity, this.scale), x, y, z, velX, velY, velZ);
             this.updateWaterColor(); //only need to update on spawn because it lasts for so little time
         }
 

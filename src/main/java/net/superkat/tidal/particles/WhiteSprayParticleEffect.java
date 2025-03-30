@@ -7,8 +7,8 @@ import net.minecraft.particle.ParticleType;
 import net.superkat.tidal.TidalParticles;
 
 public class WhiteSprayParticleEffect extends SprayParticleEffect {
-    public WhiteSprayParticleEffect(float yaw, float intensity) {
-        super(yaw, intensity);
+    public WhiteSprayParticleEffect(float yaw, float intensity, float scale) {
+        super(yaw, intensity, scale);
     }
 
     public static final MapCodec<WhiteSprayParticleEffect> CODEC = createCodec(WhiteSprayParticleEffect::new);

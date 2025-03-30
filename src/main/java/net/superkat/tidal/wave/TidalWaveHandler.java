@@ -14,6 +14,7 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.registry.tag.BiomeTags;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
@@ -157,8 +158,10 @@ public class TidalWaveHandler {
             spawned++;
             float yOffset = MathHelper.sin(spawned) / 16f + 0.65f;
             BlockPos spawnPos = connected.stream().sorted(Comparator.comparingInt(Vec3i::getZ)).toList().get(connected.size() / 2).add(0, 1, 0);
+            if(world.getBiome(spawnPos).isIn(BiomeTags.IS_RIVER)) bigWave = false;
             Wave wave = new Wave(this.world, spawnPos, yaw, yOffset, bigWave);
-            wave.setWidth((int) (connected.size() * 1.5));
+            int width = (int) MathHelper.clamp(connected.size() * 1.5, 1, 3);
+            wave.setWidth(width);
             this.waves.add(wave);
         }
     }
@@ -311,6 +314,7 @@ public class TidalWaveHandler {
             if(scannedBlocks.contains(playerPos)) {
                 long chunkPosL = new ChunkPos(playerPos).toLong();
                 SitePos site = this.waterHandler.waterCache.get(chunkPosL).get(playerPos);
+//                System.out.println(world.getBiome(site.getPos()).isIn(BiomeTags.IS_RIVER));
                 System.out.println(site.xList.size());
             }
         }

@@ -19,10 +19,16 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A total mess of a class which handles wave position/movement, scale, color, and lifecycle of waves.
+ * A total mess of a class which handles wave position/movement, scale, color, and lifecycle of waves.<br><br>
+ *
+ * i actually dislike this class a lot it is very incomprehensible
  */
 public class Wave {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = MathHelper.square(100.0);
+
+    //TODO - wave scales
+    //TODO - spary particle width
+    //TODO - fix fall washing up
 
     public ClientWorld world;
     public BlockPos spawnPos;
@@ -30,9 +36,10 @@ public class Wave {
     public boolean bigWave;
 
     public Box box;
-    public float scale = 1f;
-    public float width = 1f;
-    public float length = 1.5f;
+    public float scale;
+    public float width;
+    public float length;
+    public float pitch = 0f;
     public float x;
     public float y;
     public float z;
@@ -70,21 +77,32 @@ public class Wave {
         this.yaw = yaw;
         this.bigWave = bigWave;
 
+        if(this.bigWave) {
+            this.scale = 3f;
+            this.length = 1.5f;
+            this.width = 1f;
+            this.maxAge = 300;
+        } else {
+            this.scale = 2f;
+            this.length = 1f;
+            this.width = 2f;
+            this.maxAge = 250;
+        }
+
         this.x = spawnPos.getX();
         this.y = spawnPos.getY() + Math.abs(yOffset) + 0.15f;
         this.z = spawnPos.getZ();
 
         float f = 0.2f / 2.0F;
         float g = 0.2f;
-        this.box = (new Box(x - (double)f, y, z - (double)f, x + (double)f, y + (double)g, z + (double)f));
-
+        this.box = (new Box(x - (double)f, y, z - (double)f, x + (double)f, y + (double)g, z + (double)f)).expand(this.scale / 4f, 0, this.scale / 4f);
         float speed = 0.115f;
+
 
         this.velX = (float) (Math.cos(Math.toRadians(yaw)) * speed);
         this.velZ = (float) (Math.sin(Math.toRadians(yaw)) * speed);
 
         this.alpha = 0f;
-        this.maxAge = 300;
     }
 
     public int getWashingAge() {
@@ -97,8 +115,13 @@ public class Wave {
 
     public Set<BlockPos> getCoveredBlocks() {
         BlockPos currentPos = this.getBlockPos();
-        int extra = this.getWashingAge() >= 13 ? this.getWashingAge() <= 40 ? 3 : 1 : 0;
-        int usedWidth = (int) (this.width) + extra;
+
+        int extra = 0;
+        if(this.bigWave && this.getWashingAge() >= 13) {
+            extra = this.getWashingAge() <= 40 ? 3 : 1;
+        }
+//        int extra = this.getWashingAge() >= 13 ? this.getWashingAge() <= 40 ? 3 : 1 : 0;
+        int usedWidth = (int) (this.width - (this.bigWave ? 0 : 1)) + extra;
         Set<BlockPos> set = Sets.newHashSet();
         for (BlockPos pos : BlockPos.iterate(currentPos.add(-usedWidth, -1, -usedWidth), currentPos.add(usedWidth, -1, usedWidth))) {
             if(TidalWaveHandler.posIsWater(world, pos)) continue;
@@ -127,8 +150,12 @@ public class Wave {
             }
 
             this.ending = Math.abs(this.velX) <= 0.03f && Math.abs(this.velZ) <= 0.3f;
-            this.length += Math.abs(velX);
-            if(this.getWashingAge() >= maxWashingAge) this.markDead();
+
+            float addedLength = Math.abs(velX) * (this.bigWave ? 1 : 0.75f);
+            this.length += addedLength;
+            if(this.getWashingAge() >= maxWashingAge) {
+                this.markDead();
+            }
         } else {
             this.updateWaterColor();
             if(drowningAway) { //wave is despawning in water because it didn't hit shore within reasonable time
@@ -153,7 +180,7 @@ public class Wave {
         float initVelY = velY;
         float initVelZ = velZ;
         if ((velX != 0.0 || velY != 0.0 || velZ != 0.0) && velX * velX + velY * velY + velZ * velZ < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
-            Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(velX, velY, velZ), this.getBoundingBox(), this.world, List.of());
+            Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(velX, velY, velZ), this.getHitBox(), this.world, List.of());
             velX = (float) vec3d.x;
             velY = (float) vec3d.y;
             velZ = (float) vec3d.z;
@@ -189,7 +216,7 @@ public class Wave {
             for (int i = 0; i < 7; i++) {
                 this.world.addParticle(ParticleTypes.SPLASH, this.x, this.y, this.z, this.world.random.nextGaussian() * 5, this.world.random.nextGaussian() * 5, this.world.random.nextGaussian() * 5);
             }
-            this.world.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity), this.x, this.y - 0.05f, this.z, -this.velX, 0, -this.velZ);
+            this.world.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), this.x, this.y - 0.05f, this.z, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;
@@ -231,6 +258,15 @@ public class Wave {
         return this.box.expand(0.5);
     }
 
+    public Box getHitBox() {
+        if(this.isWashingUp()) {
+            float yawRadians = (float) Math.toRadians(this.yaw); //this took way to long to figure out ( ͡ಠ ʖ̯ ͡ಠ)
+            float usedLength = this.bigWave ? this.length * 1.5f : this.length / 16f;
+            return this.getBoundingBox().stretch(usedLength * Math.cos(yawRadians), 0, usedLength * Math.sin(yawRadians));
+        }
+        return this.getBoundingBox();
+    }
+
     public void setWidth(int width) {
         this.width = width;
     }
@@ -266,9 +302,17 @@ public class Wave {
         return MathHelper.lerp(delta, this.prevZ, this.z);
     }
 
+    public int getAge() {
+        return this.isWashingUp() ? this.getWashingAge() : this.age;
+    }
+
+    public int getMaxAge() {
+        return this.isWashingUp() ? this.maxWashingAge : this.maxAge;
+    }
+
     public int getLight() {
         //emissive during full moon :)
-        if(this.world.getMoonSize() > 0.9f && this.world.getTimeOfDay() >= 12000) return LightmapTextureManager.pack(15, 15);
+        if(this.world.getMoonPhase() == 0 && this.world.getTimeOfDay() >= 12000) return LightmapTextureManager.pack(15, 15);
         BlockPos pos = this.getBlockPos().add(0, 1, 0);
         int blockLight = this.world.getLightLevel(LightType.BLOCK, pos);
         int skylight = this.world.getLightLevel(LightType.SKY, pos);
