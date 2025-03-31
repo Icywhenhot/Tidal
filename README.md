@@ -6,7 +6,6 @@ Tidal adds ambient water waves! They are most noticeable at beaches & shores whe
 Waves can also crash against blocks if they're in the way, making rocky cliffs next to water even more dramatic! During full moons, the waves glow at night too.
 
 **Note: Tidal is currently in alpha!** There's plenty of known bugs and plans for optimizations, some include:
-- Many unique textures for things like the top side of waves which are washing up, waves which just crashed into a wall, and particle textures for crashed waves which just fell into water, are still needed.
 - Waves "wash up" in midair instead of falling.
 - Algorithm to find closest Voronoi site point can be sped up (Quicksort?)
 - Waves don't seem to be connecting at spawn properly(2 hitboxes right next to each other, causing unintended overlap)

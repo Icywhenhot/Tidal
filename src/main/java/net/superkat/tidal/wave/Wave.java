@@ -7,12 +7,12 @@ import net.minecraft.client.color.world.BiomeColors;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
-import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
+import net.superkat.tidal.TidalParticles;
 import net.superkat.tidal.particles.SprayParticleEffect;
 
 import java.util.List;
@@ -89,9 +89,9 @@ public class Wave {
             this.maxAge = 250;
         }
 
-        this.x = spawnPos.getX();
+        this.x = spawnPos.getX() + 0.5f;
         this.y = spawnPos.getY() + Math.abs(yOffset) + 0.15f;
-        this.z = spawnPos.getZ();
+        this.z = spawnPos.getZ() + 0.5f;
 
         float f = 0.2f / 2.0F;
         float g = 0.2f;
@@ -114,17 +114,16 @@ public class Wave {
     }
 
     public Set<BlockPos> getCoveredBlocks() {
+        Set<BlockPos> set = Sets.newHashSet();
         BlockPos currentPos = this.getBlockPos();
 
         int extra = 0;
         if(this.bigWave && this.getWashingAge() >= 13) {
             extra = this.getWashingAge() <= 40 ? 3 : 1;
         }
-//        int extra = this.getWashingAge() >= 13 ? this.getWashingAge() <= 40 ? 3 : 1 : 0;
         int usedWidth = (int) (this.width - (this.bigWave ? 0 : 1)) + extra;
-        Set<BlockPos> set = Sets.newHashSet();
         for (BlockPos pos : BlockPos.iterate(currentPos.add(-usedWidth, -1, -usedWidth), currentPos.add(usedWidth, -1, usedWidth))) {
-            if(TidalWaveHandler.posIsWater(world, pos)) continue;
+            if(TidalWaveHandler.posIsWater(world, pos) || world.isAir(pos)) continue;
             set.add(new BlockPos(pos));
         }
         return set;
@@ -213,10 +212,19 @@ public class Wave {
             } else {
                 sprayIntensity = ((float) this.age / this.maxAge) * 2.5f / (this.age / 16f);
             }
-            for (int i = 0; i < 7; i++) {
-                this.world.addParticle(ParticleTypes.SPLASH, this.x, this.y, this.z, this.world.random.nextGaussian() * 5, this.world.random.nextGaussian() * 5, this.world.random.nextGaussian() * 5);
+
+            double splashX = this.x + this.velX * 10;
+            double splashZ = this.z + this.velZ * 10;
+
+            for (int i = 0; i < 3; i++) {
+                this.world.addParticle(TidalParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.world.random.nextGaussian() * 0.1f, Math.abs(this.world.random.nextGaussian()) * 0.1f + 0.1f, this.world.random.nextGaussian() * 0.1f);
+                if(this.bigWave) {
+                    this.world.addParticle(TidalParticles.BIG_SPLASH_PARTICLE, splashX + this.world.random.nextGaussian() / 2f, this.y, splashZ + this.world.random.nextGaussian() / 2f, 0, 0.01, 0);
+                }
             }
-            this.world.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), this.x, this.y - 0.05f, this.z, -this.velX, 0, -this.velZ);
+
+
+            this.world.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;
@@ -230,8 +238,15 @@ public class Wave {
 
     public boolean updateWashingUp() {
         if(!washingUp && !aboveWater && !drowningAway) {
-            this.washingUp = true;
-            this.ageUponWhichThisWaveHasOfficiallyJoinedEthoInBecomingWashedUp = this.age;
+            if(beneathBlock.isAir()) {
+                this.velY = MathHelper.clamp(this.velY - 0.01f, -1.5f, 0);
+                this.pitch += 1 + Math.abs(velY) * 5;
+            } else {
+                this.velY = 0;
+                this.pitch = 0;
+                this.washingUp = true;
+                this.ageUponWhichThisWaveHasOfficiallyJoinedEthoInBecomingWashedUp = this.age;
+            }
         }
 
         if(!drowningAway && !washingUp && this.age >= this.maxWaterAge) {

@@ -158,11 +158,48 @@ public class TidalWaveHandler {
             spawned++;
             float yOffset = MathHelper.sin(spawned) / 16f + 0.65f;
             BlockPos spawnPos = connected.stream().sorted(Comparator.comparingInt(Vec3i::getZ)).toList().get(connected.size() / 2).add(0, 1, 0);
+
+            BlockPos beneath = spawnPos.add(0, -1, 0);
+            if(world.isAir(beneath) || !world.getBlockState(beneath).getFluidState().isStill()) continue;
+
             if(world.getBiome(spawnPos).isIn(BiomeTags.IS_RIVER)) bigWave = false;
+
+            this.world.addParticle(ParticleTypes.WITCH, spawnPos.getX() + 0.5, spawnPos.getY() + 2, spawnPos.getZ() + 0.5, 0, 0, 0);
+
             Wave wave = new Wave(this.world, spawnPos, yaw, yOffset, bigWave);
             int width = (int) MathHelper.clamp(connected.size() * 1.5, 1, 3);
             wave.setWidth(width);
             this.waves.add(wave);
+        }
+    }
+
+    private void spawnWavesFromConnected(List<BlockPos> waters) {
+        int spawned = 0;
+        int maxLength = 3;
+        for (int i = 0; i < waters.size(); i++) {
+            if(i % maxLength != 0) continue;
+            BlockPos spawnPos = waters.get(i).add(0, 1, 0);
+            SitePos site = this.waterHandler.getSiteForPos(spawnPos);
+            float yaw = site.getYaw();
+
+            boolean bigWave = site.xList.size() >= 100;
+
+            spawned++;
+            float yOffset = MathHelper.sin(spawned) / 16f + 0.65f;
+//            BlockPos spawnPos = connected.stream().sorted(Comparator.comparingInt(Vec3i::getZ)).toList().get(connected.size() / 2).add(0, 1, 0);
+
+            BlockPos beneath = spawnPos.add(0, -1, 0);
+            if(world.isAir(beneath) || !world.getBlockState(beneath).getFluidState().isStill()) continue;
+
+            if(world.getBiome(spawnPos).isIn(BiomeTags.IS_RIVER)) bigWave = false;
+
+//            this.world.addParticle(ParticleTypes.WITCH, spawnPos.getX() + 0.5, spawnPos.getY() + 2, spawnPos.getZ() + 0.5, 0, 0, 0);
+
+            Wave wave = new Wave(this.world, spawnPos, yaw, yOffset, bigWave);
+            int width = (int) MathHelper.clamp(waters.size() * 1.5, 1, 3);
+            wave.setWidth(width);
+            this.waves.add(wave);
+            this.world.addParticle(ParticleTypes.CHERRY_LEAVES, spawnPos.getX() + 0.5, spawnPos.getY() + 5, spawnPos.getZ() + 0.5, 0, 0, 0);
         }
     }
 

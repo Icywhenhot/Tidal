@@ -88,6 +88,7 @@ public class WaveRenderer {
         matrices.push();
         matrices.translate(transPos.x, transPos.y, transPos.z); //offsets to the wave's position
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-wave.yaw + 90)); //rotate wave left/right
+        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(wave.pitch));
         float scale = wave.scale;
         matrices.scale(scale, 1, scale);
         //this is totally messed up but its pretty unnoticeable and my math isn't woroking right now

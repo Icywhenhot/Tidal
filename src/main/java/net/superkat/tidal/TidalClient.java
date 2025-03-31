@@ -21,6 +21,8 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.resource.ResourceType;
 import net.superkat.tidal.duck.TidalWorld;
 import net.superkat.tidal.event.ClientBlockUpdateEvent;
+import net.superkat.tidal.particles.BigSplashParticle;
+import net.superkat.tidal.particles.SplashParticle;
 import net.superkat.tidal.particles.SprayParticle;
 import net.superkat.tidal.particles.WhiteSprayParticle;
 import net.superkat.tidal.particles.debug.DebugShoreParticle;
@@ -38,7 +40,8 @@ public class TidalClient implements ClientModInitializer {
     public void onInitializeClient() {
         ParticleFactoryRegistry.getInstance().register(TidalParticles.SPRAY_PARTICLE, SprayParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(TidalParticles.WHITE_SPRAY_PARTICLE, WhiteSprayParticle.Factory::new);
-
+        ParticleFactoryRegistry.getInstance().register(TidalParticles.SPLASH_PARTICLE, SplashParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(TidalParticles.BIG_SPLASH_PARTICLE, BigSplashParticle.Factory::new);
 
         ParticleFactoryRegistry.getInstance().register(TidalParticles.WAVE_PARTICLE, WaveParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(TidalParticles.WHITE_WAVE_PARTICLE, WhiteWaveParticle.Factory::new);

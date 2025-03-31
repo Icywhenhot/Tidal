@@ -16,6 +16,7 @@ import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.superkat.tidal.TidalParticles;
 import net.superkat.tidal.wave.TidalWaveHandler;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -69,12 +70,12 @@ public class SprayParticle extends SpriteBillboardParticle {
             this.x -= this.velocityX * 8;
             this.z -= this.velocityZ * 8f;
             for (int i = 0; i < 5; i++) {
-                this.world.addParticle(ParticleTypes.SPLASH,
+                this.world.addParticle(TidalParticles.SPLASH_PARTICLE,
                         this.x + this.random.nextGaussian(), this.y + 1,
                         this.z + this.random.nextGaussian(),
-                        this.random.nextGaussian() / 8f,
-                        this.random.nextGaussian() * 16f * intensity,
-                        this.random.nextGaussian() / 8f);
+                        this.random.nextGaussian() * 0.05f,
+                        Math.abs(this.world.random.nextGaussian()) * 0.1f + MathHelper.clamp(intensity, 0.1, 0.3),
+                        this.random.nextGaussian() * 0.05f);
 
                 this.world.addParticle(ParticleTypes.BUBBLE,
                         this.x + this.random.nextGaussian() / 2f, this.y + 1,
