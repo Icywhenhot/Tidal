@@ -23,16 +23,16 @@ public class ChunkScanner {
     public final WaterHandler handler;
     public final ClientWorld world;
 
-    //blocks which have been checked to be water or not water
+    // blocks which have been checked to be water or not water
     public Map<BlockPos, Boolean> cachedBlocks = new Object2ObjectOpenHashMap<>();
 
-    //blocks which have had their neighbours checked(scanned) as water or not water, and added to water body/shoreline
+    // blocks which have had their neighbours checked(scanned) as water or not water, and added to water body/shoreline
     public Set<BlockPos> visitedBlocks = new ObjectOpenHashSet<>();
 
-    //cached iterator idk
+    // cached iterator idk
     public Iterator<BlockPos> cachedIterator = null;
 
-    //amount of shoreline blocks since the last created SitePos
+    // amount of shoreline blocks since the last created SitePos
     public int shorelinesSinceSite = 0;
 
     public ChunkPos chunkPos;
@@ -41,7 +41,7 @@ public class ChunkScanner {
     public ObjectOpenHashSet<BlockPos> shorelines = new ObjectOpenHashSet<>();
     public ObjectOpenHashSet<SitePos> sites = new ObjectOpenHashSet<>();
 
-    //TODO(unimportant for now) - scan above and below for water to jumps in the water
+    // TODO(unimportant for now) - scan above and below for water to jumps in the water
     public ChunkScanner(WaterHandler handler, ClientWorld world, ChunkPos chunkPos) {
         this.handler = handler;
         this.world = world;
@@ -81,20 +81,20 @@ public class ChunkScanner {
      * @param pos Block pos to scan
      */
     public void scanPos(BlockPos pos) {
-        //if already visited or is air -> return
+        // if already visited or is air -> return
         if(visitedBlocks.contains(pos)) return;
         if(world.isAir(pos)) return;
 
-        //mark visited
+        // mark visited
         boolean posIsWater = cacheAndIsWater(pos);
         visitedBlocks.add(pos);
 
-        //shorelines need to be checked for still
+        // shorelines need to be checked for still
         List<BlockPos> nonWaterBlocks = Lists.newArrayList();
         List<BlockPos> waterBlocks = Lists.newArrayList();
-        if (posIsWater) waterBlocks.add(pos); else nonWaterBlocks.add(pos); //they keep getting more cursed
+        if (posIsWater) waterBlocks.add(pos); else nonWaterBlocks.add(pos); // they keep getting more cursed
 
-        //check and cache neighbours
+        // check and cache neighbours
         for (Direction direction : Direction.Type.HORIZONTAL) {
             BlockPos checkPos = pos.offset(direction);
             if(world.isAir(checkPos)) continue;
@@ -104,16 +104,16 @@ public class ChunkScanner {
             if(direction == Direction.EAST && (pos.getX() + 1) % 16 == 0) continue;
 
             boolean neighborIsWater = cacheAndIsWater(checkPos);
-            //that is super cursed but okay - no that's actually incredibly cursed(wow I spelt that right first try)
-            //if init scan pos is water OR if the check pos is the top of water
+            // that is super cursed but okay - no that's actually incredibly cursed(wow I spelt that right first try)
+            // if init scan pos is water OR if the check pos is the top of water
             if(neighborIsWater) waterBlocks.add(checkPos);
             else nonWaterBlocks.add(checkPos);
         }
 
-        //no water blocks should be queued from scanned non-water blocks
+        // no water blocks should be queued from scanned non-water blocks
         if(waterBlocks.isEmpty() || !posIsWater) return;
 
-        //shoreline creation - neighbouring water blocks scan shoreline blocks and add them
+        // shoreline creation - neighbouring water blocks scan shoreline blocks and add them
         if(!nonWaterBlocks.isEmpty()) {
             this.shorelines.addAll(nonWaterBlocks);
 

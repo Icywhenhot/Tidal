@@ -2,10 +2,8 @@ package net.superkat.tidal.wave;
 
 import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
-import it.unimi.dsi.fastutil.objects.ObjectListIterator;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
@@ -33,6 +31,7 @@ import net.superkat.tidal.scan.WaterHandler;
 import java.awt.*;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -48,9 +47,9 @@ public class TidalWaveHandler {
     public WaterHandler waterHandler;
     public WaveRenderer renderer;
 
-    public ObjectArrayList<Wave> waves = new ObjectArrayList<>();
-    //Set of BlockPos's currently being covered by waves - used for rendering wet overlay
-    public ObjectArraySet<BlockPos> coveredBlocks = new ObjectArraySet<>();
+    public List<Wave> waves = new ObjectArrayList<>();
+    // Set of BlockPos's currently being covered by waves - used for rendering wet overlay
+    public Set<BlockPos> coveredBlocks = new ObjectArraySet<>();
 
     public boolean nearbyChunksLoaded = false;
 
@@ -72,14 +71,14 @@ public class TidalWaveHandler {
         ClientPlayerEntity player = client.player;
         assert player != null;
 
-        if(!this.nearbyChunksLoaded) {
+        if (!this.nearbyChunksLoaded) {
             this.nearbyChunksLoaded = nearbyChunksLoaded(player);
         }
 
         this.waterHandler.tick();
         tidalTick();
 
-        if(DebugHelper.debug()) {
+        if (DebugHelper.debug()) {
             debugTick(client, player);
         }
 
@@ -93,27 +92,27 @@ public class TidalWaveHandler {
      * Tick method for waves
      */
     public void tidalTick() {
-        if(!this.world.getTickManager().shouldTick()) return;
+        if (!this.world.getTickManager().shouldTick()) return;
         double time = this.world.getTime();
-        if(time % 80 == 0) {
+        if (time % 80 == 0) {
             spawnAllWaves();
         }
 
         boolean updateCoveredBlocks = time % 10 == 0;
         ObjectArraySet<BlockPos> updatedCovered = new ObjectArraySet<>();
 
-        for (ObjectListIterator<Wave> iterator = waves.iterator(); iterator.hasNext(); ) {
+        for (Iterator<Wave> iterator = waves.iterator(); iterator.hasNext(); ) {
             Wave wave = iterator.next();
             wave.tick();
 
-            if(wave.isDead()) {
+            if (wave.isDead()) {
                 iterator.remove();
-            } else if(updateCoveredBlocks) {
+            } else if (updateCoveredBlocks) {
                 updatedCovered.addAll(wave.getCoveredBlocks());
             }
         }
 
-        if(updateCoveredBlocks) this.coveredBlocks = updatedCovered;
+        if (updateCoveredBlocks) this.coveredBlocks = updatedCovered;
     }
 
     public void spawnAllWaves() {
@@ -125,12 +124,12 @@ public class TidalWaveHandler {
         ChunkPos start = new ChunkPos(playerChunk.x + chunkRadius, playerChunk.z + chunkRadius);
         ChunkPos end = new ChunkPos(playerChunk.x - chunkRadius, playerChunk.z - chunkRadius);
         Set<BlockPos> waterBlocks = ChunkPos.stream(start, end).map(chunkPos -> this.waterHandler.getWaterCacheAtDistance(chunkPos, distFromShore)).filter(Objects::nonNull).flatMap(Collection::stream).collect(Collectors.toSet());
-        if(waterBlocks.isEmpty()) return;
+        if (waterBlocks.isEmpty()) return;
         spawnWaves(waterBlocks);
 
-        if(DebugHelper.debug()) {
-            if(DebugHelper.holdingSpyglass()) debugWaveParticles(waterBlocks);
-            if(DebugHelper.offhandClock()) {
+        if (DebugHelper.debug()) {
+            if (DebugHelper.holdingSpyglass()) debugWaveParticles(waterBlocks);
+            if (DebugHelper.offhandClock()) {
                 for (BlockPos water : waterBlocks) {
                     Vec3d pos = water.toCenterPos();
                     this.world.addParticle(ParticleTypes.END_ROD, pos.getX(), pos.getY() + 2.5, pos.getZ(), 0, 0, 0);
@@ -144,10 +143,10 @@ public class TidalWaveHandler {
         int spawned = 0;
 
         for (BlockPos water : waterBlocks) {
-            if(visited.contains(water)) continue;
+            if (visited.contains(water)) continue;
             SitePos site = this.waterHandler.getSiteForPos(water);
-            if(site == null || !site.yawCalculated) continue;
-            if(site.xList.size() < 50) continue;
+            if (site == null || !site.yawCalculated) continue;
+            if (site.xList.size() < 50) continue;
 
             float yaw = site.getYaw();
             Set<BlockPos> connected = findConnected(water, yaw, waterBlocks, visited);
@@ -160,11 +159,9 @@ public class TidalWaveHandler {
             BlockPos spawnPos = connected.stream().sorted(Comparator.comparingInt(Vec3i::getZ)).toList().get(connected.size() / 2).add(0, 1, 0);
 
             BlockPos beneath = spawnPos.add(0, -1, 0);
-            if(world.isAir(beneath) || !world.getBlockState(beneath).getFluidState().isStill()) continue;
+            if (world.isAir(beneath) || !world.getBlockState(beneath).getFluidState().isStill()) continue;
 
-            if(world.getBiome(spawnPos).isIn(BiomeTags.IS_RIVER)) bigWave = false;
-
-            this.world.addParticle(ParticleTypes.WITCH, spawnPos.getX() + 0.5, spawnPos.getY() + 2, spawnPos.getZ() + 0.5, 0, 0, 0);
+            if (world.getBiome(spawnPos).isIn(BiomeTags.IS_RIVER)) bigWave = false;
 
             Wave wave = new Wave(this.world, spawnPos, yaw, yOffset, bigWave);
             int width = (int) MathHelper.clamp(connected.size() * 1.5, 1, 3);
@@ -177,7 +174,7 @@ public class TidalWaveHandler {
         int spawned = 0;
         int maxLength = 3;
         for (int i = 0; i < waters.size(); i++) {
-            if(i % maxLength != 0) continue;
+            if (i % maxLength != 0) continue;
             BlockPos spawnPos = waters.get(i).add(0, 1, 0);
             SitePos site = this.waterHandler.getSiteForPos(spawnPos);
             float yaw = site.getYaw();
@@ -189,9 +186,9 @@ public class TidalWaveHandler {
 //            BlockPos spawnPos = connected.stream().sorted(Comparator.comparingInt(Vec3i::getZ)).toList().get(connected.size() / 2).add(0, 1, 0);
 
             BlockPos beneath = spawnPos.add(0, -1, 0);
-            if(world.isAir(beneath) || !world.getBlockState(beneath).getFluidState().isStill()) continue;
+            if (world.isAir(beneath) || !world.getBlockState(beneath).getFluidState().isStill()) continue;
 
-            if(world.getBiome(spawnPos).isIn(BiomeTags.IS_RIVER)) bigWave = false;
+            if (world.getBiome(spawnPos).isIn(BiomeTags.IS_RIVER)) bigWave = false;
 
 //            this.world.addParticle(ParticleTypes.WITCH, spawnPos.getX() + 0.5, spawnPos.getY() + 2, spawnPos.getZ() + 0.5, 0, 0, 0);
 
@@ -213,29 +210,29 @@ public class TidalWaveHandler {
             BlockPos water = stack.poll();
             connected.add(water);
             for (BlockPos check : BlockPos.iterate(water.add(-1, 0, -1), water.add(1, 0, 1))) {
-                if(water == check) continue;
-                if(ignoreSet.contains(check)) continue;
-                if(!waterBlocks.contains(check)) continue;
+                if (water == check) continue;
+                if (ignoreSet.contains(check)) continue;
+                if (!waterBlocks.contains(check)) continue;
 
                 SitePos site = this.waterHandler.getSiteForPos(check);
-                if(site == null || !site.yawCalculated || site.xList.size() < 50) continue;
-                if(Math.abs(site.yaw - yaw) > 15) continue;
+                if (site == null || !site.yawCalculated || site.xList.size() < 50) continue;
+                if (Math.abs(site.yaw - yaw) > 15) continue;
                 stack.add(new BlockPos(check));
             }
 
-            if(stack.isEmpty()) break;
+            if (stack.isEmpty()) break;
         }
         return connected;
     }
 
     public void debugWaveParticles(Set<BlockPos> waterBlocks) {
-        Color color = Color.WHITE; //activates the movement particle's custom colors
+        Color color = Color.WHITE; // activates the movement particle's custom colors
 //        Color color = Color.LIGHT_GRAY; //deactivates the movement particle's custom colors
         boolean farParticles = false;
 
         for (BlockPos water : waterBlocks) {
             SitePos site = this.waterHandler.getSiteForPos(water);
-            if(site == null || !site.yawCalculated) continue;
+            if (site == null || !site.yawCalculated) continue;
 //            if(site.xList.size() < 50) continue;
 
             DebugWaveMovementParticle.DebugWaveMovementParticleEffect particleEffect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
@@ -244,21 +241,21 @@ public class TidalWaveHandler {
                     site.getYaw(),
                     0.3f,
                     20);
-            this.world.addParticle(particleEffect, farParticles, water.getX(), water.getY() + 2, water.getZ(), 0, 0,0);
+            this.world.addParticle(particleEffect, farParticles, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
         }
     }
 
-    public ObjectArrayList<Wave> getWaves() {
+    public List<Wave> getWaves() {
         return this.waves;
     }
 
-    //This isn't perfect, but its close enough I suppose
+    // This isn't perfect, but its close enough I suppose
     public boolean nearbyChunksLoaded(ClientPlayerEntity player) {
-        if(nearbyChunksLoaded) return true;
+        if (nearbyChunksLoaded) return true;
         int chunkRadius = getChunkRadius();
 
-        //using WorldChunk instead of chunk because it has "isEmpty" method
-        //could use chunk instanceof EmptyChunk instead, but this felt better
+        // using WorldChunk instead of chunk because it has "isEmpty" method
+        // could use chunk instanceof EmptyChunk instead, but this felt better
         int chunkX = player.getChunkPos().x;
         int chunkZ = player.getChunkPos().z;
         int chunkRadiusReduced = chunkRadius - (chunkRadius / 3);
@@ -274,12 +271,12 @@ public class TidalWaveHandler {
                 world.getChunk(chunkX + (chunkRadiusReduced), chunkZ - (chunkRadiusReduced))
         );
         return checkChunks.stream().noneMatch(WorldChunk::isEmpty);
-        //alternative way - takes slightly longer
+        // alternative way - takes slightly longer
 //        return MinecraftClient.getInstance().worldRenderer.isTerrainRenderComplete();
     }
 
-    //Gets all loaded nearby chunks - created using ClientChunkManager & ClientChunkManager.ClientChunkMap
-    //Unused right now, but could be helpful for making the WaterBodyHandler's scanners empty out when a scanner is done
+    // Gets all loaded nearby chunks - created using ClientChunkManager & ClientChunkManager.ClientChunkMap
+    // Unused right now, but could be helpful for making the WaterBodyHandler's scanners empty out when a scanner is done
     public Set<ChunkPos> getNearbyChunkPos() {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
@@ -294,7 +291,7 @@ public class TidalWaveHandler {
         Set<ChunkPos> loadedChunks = Sets.newHashSet();
         for (ChunkPos chunkPos : ChunkPos.stream(start, end).toList()) {
             WorldChunk chunk = this.world.getChunk(chunkPos.x, chunkPos.z);
-            if(chunk.isEmpty()) continue;
+            if (chunk.isEmpty()) continue;
             loadedChunks.add(chunkPos);
         }
 
@@ -322,13 +319,13 @@ public class TidalWaveHandler {
     }
 
     public void debugTick(MinecraftClient client, ClientPlayerEntity player) {
-        //show water direction of water blocks
-        if(DebugHelper.holdingCompass() || DebugHelper.offhandCompass()) {
-            if(!this.waterHandler.built) return;
+        // show water direction of water blocks
+        if (DebugHelper.holdingCompass() || DebugHelper.offhandCompass()) {
+            if (!this.waterHandler.built) return;
 
             ChunkPos playerChunk = player.getChunkPos();
-            if(DebugHelper.offhandCompass()) {
-                if(client.world.getTime() % 5 != 0) return;
+            if (DebugHelper.offhandCompass()) {
+                if (client.world.getTime() % 5 != 0) return;
                 int radius = 2;
                 ChunkPos start = new ChunkPos(playerChunk.x + radius, playerChunk.z + radius);
                 ChunkPos end = new ChunkPos(playerChunk.x - radius, playerChunk.z - radius);
@@ -341,14 +338,14 @@ public class TidalWaveHandler {
 
         }
 
-        //print water direction's yaw
-        if(DebugHelper.usingSpyglass()) {
-            if(client.world.getTime() % 20 != 0) return;
+        // print water direction's yaw
+        if (DebugHelper.usingSpyglass()) {
+            if (client.world.getTime() % 20 != 0) return;
 
             BlockPos playerPos = player.getBlockPos();
 
             List<BlockPos> scannedBlocks = this.waterHandler.waterCache.values().stream().flatMap(map -> map.keySet().stream()).toList();
-            if(scannedBlocks.contains(playerPos)) {
+            if (scannedBlocks.contains(playerPos)) {
                 long chunkPosL = new ChunkPos(playerPos).toLong();
                 SitePos site = this.waterHandler.waterCache.get(chunkPosL).get(playerPos);
 //                System.out.println(world.getBiome(site.getPos()).isIn(BiomeTags.IS_RIVER));
@@ -358,23 +355,23 @@ public class TidalWaveHandler {
     }
 
     public void debugChunkDirectionParticles(long chunkPosL, boolean farParticles) {
-        Color color = Color.WHITE; //activates the movement particle's custom colors
+        Color color = Color.WHITE; // activates the movement particle's custom colors
 //        Color color = Color.LIGHT_GRAY; //deactivates the movement particle's custom colors
 
-        Object2ObjectOpenHashMap<BlockPos, SitePos> map = this.waterHandler.waterCache.get(chunkPosL);
-        if(map == null) return;
+        Map<BlockPos, SitePos> map = this.waterHandler.waterCache.get(chunkPosL);
+        if (map == null) return;
 
         for (Map.Entry<BlockPos, SitePos> entry : map.entrySet()) {
             BlockPos pos = entry.getKey();
             SitePos sitePos = entry.getValue();
-            if(sitePos == null || !sitePos.yawCalculated) continue;
+            if (sitePos == null || !sitePos.yawCalculated) continue;
             DebugWaveMovementParticle.DebugWaveMovementParticleEffect particleEffect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
                     Vec3d.unpackRgb(color.getRGB()).toVector3f(),
                     1f,
                     sitePos.getYaw(),
                     0.3f,
                     20);
-            this.world.addParticle(particleEffect, farParticles, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0,0);
+            this.world.addParticle(particleEffect, farParticles, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
         }
     }
 
@@ -390,7 +387,7 @@ public class TidalWaveHandler {
      */
     public static Random getSyncedRandom() {
         long time = MinecraftClient.getInstance().world.getTime();
-        long random = 5L * Math.round(time / 5f); //math.ceil instead?
+        long random = 5L * Math.round(time / 5f); // math.ceil instead?
         return Random.create(random);
     }
 
@@ -398,7 +395,7 @@ public class TidalWaveHandler {
      * Check if a BlockPos is water or is waterlogged
      *
      * @param world World to check in
-     * @param pos BlockPos to check
+     * @param pos   BlockPos to check
      * @return If the BlockPos is water or waterlogged
      */
     public static boolean posIsWater(ClientWorld world, BlockPos pos) {

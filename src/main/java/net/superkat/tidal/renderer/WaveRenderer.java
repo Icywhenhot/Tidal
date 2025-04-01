@@ -1,6 +1,5 @@
 package net.superkat.tidal.renderer;
 
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
@@ -24,13 +23,14 @@ import net.superkat.tidal.wave.TidalWaveHandler;
 import net.superkat.tidal.wave.Wave;
 import org.joml.Matrix4f;
 
+import java.util.List;
 import java.util.Set;
 
 /**
  * THE WAVES AREN'T ENTITIES!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * They just have custom hitbox rendering lol
  *
- * @see WaveRenderer#renderDebugHitboxes(WorldRenderContext, ObjectArrayList, Camera)
+ * @see WaveRenderer#renderDebugHitboxes(WorldRenderContext, List, Camera)
  */
 public class WaveRenderer {
     public TidalWaveHandler handler;
@@ -44,8 +44,8 @@ public class WaveRenderer {
     }
 
     public void render(BufferBuilder buffer, WorldRenderContext context) {
-        ObjectArrayList<Wave> waves = this.handler.getWaves();
-        if(waves == null || waves.isEmpty()) return;
+        List<Wave> waves = this.handler.getWaves();
+        if (waves == null || waves.isEmpty()) return;
 
         float tickDelta = context.tickCounter().getTickDelta(false);
         Camera camera = context.camera();
@@ -56,7 +56,7 @@ public class WaveRenderer {
 
         renderOverlays(buffer, camera, handler.coveredBlocks);
 
-        if(MinecraftClient.getInstance().getEntityRenderDispatcher().shouldRenderHitboxes()) {
+        if (MinecraftClient.getInstance().getEntityRenderDispatcher().shouldRenderHitboxes()) {
             renderDebugHitboxes(context, waves, camera);
         }
     }
@@ -64,7 +64,7 @@ public class WaveRenderer {
     /**
      * I made this its own method just so I can link it in the Javadoc
      */
-    private static void renderDebugHitboxes(WorldRenderContext context, ObjectArrayList<Wave> waves, Camera camera) {
+    private static void renderDebugHitboxes(WorldRenderContext context, List<Wave> waves, Camera camera) {
         for (Wave wave : waves) {
             MatrixStack matrixStack = new MatrixStack();
             VertexConsumer lines = context.consumers().getBuffer(RenderLayer.getLines());
@@ -75,7 +75,7 @@ public class WaveRenderer {
     }
 
     public void renderWave(BufferBuilder buffer, Camera camera, Wave wave, float delta) {
-        if(wave == null) return;
+        if (wave == null) return;
 
         MatrixStack matrices = new MatrixStack();
         matrices.push();
@@ -86,13 +86,13 @@ public class WaveRenderer {
         Vec3d transPos = center.subtract(cameraPos);
 
         matrices.push();
-        matrices.translate(transPos.x, transPos.y, transPos.z); //offsets to the wave's position
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-wave.yaw + 90)); //rotate wave left/right
+        matrices.translate(transPos.x, transPos.y, transPos.z); // offsets to the wave's position
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-wave.yaw + 90)); // rotate wave left/right
         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(wave.pitch));
         float scale = wave.scale;
         matrices.scale(scale, 1, scale);
-        //this is totally messed up but its pretty unnoticeable and my math isn't woroking right now
-        matrices.translate(-wave.width / 3, 0, 0); //translate back to center
+        // this is totally messed up but its pretty unnoticeable and my math isn't woroking right now
+        matrices.translate(-wave.width / 3, 0, 0); // translate back to center
 
         Matrix4f posMatrix = matrices.peek().getPositionMatrix();
 
@@ -110,18 +110,18 @@ public class WaveRenderer {
         int age = wave.getAge();
         int maxAge = wave.getMaxAge();
 
-        //normal wave texture
+        // normal wave texture
         for (int i = 0; i < wave.width; i++) {
             waveQuad(posMatrix, buffer, colorableSprite, age, maxAge, i, 0, 0, 1, wave.length, red, green, blue, alpha, light);
             waveQuad(posMatrix, buffer, whiteSprite, age, maxAge, i, 0.05f, 0, 1, wave.length, 1f, 1f, 1f, alpha, light);
         }
 
-        //beneath wave texture after hitting shore
-        if(washingUp && wave.bigWave) {
+        // beneath wave texture after hitting shore
+        if (washingUp && wave.bigWave) {
             Sprite washingColorableSprite = getBottomWashingSprite();
             Sprite washingWhiteSprite = getBottomWashingWhiteSprite();
 
-            //this is beyond cursed but i'm really frustrated right now so its fine
+            // this is beyond cursed but i'm really frustrated right now so its fine
             float ageDelta = (float) age / maxAge;
             float turnBackDelta = 0.5f;
             float washingLength = ageDelta > turnBackDelta ? MathHelper.lerp((ageDelta - turnBackDelta) * 2, 2f, 3f) : 2f;
@@ -184,7 +184,7 @@ public class WaveRenderer {
         int light = LightmapTextureManager.pack(0, 0);
 
         matrices.push();
-        matrices.translate(transPos.x - 0.5, transPos.y + 1.01, transPos.z - 0.5); //offsets to the wave's position
+        matrices.translate(transPos.x - 0.5, transPos.y + 1.01, transPos.z - 0.5); // offsets to the wave's position
         Matrix4f matrix4f = matrices.peek().getPositionMatrix();
 
         buffer.vertex(matrix4f, 0, 0, 0)

@@ -14,7 +14,7 @@ public class SitePos {
     public float yaw = 0f;
     public boolean yawCalculated = false;
 
-    //cache x's and z's - stored as ints for speed
+    // cache x's and z's - stored as ints for speed
     public IntArrayList xList = new IntArrayList();
     public IntArrayList zList = new IntArrayList();
 
