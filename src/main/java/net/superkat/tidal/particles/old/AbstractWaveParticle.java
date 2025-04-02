@@ -22,7 +22,6 @@ import org.apache.commons.compress.utils.Lists;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import java.awt.*;
 import java.util.List;
 
 public class AbstractWaveParticle extends SpriteBillboardParticle {
@@ -77,10 +76,10 @@ public class AbstractWaveParticle extends SpriteBillboardParticle {
         for (int i = 0; i < this.positions.size(); i++) {
             BlockPos pos = this.positions.get(i);
             this.world.addParticle(ParticleTypes.EGG_CRACK, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
-            Color color = Color.WHITE;
+            Vector3f color = new Vector3f(1f, 1f, 1f);
             float yaw = this.yaws.get(i);
             DebugWaveMovementParticle.DebugWaveMovementParticleEffect particleEffect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
-                    Vec3d.unpackRgb(color.getRGB()).toVector3f(),
+                    color,
                     1f,
                     yaw,
                     0.3f,

@@ -209,6 +209,7 @@ public class Wave {
         if (this.hitBlock) return;
 
         if (!drowningAway) {
+            int sprayAmount = this.bigWave ? 3 : 1;
             float sprayIntensity;
             if (this.isWashingUp()) {
                 sprayIntensity = getWashingAge() / 128f;
@@ -220,7 +221,7 @@ public class Wave {
             double splashX = this.x + this.velX * 10;
             double splashZ = this.z + this.velZ * 10;
 
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < sprayAmount; i++) {
                 this.world.addParticle(TidalParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.world.random.nextGaussian() * 0.1f, Math.abs(this.world.random.nextGaussian()) * 0.1f + 0.1f, this.world.random.nextGaussian() * 0.1f);
                 if (this.bigWave) {
                     this.world.addParticle(TidalParticles.BIG_SPLASH_PARTICLE, splashX + this.world.random.nextGaussian() / 2f, this.y, splashZ + this.world.random.nextGaussian() / 2f, 0, 0.01, 0);

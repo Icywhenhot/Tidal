@@ -8,8 +8,9 @@
 		"Superkat32"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://modrinth.com/mod/tidal-waves",
+		"issues": "https://github.com/Superkat32/Tidal/issues",
+		"sources": "https://github.com/Superkat32/Tidal"
 	},
 	"license": "MIT",
 	"icon": "assets/tidal/icon.png",
@@ -20,6 +21,9 @@
 		],
 		"client": [
 			"net.superkat.tidal.TidalClient"
+		],
+		"modmenu": [
+			"net.superkat.tidal.config.ModMenuInt"
 		]
 	},
 	"mixins": [
@@ -28,7 +32,7 @@
 	"accessWidener": "tidal.accesswidener",
 	"depends": {
 		"fabricloader": ">=0.16.10",
-		"minecraft": "~1.21.1",
+		"minecraft": "1.21.1",
 		"java": ">=21",
 		"fabric-api": "*"
 	},

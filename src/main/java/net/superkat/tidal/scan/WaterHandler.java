@@ -28,8 +28,8 @@ import net.superkat.tidal.particles.debug.DebugWaterParticle;
 import net.superkat.tidal.wave.TidalWaveHandler;
 import org.apache.commons.compress.utils.Lists;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3f;
 
-import java.awt.*;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -184,7 +184,7 @@ public class WaterHandler {
                 });
 
                 this.chunkScanFuture.whenComplete((chunks, throwable) -> {
-                    Tidal.LOGGER.info("Scan time: {} ms", Util.getMeasuringTimeMs() - start);
+                    if(DebugHelper.debug()) Tidal.LOGGER.info("Scan time: {} ms", Util.getMeasuringTimeMs() - start);
                     this.chunkScanFuture = null;
                 });
             }
@@ -362,7 +362,7 @@ public class WaterHandler {
 
         // display all shoreline blocks
         List<BlockPos> allShoreBLocks = this.shoreBlocks.values().stream().flatMap(Collection::stream).toList();
-        ParticleEffect shoreEffect = new DebugShoreParticle.DebugShoreParticleEffect(Vec3d.unpackRgb(Color.WHITE.getRGB()).toVector3f(), 1f);
+        ParticleEffect shoreEffect = new DebugShoreParticle.DebugShoreParticleEffect(new Vector3f(1f, 1f, 1f), 1f);
         for (BlockPos shore : allShoreBLocks) {
             Vec3d pos = shore.toCenterPos();
             this.world.addParticle(shoreEffect, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
@@ -377,10 +377,10 @@ public class WaterHandler {
                 SitePos site = entry.getValue();
 
                 int siteIndex = allSites.indexOf(site);
-                Color color = DebugHelper.debugColor(siteIndex, totalSites);
+                Vector3f color = DebugHelper.debugColor(siteIndex, totalSites);
 
                 Vec3d pos = blockPos.toCenterPos();
-                ParticleEffect particleEffect = new DebugWaterParticle.DebugWaterParticleEffect(Vec3d.unpackRgb(color.getRGB()).toVector3f(), 1f);
+                ParticleEffect particleEffect = new DebugWaterParticle.DebugWaterParticleEffect(color, 1f);
                 this.world.addParticle(particleEffect, farParticles, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
             }
         }

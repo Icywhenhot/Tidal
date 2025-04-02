@@ -27,8 +27,8 @@ import net.superkat.tidal.particles.debug.DebugWaveMovementParticle;
 import net.superkat.tidal.renderer.WaveRenderer;
 import net.superkat.tidal.scan.SitePos;
 import net.superkat.tidal.scan.WaterHandler;
+import org.joml.Vector3f;
 
-import java.awt.*;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -117,8 +117,7 @@ public class TidalWaveHandler {
 
     public void spawnAllWaves() {
         int distFromShore = TidalConfig.waveDistFromShore;
-        int chunkRadius = 3;
-        int spawnBlockRadius = 1;
+        int chunkRadius = TidalConfig.chunkRadius - 2;
 
         ChunkPos playerChunk = MinecraftClient.getInstance().player.getChunkPos();
         ChunkPos start = new ChunkPos(playerChunk.x + chunkRadius, playerChunk.z + chunkRadius);
@@ -170,36 +169,6 @@ public class TidalWaveHandler {
         }
     }
 
-    private void spawnWavesFromConnected(List<BlockPos> waters) {
-        int spawned = 0;
-        int maxLength = 3;
-        for (int i = 0; i < waters.size(); i++) {
-            if (i % maxLength != 0) continue;
-            BlockPos spawnPos = waters.get(i).add(0, 1, 0);
-            SitePos site = this.waterHandler.getSiteForPos(spawnPos);
-            float yaw = site.getYaw();
-
-            boolean bigWave = site.xList.size() >= 100;
-
-            spawned++;
-            float yOffset = MathHelper.sin(spawned) / 16f + 0.65f;
-//            BlockPos spawnPos = connected.stream().sorted(Comparator.comparingInt(Vec3i::getZ)).toList().get(connected.size() / 2).add(0, 1, 0);
-
-            BlockPos beneath = spawnPos.add(0, -1, 0);
-            if (world.isAir(beneath) || !world.getBlockState(beneath).getFluidState().isStill()) continue;
-
-            if (world.getBiome(spawnPos).isIn(BiomeTags.IS_RIVER)) bigWave = false;
-
-//            this.world.addParticle(ParticleTypes.WITCH, spawnPos.getX() + 0.5, spawnPos.getY() + 2, spawnPos.getZ() + 0.5, 0, 0, 0);
-
-            Wave wave = new Wave(this.world, spawnPos, yaw, yOffset, bigWave);
-            int width = (int) MathHelper.clamp(waters.size() * 1.5, 1, 3);
-            wave.setWidth(width);
-            this.waves.add(wave);
-            this.world.addParticle(ParticleTypes.CHERRY_LEAVES, spawnPos.getX() + 0.5, spawnPos.getY() + 5, spawnPos.getZ() + 0.5, 0, 0, 0);
-        }
-    }
-
     public Set<BlockPos> findConnected(BlockPos start, float yaw, Set<BlockPos> waterBlocks, Set<BlockPos> ignoreSet) {
         int maxLength = 3;
         Set<BlockPos> connected = Sets.newHashSet();
@@ -226,8 +195,8 @@ public class TidalWaveHandler {
     }
 
     public void debugWaveParticles(Set<BlockPos> waterBlocks) {
-        Color color = Color.WHITE; // activates the movement particle's custom colors
-//        Color color = Color.LIGHT_GRAY; //deactivates the movement particle's custom colors
+        Vector3f color = new Vector3f(1f, 1f, 1f); //activates the movement particle's custom colors
+//        Vector3f color = new Vector3f(0.75f, 0.75f, 0.75f); //deactivates the custom colors
         boolean farParticles = false;
 
         for (BlockPos water : waterBlocks) {
@@ -236,7 +205,7 @@ public class TidalWaveHandler {
 //            if(site.xList.size() < 50) continue;
 
             DebugWaveMovementParticle.DebugWaveMovementParticleEffect particleEffect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
-                    Vec3d.unpackRgb(color.getRGB()).toVector3f(),
+                    color,
                     1f,
                     site.getYaw(),
                     0.3f,
@@ -355,8 +324,8 @@ public class TidalWaveHandler {
     }
 
     public void debugChunkDirectionParticles(long chunkPosL, boolean farParticles) {
-        Color color = Color.WHITE; // activates the movement particle's custom colors
-//        Color color = Color.LIGHT_GRAY; //deactivates the movement particle's custom colors
+        Vector3f color = new Vector3f(1f, 1f, 1f); //activates the movement particle's custom colors
+//        Vector3f color = new Vector3f(0.75f, 0.75f, 0.75f); //deactivates the custom colors
 
         Map<BlockPos, SitePos> map = this.waterHandler.waterCache.get(chunkPosL);
         if (map == null) return;
@@ -366,7 +335,7 @@ public class TidalWaveHandler {
             SitePos sitePos = entry.getValue();
             if (sitePos == null || !sitePos.yawCalculated) continue;
             DebugWaveMovementParticle.DebugWaveMovementParticleEffect particleEffect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
-                    Vec3d.unpackRgb(color.getRGB()).toVector3f(),
+                    color,
                     1f,
                     sitePos.getYaw(),
                     0.3f,

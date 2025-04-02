@@ -9,8 +9,7 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.random.Random;
 import net.superkat.tidal.config.TidalConfig;
 import net.superkat.tidal.wave.TidalWaveHandler;
-
-import java.awt.*;
+import org.joml.Vector3f;
 
 /**
  * General utils class for helping show data. For example, colors for a list to use with the debug particles.
@@ -31,7 +30,7 @@ public class DebugHelper {
         return TidalConfig.debug;
     }
 
-    //aha!
+    // aha!
     public static boolean usingSpyglass() {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
@@ -44,7 +43,7 @@ public class DebugHelper {
         return false;
     }
 
-    //yes this is importa-ha-nt
+    // yes this is importa-ha-nt
     public static boolean spyglassInHotbar() {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
@@ -64,7 +63,7 @@ public class DebugHelper {
         return player.getOffHandStack().isOf(Items.SPYGLASS);
     }
 
-    //stop making fun of my choices of debug items - it's because i watch bdubs
+    // stop making fun of my choices of debug items - it's because i watch bdubs
     public static boolean clockInHotbar() {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
@@ -100,18 +99,18 @@ public class DebugHelper {
         return player.getOffHandStack().isOf(Items.COMPASS);
     }
 
-    //sick
-    //This method was redone an embarrassing amount of times to get nice looking colors
-    public static Color debugColor(int i, int size) {
-        if(i == 0) return Color.white;
-        if(i == 1) return Color.RED;
-        if(i == 2) return Color.GREEN;
-        if(i == 3) return Color.BLUE;
+    // sick
+    // This method was redone an embarrassing amount of times to get nice looking colors
+    public static Vector3f debugColor(int i, int size) {
+        if(i == 0) return new Vector3f(1f, 1f, 1f); // white
+        if(i == 1) return new Vector3f(1f, 0f, 0f); // red
+        if(i == 2) return new Vector3f(0f, 1f, 0f); // green
+        if(i == 3) return new Vector3f(0f, 0f, 1f); // blue
 
-        i -= 3; //buy any get first 4 free
+        i -= 3; // buy any get first 4 free
 
-        //super ultra cursed debug colors - wait actually I'm a bit of a genuius
-        //confusing, mind confusing confused, don't understand no snese uh - confusing
+        // super ultra cursed debug colors - wait actually I'm a bit of a genuius
+        // confusing, mind confusing confused, don't understand no snese uh - confusing
         int i1 = 255 -  ((((i / 3) + 1) * 30) % 255);
         int i2 = 255 -  ((((i / 3) + 30) * 30) % 255);
         int i3 = 255 -  ((((i / 3) - 90) * 30) % 255);
@@ -119,34 +118,34 @@ public class DebugHelper {
         int red = (i % 3 == 0 ? i1 : i % 3 == 1 ? i2 : i3);
         int green = (i % 3 == 1 ? i1 : i % 3 == 2 ? i2 : i3);
         int blue = (i % 3 == 2 ? i1 : i % 3 == 0 ? i2 : i3);
-        return new Color(checkColor(red), checkColor(green), checkColor(blue));
+        return new Vector3f(checkColor(red / 255f), checkColor(green / 255f), checkColor(blue / 255f));
     }
 
-    public static Color debugTransitionColor(int i, int size) {
-        return debugTransitionColor(i, size, Color.WHITE, Color.BLACK);
+    public static Vector3f debugTransitionColor(int i, int size) {
+        return debugTransitionColor(i, size, new Vector3f(1f, 1f,1f), new Vector3f(0f, 0f, 0f));
     }
 
-    public static Color debugTransitionColor(int i, int size, Color start, Color end) {
+    public static Vector3f debugTransitionColor(int i, int size, Vector3f start, Vector3f end) {
         float delta = ((float) (i) / (size));
-        int red = MathHelper.lerp(delta, start.getRed(), end.getRed());
-        int green = MathHelper.lerp(delta, start.getGreen(), end.getGreen());
-        int blue = MathHelper.lerp(delta, start.getBlue(), end.getBlue());
-        return new Color(checkColor(red), checkColor(green), checkColor(blue));
+        float red = MathHelper.lerp(delta, start.x, end.x);
+        float green = MathHelper.lerp(delta, start.y, end.y);
+        float blue = MathHelper.lerp(delta, start.z, end.z);
+        return new Vector3f(checkColor(red), checkColor(green), checkColor(blue));
     }
 
-    public static Color randomDebugColor() {
+    public static Vector3f randomDebugColor() {
         Random random = TidalWaveHandler.getRandom();
         int rgbIncrease = random.nextBetween(1, 3);
         int red = rgbIncrease == 1 ? random.nextBetween(150, 255) : 255;
         int green = rgbIncrease == 2 ? random.nextBetween(150, 255) : 255;
         int blue = rgbIncrease == 3 ? random.nextBetween(150, 255) : 255;
-        return new Color(red, green, blue);
+        return new Vector3f(red / 255f, green / 255f, blue / 255f);
     }
 
-    private static int checkColor(int color) {
-        //confirm rgb int is within 255 because that debugColor method is pretty cursed
-        if(color > 255) return 255;
-        return Math.max(color, 0); //wow intellij really smart
+    private static float checkColor(float color) {
+        // confirm rgb int is within 255 because that debugColor method is pretty cursed
+        if(color > 1f) return 1f;
+        return Math.max(color, 0f); // wow intellij really smart
     }
 
 }

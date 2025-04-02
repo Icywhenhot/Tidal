@@ -1,0 +1,16 @@
+{
+  "tidal.midnightconfig.title": "Tidal Config",
+  "tidal.midnightconfig.reloadReminder": "You may need to reload your chunks for changes to take affect!",
+  "tidal.midnightconfig.chunkRadius": "Render Radius",
+  "tidal.midnightconfig.chunkRadius.tooltip": "The chunk radius of chunks that should spawn waves. Reduce this number if your struggling for performance!",
+  "tidal.midnightconfig.chunkUpdatesRescanAmount": "Chunk Updates Rescan Amount",
+  "tidal.midnightconfig.chunkUpdatesRescanAmount.tooltip": "The amount of block updates that should happen in a chunk before it is rescanned for wave spawning.",
+  "tidal.midnightconfig.debug": "Debug Mode",
+  "tidal.midnightconfig.debug.tooltip": "Helpful for figuring out where waves are spawning, and how.",
+  "tidal.midnightconfig.debugDocs": "§lDebug Docs",
+  "tidal.midnightconfig.debugDocsSite": "- Green particles are SitePos', they should only spawn along shore",
+  "tidal.midnightconfig.debugDocsSpyglassHotbar": "- Spyglass in hotbar to see all scanned water blocks, color coded per closest SitePos",
+  "tidal.midnightconfig.debugDocsSpyglass": "- Hold spyglass to see debug waves on wave spawn",
+  "tidal.midnightconfig.debugDocsClock": "- Hold compass to see wave directions for current chunk, offhand to for all nearby chunks",
+  "tidal.midnightconfig.debugDocsCompass": "- Offhand clock to see spawning positions of waves"
+}

@@ -18,11 +18,8 @@ import net.minecraft.particle.AbstractDustParticleEffect;
 import net.minecraft.particle.ParticleType;
 import net.minecraft.util.dynamic.Codecs;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import net.superkat.tidal.TidalParticles;
 import org.joml.Vector3f;
-
-import java.awt.*;
 
 public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<DebugWaveMovementParticle.DebugWaveMovementParticleEffect> {
     public float yaw = 0;
@@ -62,10 +59,12 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
         this.gravityStrength = 0;
         this.velocityY = -0.01f;
 
-        //i wish to see the color on the sidebar in intellij okay
-        startColor = Vec3d.unpackRgb(new Color(2, 246, 65).getRGB()).toVector3f();
-        midColor = Vec3d.unpackRgb(new Color(253, 179, 66).getRGB()).toVector3f();
-        endColor = Vec3d.unpackRgb(new Color(166, 17, 61).getRGB()).toVector3f();
+        startColor = new Vector3f(2 / 255f, 246 / 255f, 65 / 255f);
+        midColor = new Vector3f(253 / 255f, 179 / 255f, 66 / 255f);
+        endColor = new Vector3f(166 / 255f, 17 / 255f, 61 / 255f);
+//        startColor = Vec3d.unpackRgb(new Color(2, 246, 65).getRGB()).toVector3f();
+//        midColor = Vec3d.unpackRgb(new Color(253, 179, 66).getRGB()).toVector3f();
+//        endColor = Vec3d.unpackRgb(new Color(166, 17, 61).getRGB()).toVector3f();
     }
 
     @Override
