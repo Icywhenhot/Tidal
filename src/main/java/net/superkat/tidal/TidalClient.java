@@ -1,6 +1,5 @@
 package net.superkat.tidal;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -10,13 +9,11 @@ import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
+import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.resource.ResourceType;
 import net.superkat.tidal.duck.TidalWorld;
 import net.superkat.tidal.event.ClientBlockUpdateEvent;
@@ -33,17 +30,14 @@ public class TidalClient implements ClientModInitializer {
 
     public static TidalSpriteHandler TIDAL_SPRITE_HANDLER = new TidalSpriteHandler();
 
-    // Built lazily on first render so RenderPipelines is initialised.
+    // Reusing vanilla's "weather" render layer: translucent textured quads with
+    // depth-write disabled, which lets overlapping wave quads blend cleanly
+    // (the same property the old tripwire shader provided in 1.21.1).
     private static RenderLayer waveRenderLayer;
 
     private static RenderLayer getWaveRenderLayer() {
         if (waveRenderLayer == null) {
-            waveRenderLayer = RenderLayer.of("tidal_waves",
-                    RenderSetup.builder(RenderPipelines.TRANSLUCENT)
-                            .texture("Sampler0", TidalSpriteHandler.WAVE_ATLAS_ID)
-                            .useLightmap()
-                            .translucent()
-                            .build());
+            waveRenderLayer = RenderLayers.weather(TidalSpriteHandler.WAVE_ATLAS_ID, false);
         }
         return waveRenderLayer;
     }
@@ -97,15 +91,16 @@ public class TidalClient implements ClientModInitializer {
             MinecraftClient mc = MinecraftClient.getInstance();
             if(mc.world == null) return;
             TidalWorld tidalWorld = (TidalWorld) mc.world;
+            RenderLayer layer = getWaveRenderLayer();
             Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
+            BufferBuilder buffer = tessellator.begin(layer.getDrawMode(), layer.getVertexFormat());
 
             tidalWorld.tidal$tidalWaveHandler().render(buffer, context);
 
             BuiltBuffer builtBuffer = buffer.endNullable();
             if(builtBuffer == null) return;
 
-            getWaveRenderLayer().draw(builtBuffer);
+            layer.draw(builtBuffer);
         });
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(TIDAL_SPRITE_HANDLER);
