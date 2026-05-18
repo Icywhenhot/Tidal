@@ -4,23 +4,23 @@ import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.registry.tag.BiomeTags;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.chunk.WorldChunk;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.tags.BiomeTags;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.core.Vec3i;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.superkat.tidal.DebugHelper;
 import net.superkat.tidal.config.TidalConfig;
 import net.superkat.tidal.particles.debug.DebugWaveMovementParticle;
@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
  * The main handler, used for spawning/handling tidal waves, as well as ticking the world's {@link WaterHandler}
  */
 public class TidalWaveHandler {
-    public final ClientWorld world;
+    public final ClientLevel level;
     public WaterHandler waterHandler;
     public WaveRenderer renderer;
 
@@ -53,8 +53,8 @@ public class TidalWaveHandler {
 
     public boolean nearbyChunksLoaded = false;
 
-    public TidalWaveHandler(ClientWorld world) {
-        this.world = world;
+    public TidalWaveHandler(ClientLevel level) {
+        this.level = world;
         this.waterHandler = new WaterHandler(this, world);
         this.renderer = new WaveRenderer(this, world);
     }
@@ -67,8 +67,8 @@ public class TidalWaveHandler {
      * General tick method for all tick-related things EXCEPT the actual waves.
      */
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
         assert player != null;
 
         if (!this.nearbyChunksLoaded) {
@@ -84,7 +84,7 @@ public class TidalWaveHandler {
 
     }
 
-    public void render(BufferBuilder buffer, WorldRenderContext context) {
+    public void render(BufferBuilder buffer, LevelRenderContext context) {
         this.renderer.render(buffer, context);
     }
 
@@ -92,8 +92,8 @@ public class TidalWaveHandler {
      * Tick method for waves
      */
     public void tidalTick() {
-        if (!this.world.getTickManager().shouldTick()) return;
-        double time = this.world.getTime();
+        if (!this.level.tickRateManager().runsNormally()) return;
+        double time = this.level.getGameTime();
         if (time % 80 == 0) {
             spawnAllWaves();
         }
@@ -119,10 +119,10 @@ public class TidalWaveHandler {
         int distFromShore = TidalConfig.waveDistFromShore;
         int chunkRadius = TidalConfig.chunkRadius - 2;
 
-        ChunkPos playerChunk = MinecraftClient.getInstance().player.getChunkPos();
-        ChunkPos start = new ChunkPos(playerChunk.x + chunkRadius, playerChunk.z + chunkRadius);
-        ChunkPos end = new ChunkPos(playerChunk.x - chunkRadius, playerChunk.z - chunkRadius);
-        Set<BlockPos> waterBlocks = ChunkPos.stream(start, end).map(chunkPos -> this.waterHandler.getWaterCacheAtDistance(chunkPos, distFromShore)).filter(Objects::nonNull).flatMap(Collection::stream).collect(Collectors.toSet());
+        ChunkPos playerChunk = Minecraft.getInstance().player.chunkPosition();
+        ChunkPos start = new ChunkPos(playerChunk.x() + chunkRadius, playerChunk.z() + chunkRadius);
+        ChunkPos end = new ChunkPos(playerChunk.x() - chunkRadius, playerChunk.z() - chunkRadius);
+        Set<BlockPos> waterBlocks = ChunkPos.rangeClosed(start, end).map(chunkPos -> this.waterHandler.getWaterCacheAtDistance(chunkPos, distFromShore)).filter(Objects::nonNull).flatMap(Collection::stream).collect(Collectors.toSet());
         if (waterBlocks.isEmpty()) return;
         spawnWaves(waterBlocks);
 
@@ -130,8 +130,8 @@ public class TidalWaveHandler {
             if (DebugHelper.holdingSpyglass()) debugWaveParticles(waterBlocks);
             if (DebugHelper.offhandClock()) {
                 for (BlockPos water : waterBlocks) {
-                    Vec3d pos = water.toCenterPos();
-                    this.world.addParticleClient(ParticleTypes.END_ROD, pos.getX(), pos.getY() + 2.5, pos.getZ(), 0, 0, 0);
+                    Vec3 pos = water.getCenter();
+                    this.level.addParticle(ParticleTypes.END_ROD, pos.getX(), pos.getY() + 2.5, pos.getZ(), 0, 0, 0);
                 }
             }
         }
@@ -154,16 +154,16 @@ public class TidalWaveHandler {
             boolean bigWave = site.xList.size() >= 100;
 
             spawned++;
-            float yOffset = MathHelper.sin(spawned) / 16f + 0.65f;
-            BlockPos spawnPos = connected.stream().sorted(Comparator.comparingInt(Vec3i::getZ)).toList().get(connected.size() / 2).add(0, 1, 0);
+            float yOffset = Mth.sin(spawned) / 16f + 0.65f;
+            BlockPos spawnPos = connected.stream().sorted(Comparator.comparingInt(Vec3i::getZ)).toList().get(connected.size() / 2).offset(0, 1, 0);
 
-            BlockPos beneath = spawnPos.add(0, -1, 0);
-            if (world.isAir(beneath) || !world.getBlockState(beneath).getFluidState().isStill()) continue;
+            BlockPos beneath = spawnPos.offset(0, -1, 0);
+            if (world.isEmptyBlock(beneath) || !world.getBlockState(beneath).getFluidState().isSource()) continue;
 
-            if (world.getBiome(spawnPos).isIn(BiomeTags.IS_RIVER)) bigWave = false;
+            if (world.getBiome(spawnPos).is(BiomeTags.IS_RIVER)) bigWave = false;
 
-            Wave wave = new Wave(this.world, spawnPos, yaw, yOffset, bigWave);
-            int width = (int) MathHelper.clamp(connected.size() * 1.5, 1, 3);
+            Wave wave = new Wave(this.level, spawnPos, yaw, yOffset, bigWave);
+            int width = (int) Mth.clamp(connected.size() * 1.5, 1, 3);
             wave.setWidth(width);
             this.waves.add(wave);
         }
@@ -178,7 +178,7 @@ public class TidalWaveHandler {
         for (int i = 0; i < maxLength; i++) {
             BlockPos water = stack.poll();
             connected.add(water);
-            for (BlockPos check : BlockPos.iterate(water.add(-1, 0, -1), water.add(1, 0, 1))) {
+            for (BlockPos check : BlockPos.betweenClosed(water.offset(-1, 0, -1), water.offset(1, 0, 1))) {
                 if (water == check) continue;
                 if (ignoreSet.contains(check)) continue;
                 if (!waterBlocks.contains(check)) continue;
@@ -210,7 +210,7 @@ public class TidalWaveHandler {
                     site.getYaw(),
                     0.3f,
                     20);
-            this.world.addParticleClient(particleEffect, farParticles, false, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
+            this.level.addParticle(particleEffect, farParticles, false, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
         }
     }
 
@@ -219,17 +219,17 @@ public class TidalWaveHandler {
     }
 
     // This isn't perfect, but its close enough I suppose
-    public boolean nearbyChunksLoaded(ClientPlayerEntity player) {
+    public boolean nearbyChunksLoaded(LocalPlayer player) {
         if (nearbyChunksLoaded) return true;
         int chunkRadius = getChunkRadius();
 
-        // using WorldChunk instead of chunk because it has "isEmpty" method
+        // using LevelChunk instead of chunk because it has "isEmpty" method
         // could use chunk instanceof EmptyChunk instead, but this felt better
-        int chunkX = player.getChunkPos().x;
-        int chunkZ = player.getChunkPos().z;
+        int chunkX = player.chunkPosition().x;
+        int chunkZ = player.chunkPosition().z;
         int chunkRadiusReduced = chunkRadius - (chunkRadius / 3);
 
-        List<WorldChunk> checkChunks = List.of(
+        List<LevelChunk> checkChunks = List.of(
                 world.getChunk(chunkX + chunkRadius, chunkZ),
                 world.getChunk(chunkX - chunkRadius, chunkZ),
                 world.getChunk(chunkX, chunkZ + chunkRadius),
@@ -239,17 +239,17 @@ public class TidalWaveHandler {
                 world.getChunk(chunkX - (chunkRadiusReduced), chunkZ - (chunkRadiusReduced)),
                 world.getChunk(chunkX + (chunkRadiusReduced), chunkZ - (chunkRadiusReduced))
         );
-        return checkChunks.stream().noneMatch(WorldChunk::isEmpty);
+        return checkChunks.stream().noneMatch(LevelChunk::isEmpty);
         // alternative way - takes slightly longer
-//        return MinecraftClient.getInstance().worldRenderer.isTerrainRenderComplete();
+//        return Minecraft.getInstance().worldRenderer.isTerrainRenderComplete();
     }
 
     // Gets all loaded nearby chunks - created using ClientChunkManager & ClientChunkManager.ClientChunkMap
     // Unused right now, but could be helpful for making the WaterBodyHandler's scanners empty out when a scanner is done
     public Set<ChunkPos> getNearbyChunkPos() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        ChunkPos playerPos = player.getChunkPos();
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        ChunkPos playerPos = player.chunkPosition();
         int playerX = playerPos.x;
         int playerZ = playerPos.z;
 
@@ -258,8 +258,8 @@ public class TidalWaveHandler {
         ChunkPos end = new ChunkPos(playerX - radius, playerZ - radius);
 
         Set<ChunkPos> loadedChunks = Sets.newHashSet();
-        for (ChunkPos chunkPos : ChunkPos.stream(start, end).toList()) {
-            WorldChunk chunk = this.world.getChunk(chunkPos.x, chunkPos.z);
+        for (ChunkPos chunkPos : ChunkPos.rangeClosed(start, end).toList()) {
+            LevelChunk chunk = this.level.getChunk(chunkPos.x, chunkPos.z);
             if (chunk.isEmpty()) continue;
             loadedChunks.add(chunkPos);
         }
@@ -271,7 +271,7 @@ public class TidalWaveHandler {
      * @return The tidal wave chunk radius - pulls from either the Tidal config or the server's render distance(whichever one is smaller).
      */
     public int getChunkRadius() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         int configRadius = TidalConfig.chunkRadius;
         int serverRadius = client.options.serverViewDistance;
 
@@ -282,23 +282,23 @@ public class TidalWaveHandler {
      * @return The loaded chunk radius - used for figuring out all loaded chunks on the client.
      */
     public int getLoadedChunkRadius() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         int loadRadius = client.options.serverViewDistance;
         return Math.max(2, loadRadius) + 3;
     }
 
-    public void debugTick(MinecraftClient client, ClientPlayerEntity player) {
+    public void debugTick(Minecraft client, LocalPlayer player) {
         // show water direction of water blocks
         if (DebugHelper.holdingCompass() || DebugHelper.offhandCompass()) {
             if (!this.waterHandler.built) return;
 
-            ChunkPos playerChunk = player.getChunkPos();
+            ChunkPos playerChunk = player.chunkPosition();
             if (DebugHelper.offhandCompass()) {
-                if (client.world.getTime() % 5 != 0) return;
+                if (client.level.getGameTime() % 5 != 0) return;
                 int radius = 2;
-                ChunkPos start = new ChunkPos(playerChunk.x + radius, playerChunk.z + radius);
-                ChunkPos end = new ChunkPos(playerChunk.x - radius, playerChunk.z - radius);
-                for (ChunkPos chunkPos : ChunkPos.stream(start, end).toList()) {
+                ChunkPos start = new ChunkPos(playerChunk.x() + radius, playerChunk.z() + radius);
+                ChunkPos end = new ChunkPos(playerChunk.x() - radius, playerChunk.z() - radius);
+                for (ChunkPos chunkPos : ChunkPos.rangeClosed(start, end).toList()) {
                     debugChunkDirectionParticles(chunkPos.toLong(), true);
                 }
             } else {
@@ -309,7 +309,7 @@ public class TidalWaveHandler {
 
         // print water direction's yaw
         if (DebugHelper.usingSpyglass()) {
-            if (client.world.getTime() % 20 != 0) return;
+            if (client.level.getGameTime() % 20 != 0) return;
 
             BlockPos playerPos = player.getBlockPos();
 
@@ -317,7 +317,7 @@ public class TidalWaveHandler {
             if (scannedBlocks.contains(playerPos)) {
                 long chunkPosL = new ChunkPos(playerPos).toLong();
                 SitePos site = this.waterHandler.waterCache.get(chunkPosL).get(playerPos);
-//                System.out.println(world.getBiome(site.getPos()).isIn(BiomeTags.IS_RIVER));
+//                System.out.println(world.getBiome(site.getPos()).is(BiomeTags.IS_RIVER));
                 System.out.println(site.xList.size());
             }
         }
@@ -340,24 +340,24 @@ public class TidalWaveHandler {
                     sitePos.getYaw(),
                     0.3f,
                     20);
-            this.world.addParticleClient(particleEffect, farParticles, false, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
+            this.level.addParticle(particleEffect, farParticles, false, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
         }
     }
 
     /**
-     * @return A random Random with a randomly generated random RandomSeed seed.
+     * @return A random RandomSource with a randomly generated random RandomSeed seed.
      */
-    public static Random getRandom() {
-        return Random.create();
+    public static RandomSource getRandom() {
+        return RandomSource.create();
     }
 
     /**
      * @return A random with a seed that will, most likely, be synced between clients despite being client side. Lag may cause a small issue, but should be rare.
      */
-    public static Random getSyncedRandom() {
-        long time = MinecraftClient.getInstance().world.getTime();
+    public static RandomSource getSyncedRandom() {
+        long time = Minecraft.getInstance().world.getGameTime();
         long random = 5L * Math.round(time / 5f); // math.ceil instead?
-        return Random.create(random);
+        return RandomSource.create(random);
     }
 
     /**
@@ -367,13 +367,13 @@ public class TidalWaveHandler {
      * @param pos   BlockPos to check
      * @return If the BlockPos is water or waterlogged
      */
-    public static boolean posIsWater(ClientWorld world, BlockPos pos) {
+    public static boolean posIsWater(ClientLevel level, BlockPos pos) {
         FluidState state = world.getFluidState(pos);
-        return state.isIn(FluidTags.WATER);
+        return state.is(FluidTags.WATER);
     }
 
     public static boolean stateIsWater(BlockState state) {
-        return state.getFluidState().isIn(FluidTags.WATER);
+        return state.getFluidState().is(FluidTags.WATER);
     }
 
 }

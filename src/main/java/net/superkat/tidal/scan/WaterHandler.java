@@ -9,17 +9,17 @@ import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.ParticleEffect;
-import net.minecraft.particle.ParticleTypes;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Util;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.chunk.Chunk;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.superkat.tidal.DebugHelper;
 import net.superkat.tidal.Tidal;
 import net.superkat.tidal.config.TidalConfig;
@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
  * <br><br>
  * How this goofy thing works:<br><br>
  * <p>
- * Chunk loaded -> {@link WaterHandler#loadChunk(Chunk)} -> adds the ChunkPos to {@link WaterHandler#loadedChunks}.<br><br>
+ * ChunkAccess loaded -> {@link WaterHandler#loadChunk(ChunkAccess)} -> adds the ChunkPos to {@link WaterHandler#loadedChunks}.<br><br>
  * <p>
  * {@link WaterHandler#checkUnscannedChunks()} adds unscanned chunks within scanning distance to {@link WaterHandler#unscannedChunkQueue}.<br>
  * In {@link WaterHandler#tick()}, that unscannedChunkQueue is iterated though via {@link WaterHandler#scheduleChunkScans()}, where a {@link ChunkScanner} is created, and returns a {@link ScannedChunk} with that chunk's water blocks, shoreline blocks, and created {@link SitePos} sites.<br><br>
@@ -53,9 +53,9 @@ import java.util.stream.Collectors;
  * Once all queued ChunkScanners are finished, the scanner provides the info to here, the WaterHandler.<br><br>
  * Then, all known water blocks have their closest SitePos calculated via {@link  WaterHandler#scheduleWaterCache()}, and once that is done, the values for {@link WaterHandler#waterCache} & {@link WaterHandler#waterDistCache} are set.<br><br>
  * <p>
- * Chunk unloaded -> {@link WaterHandler#unloadChunk(Chunk)}. Because nearly everything is split per chunk via Maps, all keys with that ChunkPos(as a long) are removed, removing the values with it.<br><br>
+ * ChunkAccess unloaded -> {@link WaterHandler#unloadChunk(ChunkAccess)}. Because nearly everything is split per chunk via Maps, all keys with that ChunkPos(as a long) are removed, removing the values with it.<br><br>
  * <p>
- * Join world -> Nearby chunks are added via loadChunk(), then once all nearby chunks are loaded via {@link TidalWaveHandler#nearbyChunksLoaded(ClientPlayerEntity)}, the scheduleChunkScans method is called.<br><br>
+ * Join world -> Nearby chunks are added via loadChunk(), then once all nearby chunks are loaded via {@link TidalWaveHandler#nearbyChunksLoaded(LocalPlayer)}, the scheduleChunkScans method is called.<br><br>
  * <p>
  * Block updated -> {@link WaterHandler#onBlockUpdate(BlockPos, BlockState)}. A count of all block updates per chunk is kept track of in {@link WaterHandler#chunkUpdates}.<br>After enough block updates in a chunk(configurable), that chunk will be rescanned via {@link WaterHandler#rescanChunkPos(ChunkPos)}.
  *
@@ -65,7 +65,7 @@ import java.util.stream.Collectors;
  */
 public class WaterHandler {
     public final TidalWaveHandler tidalWaveHandler;
-    public final ClientWorld world;
+    public final ClientLevel level;
     // using fastutils because... it has fast in its name? I've been told its fast! And I gotta go fast!
 
     // Keep track of how many block updates have happened in a chunk - used to rescan chunks after enough(configurable) updates
@@ -120,7 +120,7 @@ public class WaterHandler {
     // List of all known water blocks, split by chunk
     public Map<Long, Set<BlockPos>> waters = Maps.newHashMap();
 
-    // Always use MathHelper when working with floats!
+    // Always use Mth when working with floats!
 
     // idea: if no site is within configurable distance, that water is considered open ocean and extra effects can be added there
     // idea 2: if the amount of blocks associated with a SitePos is really small, non-directional ambient particles spawn
@@ -130,15 +130,15 @@ public class WaterHandler {
     // TODO - QuickSort algorithm for finding nearest SitePos???
     // TODO - update waterDistCache to be better?
 
-    public WaterHandler(TidalWaveHandler tidalWaveHandler, ClientWorld world) {
+    public WaterHandler(TidalWaveHandler tidalWaveHandler, ClientLevel level) {
         this.tidalWaveHandler = tidalWaveHandler;
-        this.world = world;
-        this.executor = Util.getMainWorkerExecutor();
+        this.level = world;
+        this.executor = Util.backgroundExecutor();
     }
 
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
         assert player != null;
 
         if (!this.unscannedChunkQueue.isEmpty() && tidalWaveHandler.nearbyChunksLoaded) {
@@ -209,7 +209,7 @@ public class WaterHandler {
 
     private CompletableFuture<ScannedChunk> scheduleChunkScan(ChunkPos pos) {
         return CompletableFuture.supplyAsync(() -> {
-            ChunkScanner chunkScanner = new ChunkScanner(this, this.world, pos);
+            ChunkScanner chunkScanner = new ChunkScanner(this, this.level, pos);
             return chunkScanner.scan();
         }, executor);
     }
@@ -346,15 +346,15 @@ public class WaterHandler {
         return site;
     }
 
-    private void debugTick(MinecraftClient client, ClientPlayerEntity player) {
-        if (this.world.getTime() % 10 != 0) return;
+    private void debugTick(Minecraft client, LocalPlayer player) {
+        if (this.level.getGameTime() % 10 != 0) return;
         boolean farParticles = false;
 
         // display all shoreline blocks
         // display all sitePos'
         List<SitePos> allSites = this.sites.values().stream().flatMap(Collection::stream).toList();
         for (SitePos site : allSites) {
-            this.world.addParticleClient(ParticleTypes.EGG_CRACK, true, false, site.getX() + 0.5, site.getY() + 2, site.getZ() + 0.5, 0, 0, 0);
+            this.level.addParticle(ParticleTypes.EGG_CRACK, true, false, site.getX() + 0.5, site.getY() + 2, site.getZ() + 0.5, 0, 0, 0);
         }
 
         if (!DebugHelper.debug()) return;
@@ -362,10 +362,10 @@ public class WaterHandler {
 
         // display all shoreline blocks
         List<BlockPos> allShoreBLocks = this.shoreBlocks.values().stream().flatMap(Collection::stream).toList();
-        ParticleEffect shoreEffect = new DebugShoreParticle.DebugShoreParticleEffect(new Vector3f(1f, 1f, 1f), 1f);
+        ParticleOptions shoreEffect = new DebugShoreParticle.DebugShoreParticleEffect(new Vector3f(1f, 1f, 1f), 1f);
         for (BlockPos shore : allShoreBLocks) {
-            Vec3d pos = shore.toCenterPos();
-            this.world.addParticleClient(shoreEffect, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
+            Vec3 pos = shore.getCenter();
+            this.level.addParticle(shoreEffect, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
         }
 
         // display all water blocks pos', colored by closest site
@@ -373,15 +373,15 @@ public class WaterHandler {
         for (Map<BlockPos, SitePos> posSiteMap : this.waterCache.values()) {
             for (Map.Entry<BlockPos, SitePos> entry : posSiteMap.entrySet()) {
                 BlockPos blockPos = entry.getKey();
-                if (!blockPos.isWithinDistance(new Vec3d(player.getX(), player.getY(), player.getZ()), 100)) continue;
+                if (!blockPos.isWithinDistance(new Vec3(player.getX(), player.getY(), player.getZ()), 100)) continue;
                 SitePos site = entry.getValue();
 
                 int siteIndex = allSites.indexOf(site);
                 Vector3f color = DebugHelper.debugColor(siteIndex, totalSites);
 
-                Vec3d pos = blockPos.toCenterPos();
-                ParticleEffect particleEffect = new DebugWaterParticle.DebugWaterParticleEffect(color, 1f);
-                this.world.addParticleClient(particleEffect, farParticles, false, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
+                Vec3 pos = blockPos.getCenter();
+                ParticleOptions particleEffect = new DebugWaterParticle.DebugWaterParticleEffect(color, 1f);
+                this.level.addParticle(particleEffect, farParticles, false, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
             }
         }
     }
@@ -429,10 +429,10 @@ public class WaterHandler {
     /**
      * Schedules a chunk to be scanned water blocks, shoreblocks, sites, etc. Called when a new chunk is loaded.
      *
-     * @param chunk Chunk to schedule
+     * @param chunk ChunkAccess to schedule
      * @see WaterHandler#addChunkPos(ChunkPos)
      */
-    public void loadChunk(Chunk chunk) {
+    public void loadChunk(ChunkAccess chunk) {
         addChunkPos(chunk.getPos());
     }
 
@@ -440,7 +440,7 @@ public class WaterHandler {
      * Schedules a chunk to be scanned for water blocks, shoreblocks, sites, etc.
      *
      * @param chunkPos ChunkPos of the chunk to be scanned
-     * @see WaterHandler#loadChunk(Chunk)
+     * @see WaterHandler#loadChunk(ChunkAccess)
      */
     public void addChunkPos(ChunkPos chunkPos) {
         this.loadedChunks.add(chunkPos);
@@ -452,7 +452,7 @@ public class WaterHandler {
      * Searches through all loaded, unscanned chunks, and queues unscanned chunks which are within scanning distance to {@link WaterHandler#unscannedChunkQueue}
      */
     public void checkUnscannedChunks() {
-        ChunkPos cameraChunk = new ChunkPos(MinecraftClient.getInstance().gameRenderer.getCamera().getBlockPos());
+        ChunkPos cameraChunk = new ChunkPos(Minecraft.getInstance().gameRenderer.getMainCamera().getBlockPos());
         double radius = TidalConfig.chunkRadius * TidalConfig.chunkRadius;
         Iterator<ChunkPos> iterator = this.unscannedChunks.iterator();
         while (iterator.hasNext()) {
@@ -485,7 +485,7 @@ public class WaterHandler {
      *
      * @param chunk The ChunkPos(as a long) to remove
      */
-    public void unloadChunk(Chunk chunk) {
+    public void unloadChunk(ChunkAccess chunk) {
         ChunkPos chunkPos = chunk.getPos();
         long chunkPosL = chunkPos.toLong();
         this.clearChunk(chunkPosL);

@@ -1,12 +1,12 @@
 package net.superkat.tidal;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.Items;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Items;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.superkat.tidal.config.TidalConfig;
 import net.superkat.tidal.wave.TidalWaveHandler;
 import org.joml.Vector3f;
@@ -32,10 +32,10 @@ public class DebugHelper {
 
     // aha!
     public static boolean usingSpyglass() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        if(player.getActiveItem().isOf(Items.SPYGLASS) && player.getItemUseTime() >= 10) {
-            if(player.getItemUseTime() == 10) {
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        if(player.getUseItem().is(Items.SPYGLASS) && player.getUseItemRemainingTicks() >= 10) {
+            if(player.getUseItemRemainingTicks() == 10) {
                 player.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 1f);
             }
             return true;
@@ -45,42 +45,42 @@ public class DebugHelper {
 
     // yes this is importa-ha-nt
     public static boolean spyglassInHotbar() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        PlayerInventory playerInventory = player.getInventory();
-        return PlayerInventory.isValidHotbarIndex(playerInventory.getSlotWithStack(Items.SPYGLASS.getDefaultStack()));
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        Inventory playerInventory = player.getInventory();
+        return Inventory.isValidHotbarIndex(playerInventory.findSlotMatchingItem(Items.SPYGLASS.getDefaultInstance()));
     }
 
     public static boolean holdingSpyglass() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        return player.getMainHandStack().isOf(Items.SPYGLASS);
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        return player.getMainHandItem().is(Items.SPYGLASS);
     }
 
     public static boolean offhandSpyglass() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        return player.getOffHandStack().isOf(Items.SPYGLASS);
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        return player.getOffhandItem().is(Items.SPYGLASS);
     }
 
     // stop making fun of my choices of debug items - it's because i watch bdubs
     public static boolean clockInHotbar() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        PlayerInventory playerInventory = player.getInventory();
-        return PlayerInventory.isValidHotbarIndex(playerInventory.getSlotWithStack(Items.CLOCK.getDefaultStack()));
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        Inventory playerInventory = player.getInventory();
+        return Inventory.isValidHotbarIndex(playerInventory.findSlotMatchingItem(Items.CLOCK.getDefaultInstance()));
     }
 
     public static boolean offhandClock() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        return player.getOffHandStack().isOf(Items.CLOCK);
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        return player.getOffhandItem().is(Items.CLOCK);
     }
 
     public static boolean usingShield() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        if(player.getActiveItem().isOf(Items.SHIELD) && (player.getItemUseTime() == 1 || player.isSneaking())) {
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        if(player.getUseItem().is(Items.SHIELD) && (player.getUseItemRemainingTicks() == 1 || player.isShiftKeyDown())) {
             player.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 1f);
             return true;
         }
@@ -88,15 +88,15 @@ public class DebugHelper {
     }
 
     public static boolean holdingCompass() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        return player.getMainHandStack().isOf(Items.COMPASS);
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        return player.getMainHandItem().is(Items.COMPASS);
     }
 
     public static boolean offhandCompass() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        return player.getOffHandStack().isOf(Items.COMPASS);
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        return player.getOffhandItem().is(Items.COMPASS);
     }
 
     // sick
@@ -127,18 +127,18 @@ public class DebugHelper {
 
     public static Vector3f debugTransitionColor(int i, int size, Vector3f start, Vector3f end) {
         float delta = ((float) (i) / (size));
-        float red = MathHelper.lerp(delta, start.x, end.x);
-        float green = MathHelper.lerp(delta, start.y, end.y);
-        float blue = MathHelper.lerp(delta, start.z, end.z);
+        float red = Mth.lerp(delta, start.x, end.x);
+        float green = Mth.lerp(delta, start.y, end.y);
+        float blue = Mth.lerp(delta, start.z, end.z);
         return new Vector3f(checkColor(red), checkColor(green), checkColor(blue));
     }
 
     public static Vector3f randomDebugColor() {
-        Random random = TidalWaveHandler.getRandom();
-        int rgbIncrease = random.nextBetween(1, 3);
-        int red = rgbIncrease == 1 ? random.nextBetween(150, 255) : 255;
-        int green = rgbIncrease == 2 ? random.nextBetween(150, 255) : 255;
-        int blue = rgbIncrease == 3 ? random.nextBetween(150, 255) : 255;
+        RandomSource random = TidalWaveHandler.getRandom();
+        int rgbIncrease = random.nextIntBetweenInclusive(1, 3);
+        int red = rgbIncrease == 1 ? random.nextIntBetweenInclusive(150, 255) : 255;
+        int green = rgbIncrease == 2 ? random.nextIntBetweenInclusive(150, 255) : 255;
+        int blue = rgbIncrease == 3 ? random.nextIntBetweenInclusive(150, 255) : 255;
         return new Vector3f(red / 255f, green / 255f, blue / 255f);
     }
 

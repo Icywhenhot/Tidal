@@ -2,11 +2,11 @@ package net.superkat.tidal.scan;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.Heightmap;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.superkat.tidal.wave.TidalWaveHandler;
 import org.apache.commons.compress.utils.Lists;
 
@@ -21,7 +21,7 @@ import java.util.Set;
  */
 public class ChunkScanner {
     public final WaterHandler handler;
-    public final ClientWorld world;
+    public final ClientLevel level;
 
     // blocks which have been checked to be water or not water
     public Map<BlockPos, Boolean> cachedBlocks = new Object2ObjectOpenHashMap<>();
@@ -42,19 +42,19 @@ public class ChunkScanner {
     public ObjectOpenHashSet<SitePos> sites = new ObjectOpenHashSet<>();
 
     // TODO(unimportant for now) - scan above and below for water to jumps in the water
-    public ChunkScanner(WaterHandler handler, ClientWorld world, ChunkPos chunkPos) {
+    public ChunkScanner(WaterHandler handler, ClientLevel level, ChunkPos chunkPos) {
         this.handler = handler;
-        this.world = world;
+        this.level = world;
         this.chunkPos = chunkPos;
         BlockPos startPos = chunkPos.getStartPos();
-        BlockPos endPos = startPos.add(15, 0, 15);
+        BlockPos endPos = startPos.offset(15, 0, 15);
         this.cachedIterator = stack(startPos, endPos);
     }
 
     public ScannedChunk scan() {
         BlockPos startPos = chunkPos.getStartPos();
-        BlockPos endPos = startPos.add(15, 0, 15);
-        for (BlockPos pos : BlockPos.iterate(startPos, endPos)) {
+        BlockPos endPos = startPos.offset(15, 0, 15);
+        for (BlockPos pos : BlockPos.betweenClosed(startPos, endPos)) {
             int y = sampleHeightmap(pos) - 1;
             scanPos(pos.withY(y));
         }
@@ -63,14 +63,14 @@ public class ChunkScanner {
     }
 
     private int sampleHeightmap(BlockPos pos) {
-        return this.world.getTopY(Heightmap.Type.WORLD_SURFACE, pos.getX(), pos.getZ());
+        return this.level.getTopY(Heightmap.Type.WORLD_SURFACE, pos.getX(), pos.getZ());
     }
 
     /**
      * @return An iterator which represents the next blocks in line to be scanned
      */
     public Iterator<BlockPos> stack(BlockPos startPos, BlockPos endPos) {
-        cachedIterator = BlockPos.iterate(startPos, endPos).iterator();
+        cachedIterator = BlockPos.betweenClosed(startPos, endPos).iterator();
         return cachedIterator;
     }
 
@@ -83,7 +83,7 @@ public class ChunkScanner {
     public void scanPos(BlockPos pos) {
         // if already visited or is air -> return
         if(visitedBlocks.contains(pos)) return;
-        if(world.isAir(pos)) return;
+        if(world.isEmptyBlock(pos)) return;
 
         // mark visited
         boolean posIsWater = cacheAndIsWater(pos);
@@ -97,7 +97,7 @@ public class ChunkScanner {
         // check and cache neighbours
         for (Direction direction : Direction.Type.HORIZONTAL) {
             BlockPos checkPos = pos.offset(direction);
-            if(world.isAir(checkPos)) continue;
+            if(world.isEmptyBlock(checkPos)) continue;
             if(direction == Direction.NORTH && pos.getZ() % 16 == 0) continue;
             if(direction == Direction.WEST && pos.getX() % 16 == 0) continue;
             if(direction == Direction.SOUTH && (pos.getZ() - 1) % 16 == 0) continue;

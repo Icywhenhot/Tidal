@@ -1,7 +1,7 @@
 package net.superkat.tidal.scan;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 
 /**
  * Holds a BlockPos as the main position, along with a list of all x/z coordinates of BlockPos' which were calculated to have this SitePos as the closest.<br>

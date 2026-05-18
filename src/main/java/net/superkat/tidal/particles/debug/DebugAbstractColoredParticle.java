@@ -1,18 +1,18 @@
 package net.superkat.tidal.particles.debug;
 
-import net.minecraft.client.particle.AbstractDustParticle;
-import net.minecraft.client.particle.SpriteProvider;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.AbstractDustParticleEffect;
+import net.minecraft.client.particle.DustParticleBase;
+import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.ScalableParticleOptionsBase;
 
-public abstract class DebugAbstractColoredParticle<T extends AbstractDustParticleEffect> extends AbstractDustParticle<T> {
-    protected DebugAbstractColoredParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, T parameters, SpriteProvider spriteProvider) {
-        super(world, x, y, z, velocityX, velocityY, velocityZ, parameters, spriteProvider);
-        this.velocityX = 0f;
-        this.velocityY = 0f;
-        this.velocityZ = 0f;
-        this.scale = this.scale * 0.95F * parameters.getScale();
-        this.maxAge = 11;
+public abstract class DebugAbstractColoredParticle<T extends ScalableParticleOptionsBase> extends DustParticleBase<T> {
+    protected DebugAbstractColoredParticle(ClientLevel level, double x, double y, double z, double xd, double yd, double zd, T parameters, SpriteSet spriteProvider) {
+        super(world, x, y, z, xd, yd, zd, parameters, spriteProvider);
+        this.xd = 0f;
+        this.yd = 0f;
+        this.zd = 0f;
+        this.quadSize = this.quadSize * 0.95F * parameters.getScale();
+        this.lifetime = 11;
     }
 
     @Override
@@ -22,6 +22,6 @@ public abstract class DebugAbstractColoredParticle<T extends AbstractDustParticl
 
     @Override
     public float getSize(float tickDelta) {
-        return this.scale;
+        return this.quadSize;
     }
 }

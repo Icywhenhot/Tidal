@@ -1,12 +1,12 @@
 package net.superkat.tidal.mixin;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.Holder;
+import net.minecraft.core.BlockPos;
 import net.superkat.tidal.duck.TidalWorld;
 import net.superkat.tidal.event.ClientBlockUpdateEvent;
 import net.superkat.tidal.wave.TidalWaveHandler;
@@ -16,14 +16,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(ClientWorld.class)
+@Mixin(ClientLevel.class)
 public class ClientWorldMixin implements TidalWorld {
     @Unique
     public TidalWaveHandler tidalWaveHandler;
 
     @Inject(method = "<init>", at = @At("TAIL"))
-    public void tidal$createTidalWaveHandler(ClientPlayNetworkHandler networkHandler, ClientWorld.Properties properties, RegistryKey registryRef, RegistryEntry dimensionTypeEntry, int loadDistance, int simulationDistance, WorldRenderer worldRenderer, boolean debugWorld, long seed, int seaLevel, CallbackInfo ci) {
-        this.tidalWaveHandler = new TidalWaveHandler((ClientWorld) (Object) this);
+    public void tidal$createTidalWaveHandler(ClientPacketListener networkHandler, ClientLevel.ClientLevelData properties, ResourceKey registryRef, Holder dimensionTypeEntry, int loadDistance, int simulationDistance, LevelRenderer worldRenderer, boolean debugWorld, long seed, int seaLevel, CallbackInfo ci) {
+        this.tidalWaveHandler = new TidalWaveHandler((ClientLevel) (Object) this);
     }
 
     @Inject(method = "handleBlockUpdate", at = @At("TAIL"))

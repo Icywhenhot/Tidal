@@ -1,8 +1,8 @@
 package net.superkat.tidal.sprite;
 
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 
 public class TidalSprites {
 
@@ -21,41 +21,41 @@ public class TidalSprites {
 
     public static final Identifier WET_OVERLAY_TEXTURE_ID = Identifier.of(MOD_ID, "wet_overlay");
 
-    public static int getFrameFromAge(Sprite sprite, int age, int maxAge) {
+    public static int getFrameFromAge(TextureAtlasSprite sprite, int age, int maxAge) {
         int totalFrames = getTotalFrames(sprite);
         int frameTime = getMetadata(sprite).frameTime();
         if(frameTime <= 0) {
-            return MathHelper.lerp((float) age / maxAge, 0, totalFrames);
+            return Mth.lerp((float) age / maxAge, 0, totalFrames);
 //            return (age / maxAge) * totalFrames;
         }
         return (age / frameTime) % totalFrames;
     }
 
-    public static float getMinU(Sprite sprite) {
-        return sprite.getMinU();
+    public static float getU0(TextureAtlasSprite sprite) {
+        return sprite.getU0();
     }
 
-    public static float getMaxU(Sprite sprite) {
-        return sprite.getMaxU();
+    public static float getU1(TextureAtlasSprite sprite) {
+        return sprite.getU1();
     }
 
-    public static float getMinV(Sprite sprite, int frame) {
+    public static float getV0(TextureAtlasSprite sprite, int frame) {
         int totalFrames = getTotalFrames(sprite);
-        float vRange = sprite.getMaxV() - sprite.getMinV();
-        return sprite.getMinV() + (vRange / totalFrames) * frame;
+        float vRange = sprite.getV1() - sprite.getV0();
+        return sprite.getV0() + (vRange / totalFrames) * frame;
     }
 
-    public static float getMaxV(Sprite sprite, int frame) {
+    public static float getV1(TextureAtlasSprite sprite, int frame) {
         int totalFrames = getTotalFrames(sprite);
-        float vRange = sprite.getMaxV() - sprite.getMinV();
-        return sprite.getMinV() + (vRange / totalFrames) * (frame + 1);
+        float vRange = sprite.getV1() - sprite.getV0();
+        return sprite.getV0() + (vRange / totalFrames) * (frame + 1);
     }
 
-    private static int getTotalFrames(Sprite sprite) {
+    private static int getTotalFrames(TextureAtlasSprite sprite) {
         return sprite.getContents().getHeight() / getMetadata(sprite).frameHeight();
     }
 
-    private static WaveResourceMetadata getMetadata(Sprite sprite) {
+    private static WaveResourceMetadata getMetadata(TextureAtlasSprite sprite) {
         return sprite.getContents().getAdditionalMetadataValue(WaveResourceMetadata.SERIALIZER).orElse(WaveResourceMetadata.DEFAULT);
     }
 }

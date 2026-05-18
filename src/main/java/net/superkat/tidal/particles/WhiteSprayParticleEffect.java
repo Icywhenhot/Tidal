@@ -1,9 +1,9 @@
 package net.superkat.tidal.particles;
 
 import com.mojang.serialization.MapCodec;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.particle.ParticleType;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.core.particles.ParticleType;
 import net.superkat.tidal.TidalParticles;
 
 public class WhiteSprayParticleEffect extends SprayParticleEffect {
@@ -12,7 +12,7 @@ public class WhiteSprayParticleEffect extends SprayParticleEffect {
     }
 
     public static final MapCodec<WhiteSprayParticleEffect> CODEC = createCodec(WhiteSprayParticleEffect::new);
-    public static final PacketCodec<RegistryByteBuf, WhiteSprayParticleEffect> PACKET_CODEC = createPacketCodec(WhiteSprayParticleEffect::new);
+    public static final StreamCodec<RegistryFriendlyByteBuf, WhiteSprayParticleEffect> PACKET_CODEC = createPacketCodec(WhiteSprayParticleEffect::new);
 
     @Override
     public ParticleType<?> getType() {

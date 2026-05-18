@@ -1,11 +1,11 @@
 package net.superkat.tidal;
 
 import net.fabricmc.fabric.api.particle.v1.FabricParticleTypes;
-import net.minecraft.particle.ParticleType;
-import net.minecraft.particle.SimpleParticleType;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleType;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.Identifier;
 import net.superkat.tidal.particles.SprayParticleEffect;
 import net.superkat.tidal.particles.WhiteSprayParticleEffect;
 import net.superkat.tidal.particles.debug.DebugShoreParticle;
@@ -49,7 +49,7 @@ public class TidalParticles {
     }
 
     private static void register(String id, ParticleType<?> particleType) {
-        Registry.register(Registries.PARTICLE_TYPE, Identifier.of(MOD_ID, id), particleType);
+        Registry.register(BuiltInRegistries.PARTICLE_TYPE, Identifier.of(MOD_ID, id), particleType);
     }
 
 }
