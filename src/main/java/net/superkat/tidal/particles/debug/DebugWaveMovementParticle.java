@@ -5,11 +5,11 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.BillboardParticleSubmittable;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleFactory;
 import net.minecraft.client.particle.SpriteProvider;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
@@ -18,8 +18,10 @@ import net.minecraft.particle.AbstractDustParticleEffect;
 import net.minecraft.particle.ParticleType;
 import net.minecraft.util.dynamic.Codecs;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.random.Random;
 import net.superkat.tidal.TidalParticles;
 import org.joml.Vector3f;
+import org.joml.Vector3fc;
 
 public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<DebugWaveMovementParticle.DebugWaveMovementParticleEffect> {
     public float yaw = 0;
@@ -68,9 +70,9 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
     }
 
     @Override
-    public void buildGeometry(VertexConsumer vertexConsumer, Camera camera, float tickDelta) {
+    public void render(BillboardParticleSubmittable submittable, Camera camera, float tickDelta) {
         if(lifetimeColorMode) updateColor(tickDelta);
-        super.buildGeometry(vertexConsumer, camera, tickDelta);
+        super.render(submittable, camera, tickDelta);
     }
 
     private void updateColor(float tickDelta) {
@@ -101,7 +103,8 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
             this.spriteProvider = spriteProvider;
         }
 
-        public Particle createParticle(DebugWaveMovementParticleEffect dustParticleEffect, ClientWorld clientWorld, double d, double e, double f, double g, double h, double i) {
+        @Override
+        public Particle createParticle(DebugWaveMovementParticleEffect dustParticleEffect, ClientWorld clientWorld, double d, double e, double f, double g, double h, double i, Random random) {
             return new DebugWaveMovementParticle(clientWorld, d, e, f, g, h, i, dustParticleEffect, this.spriteProvider);
         }
     }
@@ -118,19 +121,19 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
                         .apply(instance, DebugWaveMovementParticleEffect::new)
         );
         public static final PacketCodec<RegistryByteBuf, DebugWaveMovementParticleEffect> PACKET_CODEC = PacketCodec.tuple(
-                PacketCodecs.VECTOR3F, effect -> effect.color,
+                PacketCodecs.VECTOR_3F, effect -> effect.color,
                 PacketCodecs.FLOAT, AbstractDustParticleEffect::getScale,
                 PacketCodecs.FLOAT, DebugWaveMovementParticleEffect::getYaw,
                 PacketCodecs.FLOAT, DebugWaveMovementParticleEffect::getSpeed,
                 PacketCodecs.INTEGER, DebugWaveMovementParticleEffect::getLifetime,
                 DebugWaveMovementParticleEffect::new
         );
-        private final Vector3f color;
+        private final Vector3fc color;
         private final float yaw;
         private final float speed;
         private final int lifetime;
 
-        public DebugWaveMovementParticleEffect(Vector3f color, float scale, float yaw, float speed, int lifetime) {
+        public DebugWaveMovementParticleEffect(Vector3fc color, float scale, float yaw, float speed, int lifetime) {
             super(scale);
             this.color = color;
             this.yaw = yaw;

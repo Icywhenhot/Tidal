@@ -10,10 +10,11 @@ import net.minecraft.client.particle.SpriteProvider;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.SimpleParticleType;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.random.Random;
 
 public class SplashParticle extends RainSplashParticle {
-    public SplashParticle(ClientWorld clientWorld, double x, double y, double z, double velX, double velY, double velZ) {
-        super(clientWorld, x, y, z);
+    public SplashParticle(ClientWorld clientWorld, double x, double y, double z, double velX, double velY, double velZ, SpriteProvider spriteProvider) {
+        super(clientWorld, x, y, z, spriteProvider.getFirst());
         this.gravityStrength = 0.04F;
         this.velocityX = velX;
         this.velocityY = velY;
@@ -43,10 +44,9 @@ public class SplashParticle extends RainSplashParticle {
             this.spriteProvider = spriteProvider;
         }
 
-        public Particle createParticle(SimpleParticleType simpleParticleType, ClientWorld clientWorld, double d, double e, double f, double g, double h, double i) {
-            SplashParticle waterSplashParticle = new SplashParticle(clientWorld, d, e, f, g, h, i);
-            waterSplashParticle.setSprite(this.spriteProvider);
-            return waterSplashParticle;
+        @Override
+        public Particle createParticle(SimpleParticleType simpleParticleType, ClientWorld clientWorld, double d, double e, double f, double g, double h, double i, Random random) {
+            return new SplashParticle(clientWorld, d, e, f, g, h, i, this.spriteProvider);
         }
     }
 }

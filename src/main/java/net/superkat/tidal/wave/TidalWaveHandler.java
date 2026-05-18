@@ -4,7 +4,7 @@ import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -131,7 +131,7 @@ public class TidalWaveHandler {
             if (DebugHelper.offhandClock()) {
                 for (BlockPos water : waterBlocks) {
                     Vec3d pos = water.toCenterPos();
-                    this.world.addParticle(ParticleTypes.END_ROD, pos.getX(), pos.getY() + 2.5, pos.getZ(), 0, 0, 0);
+                    this.world.addParticleClient(ParticleTypes.END_ROD, pos.getX(), pos.getY() + 2.5, pos.getZ(), 0, 0, 0);
                 }
             }
         }
@@ -210,7 +210,7 @@ public class TidalWaveHandler {
                     site.getYaw(),
                     0.3f,
                     20);
-            this.world.addParticle(particleEffect, farParticles, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
+            this.world.addParticleClient(particleEffect, farParticles, false, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
         }
     }
 
@@ -340,7 +340,7 @@ public class TidalWaveHandler {
                     sitePos.getYaw(),
                     0.3f,
                     20);
-            this.world.addParticle(particleEffect, farParticles, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
+            this.world.addParticleClient(particleEffect, farParticles, false, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
         }
     }
 

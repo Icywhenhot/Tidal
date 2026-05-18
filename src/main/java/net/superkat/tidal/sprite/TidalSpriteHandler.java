@@ -7,9 +7,8 @@ import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.texture.SpriteLoader;
 import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.metadata.ResourceMetadataReader;
+import net.minecraft.resource.metadata.ResourceMetadataSerializer;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.profiler.Profiler;
 import net.superkat.tidal.Tidal;
 
 import java.util.Set;
@@ -27,7 +26,7 @@ public class TidalSpriteHandler implements SimpleResourceReloadListener<SpriteLo
     public static final Identifier WAVE_ATLAS_ID = Identifier.of(MOD_ID, "textures/atlas/waves.png");
     private static final Identifier TEXTURE_SOURCE_PATH = Identifier.of(MOD_ID, "wave");
 
-    public static final Set<ResourceMetadataReader<?>> METADATA_READERS = Set.of(WaveResourceMetadata.SERIALIZER);
+    public static final Set<ResourceMetadataSerializer<?>> METADATA_READERS = Set.of(WaveResourceMetadata.SERIALIZER);
 
     public SpriteAtlasTexture atlas;
 
@@ -36,7 +35,7 @@ public class TidalSpriteHandler implements SimpleResourceReloadListener<SpriteLo
     }
 
     @Override
-    public CompletableFuture<SpriteLoader.StitchResult> load(ResourceManager manager, Profiler profiler, Executor executor) {
+    public CompletableFuture<SpriteLoader.StitchResult> load(ResourceManager manager, Executor executor) {
         if(this.atlas == null) {
             this.atlas = new SpriteAtlasTexture(WAVE_ATLAS_ID);
             MinecraftClient.getInstance().getTextureManager().registerTexture(this.atlas.getId(), this.atlas);
@@ -47,13 +46,9 @@ public class TidalSpriteHandler implements SimpleResourceReloadListener<SpriteLo
     }
 
     @Override
-    public CompletableFuture<Void> apply(SpriteLoader.StitchResult stitchResult, ResourceManager manager, Profiler profiler, Executor executor) {
+    public CompletableFuture<Void> apply(SpriteLoader.StitchResult stitchResult, ResourceManager manager, Executor executor) {
         return CompletableFuture.runAsync(() -> {
-            profiler.startTick();
-            profiler.push("upload");
-            this.atlas.upload(stitchResult);
-            profiler.pop();
-            profiler.endTick();
+            this.atlas.create(stitchResult);
         }, executor);
     }
 

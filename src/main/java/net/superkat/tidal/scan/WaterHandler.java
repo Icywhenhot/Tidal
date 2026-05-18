@@ -354,7 +354,7 @@ public class WaterHandler {
         // display all sitePos'
         List<SitePos> allSites = this.sites.values().stream().flatMap(Collection::stream).toList();
         for (SitePos site : allSites) {
-            this.world.addParticle(ParticleTypes.EGG_CRACK, true, site.getX() + 0.5, site.getY() + 2, site.getZ() + 0.5, 0, 0, 0);
+            this.world.addParticleClient(ParticleTypes.EGG_CRACK, true, false, site.getX() + 0.5, site.getY() + 2, site.getZ() + 0.5, 0, 0, 0);
         }
 
         if (!DebugHelper.debug()) return;
@@ -365,7 +365,7 @@ public class WaterHandler {
         ParticleEffect shoreEffect = new DebugShoreParticle.DebugShoreParticleEffect(new Vector3f(1f, 1f, 1f), 1f);
         for (BlockPos shore : allShoreBLocks) {
             Vec3d pos = shore.toCenterPos();
-            this.world.addParticle(shoreEffect, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
+            this.world.addParticleClient(shoreEffect, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
         }
 
         // display all water blocks pos', colored by closest site
@@ -373,7 +373,7 @@ public class WaterHandler {
         for (Map<BlockPos, SitePos> posSiteMap : this.waterCache.values()) {
             for (Map.Entry<BlockPos, SitePos> entry : posSiteMap.entrySet()) {
                 BlockPos blockPos = entry.getKey();
-                if (!blockPos.isWithinDistance(player.getPos(), 100)) continue;
+                if (!blockPos.isWithinDistance(new Vec3d(player.getX(), player.getY(), player.getZ()), 100)) continue;
                 SitePos site = entry.getValue();
 
                 int siteIndex = allSites.indexOf(site);
@@ -381,7 +381,7 @@ public class WaterHandler {
 
                 Vec3d pos = blockPos.toCenterPos();
                 ParticleEffect particleEffect = new DebugWaterParticle.DebugWaterParticleEffect(color, 1f);
-                this.world.addParticle(particleEffect, farParticles, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
+                this.world.addParticleClient(particleEffect, farParticles, false, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
             }
         }
     }

@@ -222,14 +222,14 @@ public class Wave {
             double splashZ = this.z + this.velZ * 10;
 
             for (int i = 0; i < sprayAmount; i++) {
-                this.world.addParticle(TidalParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.world.random.nextGaussian() * 0.1f, Math.abs(this.world.random.nextGaussian()) * 0.1f + 0.1f, this.world.random.nextGaussian() * 0.1f);
+                this.world.addParticleClient(TidalParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.world.random.nextGaussian() * 0.1f, Math.abs(this.world.random.nextGaussian()) * 0.1f + 0.1f, this.world.random.nextGaussian() * 0.1f);
                 if (this.bigWave) {
-                    this.world.addParticle(TidalParticles.BIG_SPLASH_PARTICLE, splashX + this.world.random.nextGaussian() / 2f, this.y, splashZ + this.world.random.nextGaussian() / 2f, 0, 0.01, 0);
+                    this.world.addParticleClient(TidalParticles.BIG_SPLASH_PARTICLE, splashX + this.world.random.nextGaussian() / 2f, this.y, splashZ + this.world.random.nextGaussian() / 2f, 0, 0.01, 0);
                 }
             }
 
 
-            this.world.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
+            this.world.addParticleClient(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;
@@ -264,7 +264,7 @@ public class Wave {
 
             for (int i = 0; i < this.width; i++) {
                 for (int j = 0; j < splashAmount; j++) {
-                    this.world.addParticle(TidalParticles.SPLASH_PARTICLE,
+                    this.world.addParticleClient(TidalParticles.SPLASH_PARTICLE,
                             splashX + this.world.random.nextGaussian(),
                             this.y,
                             splashZ + this.world.random.nextGaussian(),
@@ -356,7 +356,7 @@ public class Wave {
 
     public int getLight() {
         //emissive during full moon :)
-        if (this.world.getMoonPhase() == 0 && this.world.getTimeOfDay() >= 12000)
+        if ((int)(this.world.getTimeOfDay() / 24000L % 8L) == 0 && this.world.getTimeOfDay() >= 12000)
             return LightmapTextureManager.pack(15, 15);
         BlockPos pos = this.getBlockPos().add(0, 1, 0);
         int blockLight = this.world.getLightLevel(LightType.BLOCK, pos);

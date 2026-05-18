@@ -1,3 +1,4 @@
 accessWidener v2 named
 
 accessible field net/minecraft/client/option/GameOptions serverViewDistance I
+accessible method net/minecraft/client/render/RenderLayer of (Ljava/lang/String;Lnet/minecraft/client/render/RenderSetup;)Lnet/minecraft/client/render/RenderLayer;

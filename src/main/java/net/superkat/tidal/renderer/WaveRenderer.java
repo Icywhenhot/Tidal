@@ -1,13 +1,10 @@
 package net.superkat.tidal.renderer;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
@@ -28,9 +25,6 @@ import java.util.Set;
 
 /**
  * THE WAVES AREN'T ENTITIES!!!!!!!!!!!!!!!!!!!!!!!!!!!
- * They just have custom hitbox rendering lol
- *
- * @see WaveRenderer#renderDebugHitboxes(WorldRenderContext, List, Camera)
  */
 public class WaveRenderer {
     public TidalWaveHandler handler;
@@ -47,31 +41,15 @@ public class WaveRenderer {
         List<Wave> waves = this.handler.getWaves();
         if (waves == null || waves.isEmpty()) return;
 
-        float tickDelta = context.tickCounter().getTickDelta(false);
-        Camera camera = context.camera();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        float tickDelta = mc.getRenderTickCounter().getTickProgress(false);
+        Camera camera = mc.gameRenderer.getCamera();
 
         for (Wave wave : waves) {
             renderWave(buffer, camera, wave, tickDelta);
         }
 
         renderOverlays(buffer, camera, handler.coveredBlocks);
-
-        if (MinecraftClient.getInstance().getEntityRenderDispatcher().shouldRenderHitboxes()) {
-            renderDebugHitboxes(context, waves, camera);
-        }
-    }
-
-    /**
-     * I made this its own method just so I can link it in the Javadoc
-     */
-    private static void renderDebugHitboxes(WorldRenderContext context, List<Wave> waves, Camera camera) {
-        for (Wave wave : waves) {
-            MatrixStack matrixStack = new MatrixStack();
-            VertexConsumer lines = context.consumers().getBuffer(RenderLayer.getLines());
-            Vec3d cameraPos = camera.getPos();
-            matrixStack.translate(-cameraPos.getX(), -cameraPos.getY(), -cameraPos.getZ());
-            WorldRenderer.drawBox(matrixStack, lines, wave.getHitBox(), 1f, 1f, 1f, 1f);
-        }
     }
 
     public void renderWave(BufferBuilder buffer, Camera camera, Wave wave, float delta) {
@@ -81,8 +59,8 @@ public class WaveRenderer {
         matrices.push();
 
         Box box = wave.getBoundingBox();
-        Vec3d center = box.getBottomCenter();
-        Vec3d cameraPos = camera.getPos();
+        Vec3d center = new Vec3d((box.minX + box.maxX) / 2.0, box.minY, (box.minZ + box.maxZ) / 2.0);
+        Vec3d cameraPos = camera.getCameraPos();
         Vec3d transPos = center.subtract(cameraPos);
 
         matrices.push();
@@ -172,7 +150,7 @@ public class WaveRenderer {
 
     public void renderCoverOverlay(BufferBuilder buffer, Camera camera, BlockPos pos) {
         MatrixStack matrices = new MatrixStack();
-        Vec3d cameraPos = camera.getPos();
+        Vec3d cameraPos = camera.getCameraPos();
         Vec3d transPos = pos.toBottomCenterPos().subtract(cameraPos);
 
         Sprite sprite = getWetOverlaySprite();

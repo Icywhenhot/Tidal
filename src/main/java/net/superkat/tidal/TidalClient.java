@@ -1,22 +1,21 @@
 package net.superkat.tidal;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderSetup;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.resource.ResourceType;
 import net.superkat.tidal.duck.TidalWorld;
@@ -28,13 +27,26 @@ import net.superkat.tidal.particles.WhiteSprayParticle;
 import net.superkat.tidal.particles.debug.DebugShoreParticle;
 import net.superkat.tidal.particles.debug.DebugWaterParticle;
 import net.superkat.tidal.particles.debug.DebugWaveMovementParticle;
-import net.superkat.tidal.particles.old.WaveParticle;
-import net.superkat.tidal.particles.old.WhiteWaveParticle;
 import net.superkat.tidal.sprite.TidalSpriteHandler;
 
 public class TidalClient implements ClientModInitializer {
 
     public static TidalSpriteHandler TIDAL_SPRITE_HANDLER = new TidalSpriteHandler();
+
+    // Built lazily on first render so RenderPipelines is initialised.
+    private static RenderLayer waveRenderLayer;
+
+    private static RenderLayer getWaveRenderLayer() {
+        if (waveRenderLayer == null) {
+            waveRenderLayer = RenderLayer.of("tidal_waves",
+                    RenderSetup.builder(RenderPipelines.TRANSLUCENT)
+                            .texture("Sampler0", TidalSpriteHandler.WAVE_ATLAS_ID)
+                            .useLightmap()
+                            .translucent()
+                            .build());
+        }
+        return waveRenderLayer;
+    }
 
     @Override
     public void onInitializeClient() {
@@ -43,8 +55,6 @@ public class TidalClient implements ClientModInitializer {
         ParticleFactoryRegistry.getInstance().register(TidalParticles.SPLASH_PARTICLE, SplashParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(TidalParticles.BIG_SPLASH_PARTICLE, BigSplashParticle.Factory::new);
 
-        ParticleFactoryRegistry.getInstance().register(TidalParticles.WAVE_PARTICLE, WaveParticle.Factory::new);
-        ParticleFactoryRegistry.getInstance().register(TidalParticles.WHITE_WAVE_PARTICLE, WhiteWaveParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(TidalParticles.DEBUG_WATERBODY_PARTICLE, DebugWaterParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(TidalParticles.DEBUG_SHORELINE_PARTICLE, DebugShoreParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(TidalParticles.DEBUG_WAVEMOVEMENT_PARTICLE, DebugWaveMovementParticle.Factory::new);
@@ -83,9 +93,10 @@ public class TidalClient implements ClientModInitializer {
             tidalWorld.tidal$tidalWaveHandler().waterHandler.rebuild();
         });
 
-        WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> {
-            if(context.world() == null) return;
-            TidalWorld tidalWorld = (TidalWorld) context.world();
+        WorldRenderEvents.BEFORE_TRANSLUCENT.register(context -> {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if(mc.world == null) return;
+            TidalWorld tidalWorld = (TidalWorld) mc.world;
             Tessellator tessellator = Tessellator.getInstance();
             BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
 
@@ -94,22 +105,7 @@ public class TidalClient implements ClientModInitializer {
             BuiltBuffer builtBuffer = buffer.endNullable();
             if(builtBuffer == null) return;
 
-            LightmapTextureManager lightmapTextureManager = MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager();
-
-            lightmapTextureManager.enable();
-
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-            RenderSystem.setShader(GameRenderer::getRenderTypeTripwireProgram);
-            RenderSystem.setShaderTexture(0, TidalSpriteHandler.WAVE_ATLAS_ID);
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-
-            BufferRenderer.drawWithGlobalProgram(builtBuffer);
-
-            RenderSystem.depthMask(true);
-            RenderSystem.disableBlend();
-            lightmapTextureManager.disable();
+            getWaveRenderLayer().draw(builtBuffer);
         });
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(TIDAL_SPRITE_HANDLER);
