@@ -12,7 +12,7 @@ public class ScannedChunk {
     public Set<SitePos> sites;
 
     public ScannedChunk(ChunkPos chunkPos, Set<BlockPos> waters, Set<BlockPos> shorelines, Set<SitePos> sites) {
-        this.chunkPos = chunkPos.toLong();
+        this.chunkPos = chunkPos.pack();
         this.waters = waters;
         this.shorelines = shorelines;
         this.sites = sites;

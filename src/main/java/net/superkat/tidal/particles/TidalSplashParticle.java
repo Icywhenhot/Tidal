@@ -4,15 +4,15 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.SplashParticle;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.client.particle.WaterDropParticle;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 
-public class TidalSplashParticle extends SplashParticle {
+public class TidalSplashParticle extends WaterDropParticle {
     public TidalSplashParticle(ClientLevel clientWorld, double x, double y, double z, double velX, double velY, double velZ, SpriteSet spriteProvider) {
         super(clientWorld, x, y, z, spriteProvider.first());
         this.gravity = 0.04F;
@@ -25,7 +25,7 @@ public class TidalSplashParticle extends SplashParticle {
     }
 
     public void updateWaterColor() {
-        int color = BiomeColors.getWaterColor(this.level, this.getPos());
+        int color = BiomeColors.getAverageWaterColor(this.level, this.getPos());
         float r = (float) (color >> 16 & 0xFF) / 255.0F;
         float g = (float) (color >> 8 & 0xFF) / 255.0F;
         float b = (float) (color & 0xFF) / 255.0F;

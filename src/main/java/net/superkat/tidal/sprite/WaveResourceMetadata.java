@@ -12,7 +12,7 @@ public record WaveResourceMetadata(int frameTime, int frameHeight) {
     public static final Codec<WaveResourceMetadata> CODEC = RecordCodecBuilder.create((instance) ->
             instance.group(
                     Codec.INT.optionalFieldOf("frametime", 5).forGetter(WaveResourceMetadata::frameTime),
-                    Codecs.POSITIVE_INT.optionalFieldOf("frame_height", 16).forGetter(WaveResourceMetadata::frameHeight)
+                    ExtraCodecs.POSITIVE_INT.optionalFieldOf("frame_height", 16).forGetter(WaveResourceMetadata::frameHeight)
             ).apply(instance, WaveResourceMetadata::new));
     public static final MetadataSectionType<WaveResourceMetadata> SERIALIZER = new MetadataSectionType<>(KEY, CODEC);
 

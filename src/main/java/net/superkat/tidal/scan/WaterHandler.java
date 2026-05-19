@@ -132,7 +132,7 @@ public class WaterHandler {
 
     public WaterHandler(TidalWaveHandler tidalWaveHandler, ClientLevel level) {
         this.tidalWaveHandler = tidalWaveHandler;
-        this.level = world;
+        this.level = level;
         this.executor = Util.backgroundExecutor();
     }
 
@@ -143,7 +143,7 @@ public class WaterHandler {
 
         if (!this.unscannedChunkQueue.isEmpty() && tidalWaveHandler.nearbyChunksLoaded) {
             if (this.chunkScanFuture == null) { // I don't know if there's a better way to do this or not but okay
-                long start = Util.getMeasuringTimeMs();
+                long start = Util.getMillis();
                 this.chunkScanFuture = scheduleChunkScans();
                 this.chunkScanFuture.thenCompose(chunks -> {
                     for (ScannedChunk chunk : chunks) {
@@ -184,7 +184,7 @@ public class WaterHandler {
                 });
 
                 this.chunkScanFuture.whenComplete((chunks, throwable) -> {
-                    if(DebugHelper.debug()) Tidal.LOGGER.info("Scan time: {} ms", Util.getMeasuringTimeMs() - start);
+                    if(DebugHelper.debug()) Tidal.LOGGER.info("Scan time: {} ms", Util.getMillis() - start);
                     this.chunkScanFuture = null;
                 });
             }
@@ -204,7 +204,7 @@ public class WaterHandler {
             futures.add(scheduleChunkScan(chunk));
         }
 
-        return Util.combineSafe(futures);
+        return Util.sequence(futures);
     }
 
     private CompletableFuture<ScannedChunk> scheduleChunkScan(ChunkPos pos) {
@@ -227,12 +227,12 @@ public class WaterHandler {
 
         for (Map.Entry<Long, Set<BlockPos>> entry : this.waters.entrySet()) {
             long chunkPosL = entry.getKey();
-            if (!this.loadedChunks.contains(new ChunkPos(chunkPosL))) continue;
+            if (!this.loadedChunks.contains(new ChunkPos(ChunkPos.getX(chunkPosL), ChunkPos.getZ(chunkPosL)))) continue;
 
             futures.add(scheduleWaterScan(chunkPosL, entry.getValue()));
         }
 
-        return Util.combineSafe(futures).thenApply(chunks -> {
+        return Util.sequence(futures).thenApply(chunks -> {
             Map<Long, Map<BlockPos, SitePos>> waterCache = new Long2ObjectOpenHashMap<>();
             Map<Long, Map<Integer, Set<BlockPos>>> distCache = new Long2ObjectOpenHashMap<>();
 
@@ -293,7 +293,7 @@ public class WaterHandler {
      */
     @Nullable
     public Set<BlockPos> getWaterCacheAtDistance(ChunkPos chunkPos, int distance) {
-        long chunkPosL = chunkPos.toLong();
+        long chunkPosL = chunkPos.pack();
         if (this.waterDistCache.containsKey(chunkPosL)) return this.waterDistCache.get(chunkPosL).get(distance);
         return null;
     }
@@ -305,7 +305,7 @@ public class WaterHandler {
      * @return The BlockPos' closest SitePos, or {@link BlockPos#ORIGIN} if the site is null.
      */
     public SitePos getSiteForPos(BlockPos pos) {
-        long chunkPosL = new ChunkPos(pos).toLong();
+        long chunkPosL = ChunkPos.pack(pos);
         return this.waterCache
                 .computeIfAbsent(chunkPosL,
                         chunkPosL2 -> new Object2ObjectOpenHashMap<>()
@@ -365,7 +365,7 @@ public class WaterHandler {
         ParticleOptions shoreEffect = new DebugShoreParticle.DebugShoreParticleEffect(new Vector3f(1f, 1f, 1f), 1f);
         for (BlockPos shore : allShoreBLocks) {
             Vec3 pos = shore.getCenter();
-            this.level.addParticle(shoreEffect, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
+            this.level.addParticle(shoreEffect, pos.x(), pos.y() + 1, pos.z(), 0, 0, 0);
         }
 
         // display all water blocks pos', colored by closest site
@@ -373,7 +373,7 @@ public class WaterHandler {
         for (Map<BlockPos, SitePos> posSiteMap : this.waterCache.values()) {
             for (Map.Entry<BlockPos, SitePos> entry : posSiteMap.entrySet()) {
                 BlockPos blockPos = entry.getKey();
-                if (!blockPos.isWithinDistance(new Vec3(player.getX(), player.getY(), player.getZ()), 100)) continue;
+                if (!blockPos.closerToCenterThan(new Vec3(player.getX(), player.getY(), player.getZ()), 100)) continue;
                 SitePos site = entry.getValue();
 
                 int siteIndex = allSites.indexOf(site);
@@ -381,7 +381,7 @@ public class WaterHandler {
 
                 Vec3 pos = blockPos.getCenter();
                 ParticleOptions particleEffect = new DebugWaterParticle.DebugWaterParticleEffect(color, 1f);
-                this.level.addParticle(particleEffect, farParticles, false, pos.getX(), pos.getY() + 1, pos.getZ(), 0, 0, 0);
+                this.level.addParticle(particleEffect, farParticles, false, pos.x(), pos.y() + 1, pos.z(), 0, 0, 0);
             }
         }
     }
@@ -393,10 +393,10 @@ public class WaterHandler {
      * @param state The new BlockState of the updated BlockPos
      */
     public void onBlockUpdate(BlockPos pos, BlockState state) {
-        long chunkPosL = new ChunkPos(pos).toLong();
+        long chunkPosL = ChunkPos.pack(pos);
         int currentUpdates = this.chunkUpdates.getOrDefault(chunkPosL, 0) + 1;
         if (currentUpdates >= TidalConfig.chunkUpdatesRescanAmount) {
-            if (this.rescanChunkPos(new ChunkPos(chunkPosL))) {
+            if (this.rescanChunkPos(new ChunkPos(ChunkPos.getX(chunkPosL), ChunkPos.getZ(chunkPosL)))) {
                 currentUpdates = 0;
             }
         }
@@ -452,12 +452,12 @@ public class WaterHandler {
      * Searches through all loaded, unscanned chunks, and queues unscanned chunks which are within scanning distance to {@link WaterHandler#unscannedChunkQueue}
      */
     public void checkUnscannedChunks() {
-        ChunkPos cameraChunk = new ChunkPos(Minecraft.getInstance().gameRenderer.getMainCamera().getBlockPos());
+        ChunkPos cameraChunk = new ChunkPos(Minecraft.getInstance().gameRenderer.getMainCamera().blockPosition().getX() >> 4, Minecraft.getInstance().gameRenderer.getMainCamera().blockPosition().getZ() >> 4);
         double radius = TidalConfig.chunkRadius * TidalConfig.chunkRadius;
         Iterator<ChunkPos> iterator = this.unscannedChunks.iterator();
         while (iterator.hasNext()) {
             ChunkPos chunk = iterator.next();
-            double distance = cameraChunk.getSquaredDistance(chunk);
+            double distance = cameraChunk.distanceSquared(chunk);
             if (distance > radius) continue;
 
             if (this.unscannedChunkQueue.offer(chunk)) {
@@ -473,7 +473,7 @@ public class WaterHandler {
      * @return If the reschedule was successful. It will return false if a scanner is already associated with the ChunkPos
      */
     public boolean rescanChunkPos(ChunkPos chunkPos) {
-        long chunkPosL = chunkPos.toLong();
+        long chunkPosL = chunkPos.pack();
         this.clearChunk(chunkPosL);
         this.unscannedChunks.add(chunkPos);
         this.checkUnscannedChunks();
@@ -487,7 +487,7 @@ public class WaterHandler {
      */
     public void unloadChunk(ChunkAccess chunk) {
         ChunkPos chunkPos = chunk.getPos();
-        long chunkPosL = chunkPos.toLong();
+        long chunkPosL = chunkPos.pack();
         this.clearChunk(chunkPosL);
         this.chunkUpdates.remove(chunkPosL);
         this.loadedChunks.remove(chunkPos);

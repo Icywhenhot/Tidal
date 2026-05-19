@@ -23,8 +23,8 @@ import java.util.concurrent.Executor;
  */
 public class TidalSpriteHandler implements SimpleResourceReloadListener<SpriteLoader.Preparations> {
     public static final String MOD_ID = Tidal.MOD_ID;
-    public static final Identifier WAVE_ATLAS_ID = Identifier.of(MOD_ID, "textures/atlas/waves.png");
-    private static final Identifier TEXTURE_SOURCE_PATH = Identifier.of(MOD_ID, "wave");
+    public static final Identifier WAVE_ATLAS_ID = Identifier.fromNamespaceAndPath(MOD_ID, "textures/atlas/waves.png");
+    private static final Identifier TEXTURE_SOURCE_PATH = Identifier.fromNamespaceAndPath(MOD_ID, "wave");
 
     public static final Set<MetadataSectionType<?>> METADATA_READERS = Set.of(WaveResourceMetadata.SERIALIZER);
 
@@ -38,11 +38,11 @@ public class TidalSpriteHandler implements SimpleResourceReloadListener<SpriteLo
     public CompletableFuture<SpriteLoader.Preparations> load(ResourceManager manager, Executor executor) {
         if(this.atlas == null) {
             this.atlas = new TextureAtlas(WAVE_ATLAS_ID);
-            Minecraft.getInstance().getTextureManager().registerTexture(this.atlas.location(), this.atlas);
+            Minecraft.getInstance().getTextureManager().register(this.atlas.location(), this.atlas);
         }
 
-        return SpriteLoader.fromAtlas(this.atlas)
-                .load(manager, TEXTURE_SOURCE_PATH, 0, executor, METADATA_READERS);
+        return SpriteLoader.create(this.atlas)
+                .loadAndStitch(manager, TEXTURE_SOURCE_PATH, 0, executor, METADATA_READERS);
     }
 
     @Override

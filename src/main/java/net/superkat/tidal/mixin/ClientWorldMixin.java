@@ -15,6 +15,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ClientLevel.class)
 public class ClientWorldMixin implements TidalWorld {
@@ -26,8 +27,8 @@ public class ClientWorldMixin implements TidalWorld {
         this.tidalWaveHandler = new TidalWaveHandler((ClientLevel) (Object) this);
     }
 
-    @Inject(method = "handleBlockUpdate", at = @At("TAIL"))
-    public void tidal$blockUpdateEvent(BlockPos pos, BlockState state, int flags, CallbackInfo ci) {
+    @Inject(method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;II)Z", at = @At("TAIL"))
+    public void tidal$blockUpdateEvent(BlockPos pos, BlockState state, int flags, int maxUpdateDepth, CallbackInfoReturnable<Boolean> cir) {
         ClientBlockUpdateEvent.BLOCK_UPDATE.invoker().onUpdate(pos, state);
     }
 

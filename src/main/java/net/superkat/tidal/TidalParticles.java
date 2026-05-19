@@ -49,7 +49,7 @@ public class TidalParticles {
     }
 
     private static void register(String id, ParticleType<?> particleType) {
-        Registry.register(BuiltInRegistries.PARTICLE_TYPE, Identifier.of(MOD_ID, id), particleType);
+        Registry.register(BuiltInRegistries.PARTICLE_TYPE, Identifier.fromNamespaceAndPath(MOD_ID, id), particleType);
     }
 
 }

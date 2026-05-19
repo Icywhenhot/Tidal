@@ -24,7 +24,7 @@ public class SprayParticleEffect implements ParticleOptions {
     }
 
     protected static <T extends SprayParticleEffect> StreamCodec<RegistryFriendlyByteBuf, T> createPacketCodec(Function3<Float, Float, Float, T> particle) {
-        return StreamCodec.tuple(
+        return StreamCodec.composite(
                 ByteBufCodecs.FLOAT, T::getYaw,
                 ByteBufCodecs.FLOAT, T::getIntensity,
                 ByteBufCodecs.FLOAT, T::getScale,
@@ -42,7 +42,7 @@ public class SprayParticleEffect implements ParticleOptions {
     public SprayParticleEffect(float yaw, float intensity, float scale) {
         this.yaw = yaw;
         this.intensity = intensity;
-        this.quadSize = scale;
+        this.scale = scale;
     }
     public float getYaw() {
         return yaw;

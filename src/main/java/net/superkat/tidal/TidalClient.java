@@ -12,7 +12,7 @@ import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
 import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import com.mojang.blaze3d.vertex.Tesselator;
 import net.minecraft.server.packs.PackType;
 import net.superkat.tidal.duck.TidalWorld;
@@ -37,7 +37,7 @@ public class TidalClient implements ClientModInitializer {
 
     private static RenderType getWaveRenderLayer() {
         if (waveRenderLayer == null) {
-            waveRenderLayer = RenderType.entityTranslucent(TidalSpriteHandler.WAVE_ATLAS_ID, false);
+            waveRenderLayer = RenderTypes.entityTranslucent(TidalSpriteHandler.WAVE_ATLAS_ID, false);
         }
         return waveRenderLayer;
     }
@@ -54,7 +54,7 @@ public class TidalClient implements ClientModInitializer {
         ParticleProviderRegistry.getInstance().register(TidalParticles.DEBUG_WAVEMOVEMENT_PARTICLE, DebugWaveMovementParticle.Factory::new);
 
         //Called after joining a world, or changing dimensions
-        ClientLevelEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> {
+        ClientLevelEvents.AFTER_CLIENT_LEVEL_CHANGE.register((client, world) -> {
             TidalWorld tidalWorld = (TidalWorld) world;
             tidalWorld.tidal$tidalWaveHandler().reloadNearbyChunks();
         });
@@ -87,7 +87,7 @@ public class TidalClient implements ClientModInitializer {
             tidalWorld.tidal$tidalWaveHandler().waterHandler.rebuild();
         });
 
-        LevelRenderEvents.BEFORE_TRANSLUCENT.register(context -> {
+        LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register(context -> {
             Minecraft mc = Minecraft.getInstance();
             if(mc.level == null) return;
             TidalWorld tidalWorld = (TidalWorld) mc.level;

@@ -5,6 +5,7 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.particles.SimpleParticleType;
@@ -30,8 +31,13 @@ public class BigSplashParticle extends SingleQuadParticle {
     }
 
     @Override
+    public ParticleRenderType getGroup() {
+        return ParticleRenderType.SINGLE_QUADS;
+    }
+
+    @Override
     protected SingleQuadParticle.Layer getLayer() {
-        return SingleQuadParticle.Layer.PARTICLE_SHEET_TRANSLUCENT;
+        return SingleQuadParticle.Layer.TRANSLUCENT;
     }
 
     @Environment(EnvType.CLIENT)

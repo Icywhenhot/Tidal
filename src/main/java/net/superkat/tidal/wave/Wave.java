@@ -4,11 +4,11 @@ import com.google.common.collect.Sets;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.client.renderer.BiomeColors;
-import net.minecraft.client.renderer.Lightmap;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.LightLayer;
@@ -54,13 +54,13 @@ public class Wave {
 
     public int age;
     public int maxAge;
-    public boolean removed = false;
+    public boolean dead = false;
     public int maxWashingAge = 60;
     public int maxWaterAge = 100;
     public boolean drowningAway = false;
     public int ageUponWhichThisWaveHasOfficiallyJoinedEthoInBecomingWashedUp;
 
-    public BlockState beneathBlock = Blocks.WATER.getDefaultState();
+    public BlockState beneathBlock = Blocks.WATER.defaultBlockState();
     public boolean aboveWater = true;
     public boolean washingUp = false;
     public boolean hitBlock = false;
@@ -76,30 +76,30 @@ public class Wave {
     public float alpha = 1f;
 
     public Wave(ClientLevel level, BlockPos spawnPos, float yaw, float yOffset, boolean bigWave) {
-        this.level = world;
+        this.level = level;
         this.spawnPos = spawnPos;
         this.yaw = yaw;
         this.bigWave = bigWave;
 
         if (this.bigWave) {
-            this.quadSize = 3f;
+            this.scale = 3f;
             this.length = 1.5f;
             this.width = 1f;
-            this.lifetime = 300;
+            this.maxAge = 300;
         } else {
-            this.quadSize = 2f;
+            this.scale = 2f;
             this.length = 1f;
             this.width = 2f;
-            this.lifetime = 250;
+            this.maxAge = 250;
         }
 
         this.x = spawnPos.getX() + 0.5f;
-        this.y = spawnPos.getY() + Math.abs(yOffset) + 0.15f;
+        this.y = spawnPos.getY() + Math.abs(yOffset) - 0.05f;
         this.z = spawnPos.getZ() + 0.5f;
 
         float f = 0.2f / 2.0F;
         float g = 0.2f;
-        this.box = (new AABB(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f)).expand(this.quadSize / 4f, 0, this.quadSize / 4f);
+        this.box = (new AABB(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f)).inflate(this.scale / 4f, 0, this.scale / 4f);
         float speed = 0.115f;
 
 
@@ -127,15 +127,15 @@ public class Wave {
         }
         int usedWidth = (int) (this.width - (this.bigWave ? 0 : 1)) + extra;
         for (BlockPos pos : BlockPos.betweenClosed(currentPos.offset(-usedWidth, -1, -usedWidth), currentPos.offset(usedWidth, -1, usedWidth))) {
-            if (TidalWaveHandler.posIsWater(world, pos) || world.isEmptyBlock(pos)) continue;
+            if (TidalWaveHandler.posIsWater(this.level, pos) || this.level.isEmptyBlock(pos)) continue;
             set.add(new BlockPos(pos));
         }
         return set;
     }
 
     public void tick() {
-        if (this.age++ >= this.lifetime) {
-            this.remove();
+        if (this.age++ >= this.maxAge) {
+            this.markDead();
             return;
         }
 
@@ -157,21 +157,21 @@ public class Wave {
             float addedLength = Math.abs(velX) * (this.bigWave ? 1 : 0.75f);
             this.length += addedLength;
             if (this.getWashingAge() >= maxWashingAge) {
-                this.remove();
+                this.markDead();
             }
         } else {
             this.updateWaterColor();
             if (drowningAway) { // wave is despawning in water because it didn't hit shore within reasonable time
                 this.length -= 0.1f;
                 this.velY -= 0.005f;
-                if (this.length <= 0f) this.remove();
+                if (this.length <= 0f) this.markDead();
             }
 
             if (this.alpha < 1f) this.alpha += 0.05f; //fade in
         }
 
         if (this.hitBlock && this.age - this.hitBlockAge >= 2) {
-            this.remove();
+            this.markDead();
         }
 
         this.move(this.velX, this.velY, this.velZ);
@@ -180,7 +180,6 @@ public class Wave {
 
     public void move(float velX, float velY, float velZ) {
         float initVelX = velX;
-        float initVelY = velY;
         float initVelZ = velZ;
         if ((velX != 0.0 || velY != 0.0 || velZ != 0.0) && velX * velX + velY * velY + velZ * velZ < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
             Vec3 vec3d = Entity.collideBoundingBox(null, new Vec3(velX, velY, velZ), this.getHitBox(), this.level, List.of());
@@ -194,7 +193,7 @@ public class Wave {
         }
 
         if (velX != 0.0 || velY != 0.0 || velZ != 0.0) {
-            this.box = this.box.offset(velX, velY, velZ);
+            this.box = this.box.move(velX, velY, velZ);
             this.prevX = this.x;
             this.prevY = this.y;
             this.prevZ = this.z;
@@ -215,21 +214,21 @@ public class Wave {
                 sprayIntensity = getWashingAge() / 128f;
                 if (washBounce()) sprayIntensity *= 2f;
             } else {
-                sprayIntensity = ((float) this.age / this.lifetime) * 2.5f / (this.age / 16f);
+                sprayIntensity = ((float) this.age / this.maxAge) * 2.5f / (this.age / 16f);
             }
 
             double splashX = this.x + this.velX * 10;
             double splashZ = this.z + this.velZ * 10;
 
             for (int i = 0; i < sprayAmount; i++) {
-                this.level.addParticle(TidalParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.level.random.nextGaussian() * 0.1f, Math.abs(this.level.random.nextGaussian()) * 0.1f + 0.1f, this.level.random.nextGaussian() * 0.1f);
+                this.level.addParticle(TidalParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.level.getRandom().nextGaussian() * 0.1f, Math.abs(this.level.getRandom().nextGaussian()) * 0.1f + 0.1f, this.level.getRandom().nextGaussian() * 0.1f);
                 if (this.bigWave) {
-                    this.level.addParticle(TidalParticles.BIG_SPLASH_PARTICLE, splashX + this.level.random.nextGaussian() / 2f, this.y, splashZ + this.level.random.nextGaussian() / 2f, 0, 0.01, 0);
+                    this.level.addParticle(TidalParticles.BIG_SPLASH_PARTICLE, splashX + this.level.getRandom().nextGaussian() / 2f, this.y, splashZ + this.level.getRandom().nextGaussian() / 2f, 0, 0.01, 0);
                 }
             }
 
 
-            this.level.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.quadSize), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
+            this.level.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;
@@ -243,7 +242,7 @@ public class Wave {
 
     public boolean updateWashingUp() {
         if (!washingUp && !aboveWater && !drowningAway) {
-            if (beneathBlock.isEmptyBlock()) {
+            if (beneathBlock.isAir()) {
                 this.waterfallMode = true;
                 this.velY = Mth.clamp(this.velY - 0.01f, -1.5f, 0);
                 this.pitch += 1 + Math.abs(velY) * 5;
@@ -265,12 +264,12 @@ public class Wave {
             for (int i = 0; i < this.width; i++) {
                 for (int j = 0; j < splashAmount; j++) {
                     this.level.addParticle(TidalParticles.SPLASH_PARTICLE,
-                            splashX + this.level.random.nextGaussian(),
+                            splashX + this.level.getRandom().nextGaussian(),
                             this.y,
-                            splashZ + this.level.random.nextGaussian(),
-                            this.level.random.nextGaussian() * splashIntensity,
-                            Math.abs(this.level.random.nextGaussian()) * splashIntensity + splashIntensity,
-                            this.level.random.nextGaussian() * splashIntensity);
+                            splashZ + this.level.getRandom().nextGaussian(),
+                            this.level.getRandom().nextGaussian() * splashIntensity,
+                            Math.abs(this.level.getRandom().nextGaussian()) * splashIntensity + splashIntensity,
+                            this.level.getRandom().nextGaussian() * splashIntensity);
                 }
             }
 
@@ -294,19 +293,19 @@ public class Wave {
     }
 
     public void updateBeneathBlock() {
-        this.beneathBlock = world.getBlockState(this.getBlockPos().offset(0, -1, 0));
+        this.beneathBlock = this.level.getBlockState(this.getBlockPos().offset(0, -1, 0));
         this.aboveWater = TidalWaveHandler.stateIsWater(beneathBlock);
     }
 
     public AABB getBoundingBox() {
-        return this.box.expand(0.5);
+        return this.box.inflate(0.5);
     }
 
     public AABB getHitBox() {
         if (this.isWashingUp()) {
             float yawRadians = (float) Math.toRadians(this.yaw); // this took way to long to figure out ( ͡ಠ ʖ̯ ͡ಠ)
             float usedLength = this.bigWave ? this.length * 1.5f : this.length / 16f;
-            return this.getBoundingBox().stretch(usedLength * Math.cos(yawRadians), 0, usedLength * Math.sin(yawRadians));
+            return this.getBoundingBox().expandTowards(usedLength * Math.cos(yawRadians), 0, usedLength * Math.sin(yawRadians));
         }
         return this.getBoundingBox();
     }
@@ -316,7 +315,7 @@ public class Wave {
     }
 
     public void updateWaterColor() {
-        int color = BiomeColors.getWaterColor(this.level, this.getBlockPos());
+        int color = BiomeColors.getAverageWaterColor(this.level, this.getBlockPos());
         float r = (float) (color >> 16 & 0xFF) / 255.0F;
         float g = (float) (color >> 8 & 0xFF) / 255.0F;
         float b = (float) (color & 0xFF) / 255.0F;
@@ -329,9 +328,9 @@ public class Wave {
      * @param blue  Float 0f through 255f - nah I'm just kidding its 0f through 1f
      */
     public void setColor(@Range(from = 0, to = 1) float red, @Range(from = 0, to = 1) float green, @Range(from = 0, to = 1) float blue) {
-        this.rCol = red;
-        this.gCol = green;
-        this.bCol = blue;
+        this.red = red;
+        this.green = green;
+        this.blue = blue;
     }
 
     public float getX(float delta) {
@@ -351,25 +350,26 @@ public class Wave {
     }
 
     public int getMaxAge() {
-        return this.isWashingUp() ? this.maxWashingAge : this.lifetime;
+        return this.isWashingUp() ? this.maxWashingAge : this.maxAge;
     }
 
     public int getLight() {
         //emissive during full moon :)
-        if ((int)(this.level.getDayTime() / 24000L % 8L) == 0 && this.level.getDayTime() >= 12000)
+        long dayTime = this.level.getGameTime();
+        if ((int)(dayTime / 24000L % 8L) == 0 && dayTime % 24000L >= 12000)
             return LightCoordsUtil.pack(15, 15);
         BlockPos pos = this.getBlockPos().offset(0, 1, 0);
-        int blockLight = this.level.getLightCoords(LightLayer.BLOCK, pos);
-        int skylight = this.level.getLightCoords(LightLayer.SKY, pos);
+        int blockLight = this.level.getBrightness(LightLayer.BLOCK, pos);
+        int skylight = this.level.getBrightness(LightLayer.SKY, pos);
         return LightCoordsUtil.pack(blockLight, skylight);
     }
 
     public void markDead() {
-        this.removed = true;
+        this.dead = true;
     }
 
     public boolean isDead() {
-        return this.removed;
+        return this.dead;
     }
 
 }

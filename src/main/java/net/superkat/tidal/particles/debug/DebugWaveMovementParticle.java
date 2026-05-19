@@ -11,6 +11,7 @@ import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -33,7 +34,7 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
     private Vector3f endColor;
 
     public DebugWaveMovementParticle(ClientLevel level, double x, double y, double z, double xd, double yd, double zd, DebugWaveMovementParticleEffect parameters, SpriteSet spriteProvider) {
-        super(world, x, y, z, xd, yd, zd, parameters, spriteProvider);
+        super(level, x, y, z, xd, yd, zd, parameters, spriteProvider);
         this.yaw = parameters.getYaw();
         this.speed = parameters.getSpeed();
         this.lifetime = parameters.getLifetime();
@@ -51,9 +52,9 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
             this.gCol = green;
             this.bCol = blue;
         } else {
-            this.rCol = this.darken(parameters.color.x(), 1);
-            this.gCol = this.darken(parameters.color.y(), 1);
-            this.bCol = this.darken(parameters.color.z(), 1);
+            this.rCol = this.randomizeColor(parameters.color.x(), 1);
+            this.gCol = this.randomizeColor(parameters.color.y(), 1);
+            this.bCol = this.randomizeColor(parameters.color.z(), 1);
 
         }
 
@@ -70,9 +71,9 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
     }
 
     @Override
-    public void render(SingleQuadParticle submittable, Camera camera, float tickDelta) {
+    public void extract(QuadParticleRenderState state, Camera camera, float tickDelta) {
         if(lifetimeColorMode) updateColor(tickDelta);
-        super.render(submittable, camera, tickDelta);
+        super.extract(state, camera, tickDelta);
     }
 
     private void updateColor(float tickDelta) {
@@ -112,20 +113,20 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
     public static class DebugWaveMovementParticleEffect extends ScalableParticleOptionsBase {
         public static final MapCodec<DebugWaveMovementParticleEffect> CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
-                        Codecs.VECTOR_3F.fieldOf("color").forGetter(effect -> effect.color),
-                                SCALE_CODEC.fieldOf("scale").forGetter(ScalableParticleOptionsBase::getScale),
+                        ExtraCodecs.VECTOR3F.fieldOf("color").forGetter(effect -> effect.color),
+                                SCALE.fieldOf("scale").forGetter(ScalableParticleOptionsBase::getScale),
                                 Codec.FLOAT.fieldOf("yaw").forGetter(DebugWaveMovementParticleEffect::getYaw),
                                 Codec.FLOAT.fieldOf("speed").forGetter(DebugWaveMovementParticleEffect::getSpeed),
                                 Codec.INT.fieldOf("lifetime").forGetter(DebugWaveMovementParticleEffect::getLifetime)
                         )
                         .apply(instance, DebugWaveMovementParticleEffect::new)
         );
-        public static final StreamCodec<RegistryFriendlyByteBuf, DebugWaveMovementParticleEffect> PACKET_CODEC = StreamCodec.tuple(
-                ByteBufCodecs.VECTOR_3F, effect -> effect.color,
+        public static final StreamCodec<RegistryFriendlyByteBuf, DebugWaveMovementParticleEffect> PACKET_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VECTOR3F, effect -> effect.color,
                 ByteBufCodecs.FLOAT, ScalableParticleOptionsBase::getScale,
                 ByteBufCodecs.FLOAT, DebugWaveMovementParticleEffect::getYaw,
                 ByteBufCodecs.FLOAT, DebugWaveMovementParticleEffect::getSpeed,
-                ByteBufCodecs.INTEGER, DebugWaveMovementParticleEffect::getLifetime,
+                ByteBufCodecs.INT, DebugWaveMovementParticleEffect::getLifetime,
                 DebugWaveMovementParticleEffect::new
         );
         private final Vector3fc color;

@@ -36,7 +36,7 @@ public class DebugHelper {
         LocalPlayer player = client.player;
         if(player.getUseItem().is(Items.SPYGLASS) && player.getUseItemRemainingTicks() >= 10) {
             if(player.getUseItemRemainingTicks() == 10) {
-                player.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 1f);
+                player.playSound(SoundEvents.AMETHYST_BLOCK_RESONATE, 1f, 1f);
             }
             return true;
         }
@@ -48,7 +48,7 @@ public class DebugHelper {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
         Inventory playerInventory = player.getInventory();
-        return Inventory.isValidHotbarIndex(playerInventory.findSlotMatchingItem(Items.SPYGLASS.getDefaultInstance()));
+        return Inventory.isHotbarSlot(playerInventory.findSlotMatchingItem(Items.SPYGLASS.getDefaultInstance()));
     }
 
     public static boolean holdingSpyglass() {
@@ -68,7 +68,7 @@ public class DebugHelper {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
         Inventory playerInventory = player.getInventory();
-        return Inventory.isValidHotbarIndex(playerInventory.findSlotMatchingItem(Items.CLOCK.getDefaultInstance()));
+        return Inventory.isHotbarSlot(playerInventory.findSlotMatchingItem(Items.CLOCK.getDefaultInstance()));
     }
 
     public static boolean offhandClock() {
@@ -81,7 +81,7 @@ public class DebugHelper {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
         if(player.getUseItem().is(Items.SHIELD) && (player.getUseItemRemainingTicks() == 1 || player.isShiftKeyDown())) {
-            player.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 1f);
+            player.playSound(SoundEvents.AMETHYST_BLOCK_RESONATE, 1f, 1f);
             return true;
         }
         return false;

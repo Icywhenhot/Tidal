@@ -4,12 +4,13 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.client.particle.SingleQuadParticle;
-import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.BlockPos;
@@ -31,7 +32,7 @@ public class SprayParticle extends SingleQuadParticle {
     private boolean stopped;
 
     public SprayParticle(ClientLevel level, double x, double y, double z, double velX, double velY, double velZ, SprayParticleEffect params, SpriteSet spriteProvider) {
-        super(world, x, y, z, velX, velY, velZ, spriteProvider.first());
+        super(level, x, y, z, velX, velY, velZ, spriteProvider.first());
         this.spriteProvider = spriteProvider;
 
         this.yaw = params.getYaw();
@@ -49,7 +50,7 @@ public class SprayParticle extends SingleQuadParticle {
 
         if(spawnWhite()) {
             this.level.addParticle(new WhiteSprayParticleEffect(yaw, intensity, this.quadSize), x, y, z, velX, velY, velZ);
-            this.updateWaterColor(); //only need to update on spawn because it lasts for so little time
+            this.updateWaterColor();
         }
 
         this.roll = 15 * intensity * 5f;
@@ -73,7 +74,7 @@ public class SprayParticle extends SingleQuadParticle {
                         this.x + this.random.nextGaussian(), this.y + 1,
                         this.z + this.random.nextGaussian(),
                         this.random.nextGaussian() * 0.05f,
-                        Math.abs(this.level.random.nextGaussian()) * 0.1f + Mth.clamp(intensity, 0.1, 0.3),
+                        Math.abs(this.level.getRandom().nextGaussian()) * 0.1f + Mth.clamp(intensity, 0.1, 0.3),
                         this.random.nextGaussian() * 0.05f);
 
                 this.level.addParticle(ParticleTypes.BUBBLE,
@@ -97,15 +98,15 @@ public class SprayParticle extends SingleQuadParticle {
     }
 
     @Override
-    public void render(SingleQuadParticle submittable, Camera camera, float tickDelta) {
+    public void extract(QuadParticleRenderState state, Camera camera, float tickDelta) {
         Quaternionf quaternionf = new Quaternionf();
         quaternionf.rotateX((float) Math.toRadians(-90f));
         quaternionf.rotateZ((float) Math.toRadians(-90f - this.yaw));
         float angle = Mth.lerp(tickDelta, this.oRoll, this.roll);
         quaternionf.rotateX((float) Math.toRadians(angle));
-        super.render(submittable, camera, quaternionf, tickDelta);
+        extractRotatedQuad(state, camera, quaternionf, tickDelta);
         quaternionf.rotateY((float) Math.toRadians(180f));
-        super.render(submittable, camera, quaternionf, tickDelta);
+        extractRotatedQuad(state, camera, quaternionf, tickDelta);
     }
 
     @Override
@@ -114,14 +115,14 @@ public class SprayParticle extends SingleQuadParticle {
             double e = dy;
             if (this.hasPhysics && (dx != 0.0 || dy != 0.0 || dz != 0.0) && dx * dx + dy * dy + dz * dz < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
                 //expanding bounding box to specifically account for mud and I guess soul sand too?
-                Vec3 vec3d = Entity.collideBoundingBox(null, new Vec3(dx, dy, dz), this.getBoundingBox().expand(0, 0.15, 0), this.level, List.of());
+                Vec3 vec3d = Entity.collideBoundingBox(null, new Vec3(dx, dy, dz), this.getBoundingBox().inflate(0, 0.15, 0), this.level, List.of());
                 dx = vec3d.x;
                 dy = vec3d.y;
                 dz = vec3d.z;
             }
 
             if (dx != 0.0 || dy != 0.0 || dz != 0.0) {
-                this.setBoundingBox(this.getBoundingBox().offset(dx, dy, dz));
+                this.setBoundingBox(this.getBoundingBox().move(dx, dy, dz));
                 this.setLocationFromBoundingbox();
             }
 
@@ -134,7 +135,7 @@ public class SprayParticle extends SingleQuadParticle {
     }
 
     public void updateWaterColor() {
-        int color = BiomeColors.getWaterColor(this.level, this.getPos());
+        int color = BiomeColors.getAverageWaterColor(this.level, this.getPos());
         float r = (float) (color >> 16 & 0xFF) / 255.0F;
         float g = (float) (color >> 8 & 0xFF) / 255.0F;
         float b = (float) (color & 0xFF) / 255.0F;
@@ -146,8 +147,13 @@ public class SprayParticle extends SingleQuadParticle {
     }
 
     @Override
+    public ParticleRenderType getGroup() {
+        return ParticleRenderType.SINGLE_QUADS;
+    }
+
+    @Override
     protected SingleQuadParticle.Layer getLayer() {
-        return SingleQuadParticle.Layer.PARTICLE_SHEET_TRANSLUCENT;
+        return SingleQuadParticle.Layer.TRANSLUCENT;
     }
 
     @Environment(EnvType.CLIENT)
@@ -160,7 +166,7 @@ public class SprayParticle extends SingleQuadParticle {
 
         @Override
         public Particle createParticle(SprayParticleEffect params, ClientLevel level, double x, double y, double z, double velX, double velY, double velZ, RandomSource random) {
-            return new SprayParticle(world, x, y, z, velX, velY, velZ, params, spriteProvider);
+            return new SprayParticle(level, x, y, z, velX, velY, velZ, params, spriteProvider);
         }
     }
 }

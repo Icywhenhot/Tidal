@@ -7,7 +7,7 @@ import net.minecraft.core.particles.ScalableParticleOptionsBase;
 
 public abstract class DebugAbstractColoredParticle<T extends ScalableParticleOptionsBase> extends DustParticleBase<T> {
     protected DebugAbstractColoredParticle(ClientLevel level, double x, double y, double z, double xd, double yd, double zd, T parameters, SpriteSet spriteProvider) {
-        super(world, x, y, z, xd, yd, zd, parameters, spriteProvider);
+        super(level, x, y, z, xd, yd, zd, parameters, spriteProvider);
         this.xd = 0f;
         this.yd = 0f;
         this.zd = 0f;
@@ -16,12 +16,12 @@ public abstract class DebugAbstractColoredParticle<T extends ScalableParticleOpt
     }
 
     @Override
-    protected float darken(float colorComponent, float multiplier) {
+    protected float randomizeColor(float colorComponent, float multiplier) {
         return colorComponent * multiplier;
     }
 
     @Override
-    public float getSize(float tickDelta) {
+    public float getQuadSize(float tickDelta) {
         return this.quadSize;
     }
 }

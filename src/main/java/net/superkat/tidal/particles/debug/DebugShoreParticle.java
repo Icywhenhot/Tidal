@@ -22,10 +22,10 @@ import org.joml.Vector3fc;
 public class DebugShoreParticle extends DebugAbstractColoredParticle<DebugShoreParticle.DebugShoreParticleEffect> {
 
     public DebugShoreParticle(ClientLevel level, double x, double y, double z, double xd, double yd, double zd, DebugShoreParticleEffect parameters, SpriteSet spriteProvider) {
-        super(world, x, y, z, xd, yd, zd, parameters, spriteProvider);
-        this.rCol = this.darken(parameters.color.x(), 0.8f);
-        this.gCol = this.darken(parameters.color.y(), 0.8f);
-        this.bCol = this.darken(parameters.color.z(), 0.8f);
+        super(level, x, y, z, xd, yd, zd, parameters, spriteProvider);
+        this.rCol = this.randomizeColor(parameters.color.x(), 0.8f);
+        this.gCol = this.randomizeColor(parameters.color.y(), 0.8f);
+        this.bCol = this.randomizeColor(parameters.color.z(), 0.8f);
     }
 
     @Environment(EnvType.CLIENT)
@@ -45,12 +45,12 @@ public class DebugShoreParticle extends DebugAbstractColoredParticle<DebugShoreP
     public static class DebugShoreParticleEffect extends ScalableParticleOptionsBase {
         public static final MapCodec<DebugShoreParticleEffect> CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
-                                Codecs.VECTOR_3F.fieldOf("color").forGetter(effect -> effect.color), SCALE_CODEC.fieldOf("scale").forGetter(ScalableParticleOptionsBase::getScale)
+                                ExtraCodecs.VECTOR3F.fieldOf("color").forGetter(effect -> effect.color), SCALE.fieldOf("scale").forGetter(ScalableParticleOptionsBase::getScale)
                         )
                         .apply(instance, DebugShoreParticleEffect::new)
         );
-        public static final StreamCodec<RegistryFriendlyByteBuf, DebugShoreParticleEffect> PACKET_CODEC = StreamCodec.tuple(
-                ByteBufCodecs.VECTOR_3F, effect -> effect.color, ByteBufCodecs.FLOAT, ScalableParticleOptionsBase::getScale, DebugShoreParticleEffect::new
+        public static final StreamCodec<RegistryFriendlyByteBuf, DebugShoreParticleEffect> PACKET_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VECTOR3F, effect -> effect.color, ByteBufCodecs.FLOAT, ScalableParticleOptionsBase::getScale, DebugShoreParticleEffect::new
         );
         private final Vector3fc color;
 

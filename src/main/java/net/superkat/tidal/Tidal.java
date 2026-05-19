@@ -16,7 +16,7 @@ public class Tidal implements ModInitializer {
 	public void onInitialize() {
 		MidnightConfig.init(MOD_ID, TidalConfig.class);
 
-		ClientTickEvents.END_WORLD_TICK.register(clientWorld -> {
+		ClientTickEvents.END_LEVEL_TICK.register(clientWorld -> {
 			TidalWorld tidalWorld = (TidalWorld) clientWorld;
 			tidalWorld.tidal$tidalWaveHandler().tick();
 		});
