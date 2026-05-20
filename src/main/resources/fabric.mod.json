@@ -1,35 +1,35 @@
 {
 	"schemaVersion": 1,
-	"id": "tidal",
+	"id": "wavify",
 	"version": "${version}",
-	"name": "Tidal",
-	"description": "Adds ambient tidal waves to beaches and oceans!",
+	"name": "Wavify",
+	"description": "Adds ambient waves to beaches and oceans!",
 	"authors": [
 		"Superkat32"
 	],
 	"contact": {
-		"homepage": "https://modrinth.com/mod/tidal-waves",
-		"issues": "https://github.com/Superkat32/Tidal/issues",
-		"sources": "https://github.com/Superkat32/Tidal"
+		"homepage": "https://modrinth.com/mod/wavify-waves",
+		"issues": "https://github.com/Superkat32/Wavify/issues",
+		"sources": "https://github.com/Superkat32/Wavify"
 	},
 	"license": "MIT",
-	"icon": "assets/tidal/icon.png",
+	"icon": "assets/wavify/icon.png",
 	"environment": "client",
 	"entrypoints": {
 		"main": [
-			"net.superkat.tidal.Tidal"
+			"net.superkat.wavify.Wavify"
 		],
 		"client": [
-			"net.superkat.tidal.TidalClient"
+			"net.superkat.wavify.WavifyClient"
 		],
 		"modmenu": [
-			"net.superkat.tidal.config.ModMenuInt"
+			"net.superkat.wavify.config.ModMenuInt"
 		]
 	},
 	"mixins": [
-		"tidal.mixins.json"
+		"wavify.mixins.json"
 	],
-	"accessWidener": "tidal.accesswidener",
+	"accessWidener": "wavify.accesswidener",
 	"depends": {
 		"fabricloader": ">=0.19.2",
 		"minecraft": "1.21.11",
