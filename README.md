@@ -1,11 +1,11 @@
-# Tidal
+# Wavify
 ## Beach waves!
 
-Tidal adds ambient water waves! They are most noticeable at beaches & shores where they get really big, but can also spawn around islands to help make the water feel more alive.  
+Wavify adds ambient water waves! They are most noticeable at beaches & shores where they get really big, but can also spawn around islands to help make the water feel more alive.  
 
 Waves can also crash against blocks if they're in the way, making rocky cliffs next to water even more dramatic! During full moons, the waves glow at night too.
 
-**Note: Tidal is currently in alpha!** There's plenty of known bugs and plans for optimizations, some include:
+**Note: Wavify is currently in alpha!** There's plenty of known bugs and plans for optimizations, some include:
 - Waves "wash up" in midair instead of falling.
 - Algorithm to find closest Voronoi site point can be sped up (Quicksort?)
 - Waves don't seem to be connecting at spawn properly(2 hitboxes right next to each other, causing unintended overlap)

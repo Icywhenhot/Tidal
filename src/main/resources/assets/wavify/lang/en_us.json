@@ -1,0 +1,16 @@
+{
+  "wavify.midnightconfig.title": "Wavify Config",
+  "wavify.midnightconfig.reloadReminder": "You may need to reload your chunks for changes to take affect!",
+  "wavify.midnightconfig.chunkRadius": "Render Radius",
+  "wavify.midnightconfig.chunkRadius.tooltip": "The chunk radius of chunks that should spawn waves. Reduce this number if your struggling for performance!",
+  "wavify.midnightconfig.chunkUpdatesRescanAmount": "Chunk Updates Rescan Amount",
+  "wavify.midnightconfig.chunkUpdatesRescanAmount.tooltip": "The amount of block updates that should happen in a chunk before it is rescanned for wave spawning.",
+  "wavify.midnightconfig.debug": "Debug Mode",
+  "wavify.midnightconfig.debug.tooltip": "Helpful for figuring out where waves are spawning, and how.",
+  "wavify.midnightconfig.debugDocs": "§lDebug Docs",
+  "wavify.midnightconfig.debugDocsSite": "- Green particles are SitePos', they should only spawn along shore",
+  "wavify.midnightconfig.debugDocsSpyglassHotbar": "- Spyglass in hotbar to see all scanned water blocks, color coded per closest SitePos",
+  "wavify.midnightconfig.debugDocsSpyglass": "- Hold spyglass to see debug waves on wave spawn",
+  "wavify.midnightconfig.debugDocsClock": "- Hold compass to see wave directions for current chunk, offhand to for all nearby chunks",
+  "wavify.midnightconfig.debugDocsCompass": "- Offhand clock to see spawning positions of waves"
+}
