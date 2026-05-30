@@ -191,7 +191,6 @@ public class WavifyWaveHandler {
             Wave wave = new Wave(this.level, spawnPos, yaw, yOffset, bigWave);
             int width = (int) Mth.clamp(connected.size() * 1.5, 1, 3);
             wave.setWidth(width);
-            wave.offsetVertical(-0.5f);
             this.waves.add(wave);
         }
     }

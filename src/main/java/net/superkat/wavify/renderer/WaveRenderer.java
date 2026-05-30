@@ -18,6 +18,8 @@ import net.superkat.wavify.compat.IrisCompat;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 import net.superkat.wavify.sprite.WavifySprites;
+import net.superkat.wavify.wave.RiverWave;
+import net.superkat.wavify.wave.StandingRiverWave;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import net.superkat.wavify.wave.Wave;
 import org.joml.Matrix4f;
@@ -30,6 +32,12 @@ import java.util.Set;
  */
 public class WaveRenderer {
     private static final float WAVE_FOAM_Y_OFFSET = 0.08f;
+    // Render-only Y sink for ocean waves so the visible body sits flusher with
+    // the water surface. Does NOT touch collision Y — keeping the wave's actual
+    // position high lets it transition into the washing-up phase and bounce
+    // instead of crashing sideways into the shore block. River waves are
+    // unaffected.
+    private static final float OCEAN_RENDER_Y_SINK = -0.5f;
 
     // When an Iris/Oculus shaderpack is active, sink the colored wave body so
     // vanilla water still covers the wave footprint. The shaderpack then
@@ -113,7 +121,12 @@ public class WaveRenderer {
         int age = wave.getAge();
         int maxAge = wave.getMaxAge();
 
-        renderWaveColumns(posMatrix, buffer, wave, colorableSprite, whiteSprite, age, maxAge, red, green, blue, alpha, foamAlpha, light);
+        boolean isOcean = !(wave instanceof RiverWave) && !(wave instanceof StandingRiverWave);
+        float oceanSink = isOcean ? OCEAN_RENDER_Y_SINK : 0f;
+        float bodyYOffset = frameBodyYOffset + oceanSink;
+        float foamYOffset = frameFoamYOffset + oceanSink;
+
+        renderWaveColumns(posMatrix, buffer, wave, colorableSprite, whiteSprite, age, maxAge, red, green, blue, alpha, foamAlpha, light, bodyYOffset, foamYOffset);
 
         // beneath wave texture after hitting shore
         if (washingUp && wave.bigWave) {
@@ -127,15 +140,15 @@ public class WaveRenderer {
             float washingZ = ageDelta > turnBackDelta ? Mth.lerp((ageDelta - turnBackDelta) * 2, 1.35f, 0) : 1.35f;
             matrices.scale(1.25f, 1, 1);
             for (int i = 0; i < wave.width; i++) {
-                waveQuad(posMatrix, buffer, washingColorableSprite, age, maxAge, i - 0.15f, -0.05f + frameBodyYOffset, washingZ, 1, washingLength, red, green, blue, alpha, light);
-                waveQuad(posMatrix, buffer, washingWhiteSprite, age, maxAge, i - 0.15f, -0.01f + frameFoamYOffset, washingZ, 1, washingLength, 1f, 1f, 1f, foamAlpha, light);
+                waveQuad(posMatrix, buffer, washingColorableSprite, age, maxAge, i - 0.15f, -0.05f + bodyYOffset, washingZ, 1, washingLength, red, green, blue, alpha, light);
+                waveQuad(posMatrix, buffer, washingWhiteSprite, age, maxAge, i - 0.15f, -0.01f + foamYOffset, washingZ, 1, washingLength, 1f, 1f, 1f, foamAlpha, light);
             }
         }
 
         matrices.popPose();
     }
 
-    private void renderWaveColumns(Matrix4f posMatrix, BufferBuilder buffer, Wave wave, TextureAtlasSprite colorableSprite, TextureAtlasSprite whiteSprite, int age, int maxAge, float red, float green, float blue, float alpha, float foamAlpha, int light) {
+    private void renderWaveColumns(Matrix4f posMatrix, BufferBuilder buffer, Wave wave, TextureAtlasSprite colorableSprite, TextureAtlasSprite whiteSprite, int age, int maxAge, float red, float green, float blue, float alpha, float foamAlpha, int light, float bodyYOffset, float foamYOffset) {
         int columnCount = wave.getRenderColumnCount();
 
         for (int i = 0; i < columnCount; i++) {
@@ -144,8 +157,8 @@ public class WaveRenderer {
             float z = wave.getRenderColumnForwardOffset(i, columnCount);
             float width = wave.getRenderColumnWidth(i, columnCount);
             float length = wave.getRenderColumnLength(i, columnCount);
-            waveQuad(posMatrix, buffer, colorableSprite, age, maxAge, x, y + frameBodyYOffset, z, width, length, red, green, blue, alpha, light);
-            waveQuad(posMatrix, buffer, whiteSprite, age, maxAge, x, y + WAVE_FOAM_Y_OFFSET + frameFoamYOffset, z, width, length, 1f, 1f, 1f, foamAlpha, light);
+            waveQuad(posMatrix, buffer, colorableSprite, age, maxAge, x, y + bodyYOffset, z, width, length, red, green, blue, alpha, light);
+            waveQuad(posMatrix, buffer, whiteSprite, age, maxAge, x, y + WAVE_FOAM_Y_OFFSET + foamYOffset, z, width, length, 1f, 1f, 1f, foamAlpha, light);
         }
     }
 
