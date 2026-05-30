@@ -3,17 +3,18 @@ package net.superkat.wavify.wave;
 import com.google.common.collect.Sets;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.client.renderer.BiomeColors;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.LightLayer;
 import net.superkat.wavify.WavifyParticles;
 import net.superkat.wavify.particles.SprayParticleEffect;
+import net.superkat.wavify.util.WavifyColors;
+import org.joml.Vector3f;
 import org.jetbrains.annotations.Range;
 
 import java.util.List;
@@ -69,14 +70,15 @@ public class Wave {
 
     public boolean waterfallMode = false;
     public boolean waterfallSplashed = false;
+    public float prevYaw = 0f;
 
     public float red = 1f;
     public float green = 1f;
     public float blue = 1f;
     public float alpha = 1f;
 
-    public Wave(ClientLevel level, BlockPos spawnPos, float yaw, float yOffset, boolean bigWave) {
-        this.level = level;
+    public Wave(ClientLevel world, BlockPos spawnPos, float yaw, float yOffset, boolean bigWave) {
+        this.level = world;
         this.spawnPos = spawnPos;
         this.yaw = yaw;
         this.bigWave = bigWave;
@@ -94,7 +96,7 @@ public class Wave {
         }
 
         this.x = spawnPos.getX() + 0.5f;
-        this.y = spawnPos.getY() + Math.abs(yOffset) - 0.05f;
+        this.y = spawnPos.getY() + Math.abs(yOffset) + 0.15f;
         this.z = spawnPos.getZ() + 0.5f;
 
         float f = 0.2f / 2.0F;
@@ -105,6 +107,11 @@ public class Wave {
 
         this.velX = (float) (Math.cos(Math.toRadians(yaw)) * speed);
         this.velZ = (float) (Math.sin(Math.toRadians(yaw)) * speed);
+
+        this.prevX = this.x;
+        this.prevY = this.y;
+        this.prevZ = this.z;
+        this.prevYaw = this.yaw;
 
         this.alpha = 0f;
     }
@@ -180,6 +187,7 @@ public class Wave {
 
     public void move(float velX, float velY, float velZ) {
         float initVelX = velX;
+        float initVelY = velY;
         float initVelZ = velZ;
         if ((velX != 0.0 || velY != 0.0 || velZ != 0.0) && velX * velX + velY * velY + velZ * velZ < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
             Vec3 vec3d = Entity.collideBoundingBox(null, new Vec3(velX, velY, velZ), this.getHitBox(), this.level, List.of());
@@ -314,12 +322,15 @@ public class Wave {
         this.width = width;
     }
 
+    public void offsetVertical(float offset) {
+        this.y += offset;
+        this.prevY += offset;
+        syncBoxToCurrentPosition();
+    }
+
     public void updateWaterColor() {
-        int color = BiomeColors.getAverageWaterColor(this.level, this.getBlockPos());
-        float r = (float) (color >> 16 & 0xFF) / 255.0F;
-        float g = (float) (color >> 8 & 0xFF) / 255.0F;
-        float b = (float) (color & 0xFF) / 255.0F;
-        this.setColor(r, g, b); // colorhelp here?
+        Vector3f color = WavifyColors.getWaterColorVec(this.level, this.getBlockPos());
+        this.setColor(color.x, color.y, color.z);
     }
 
     /**
@@ -345,6 +356,10 @@ public class Wave {
         return Mth.lerp(delta, this.prevZ, this.z);
     }
 
+    public float getYaw(float delta) {
+        return Mth.rotLerp(delta, this.prevYaw, this.yaw);
+    }
+
     public int getAge() {
         return this.isWashingUp() ? this.getWashingAge() : this.age;
     }
@@ -362,6 +377,43 @@ public class Wave {
         int blockLight = this.level.getBrightness(LightLayer.BLOCK, pos);
         int skylight = this.level.getBrightness(LightLayer.SKY, pos);
         return LightCoordsUtil.pack(blockLight, skylight);
+    }
+
+    public int getRenderColumnCount() {
+        return Math.max(1, Math.round(this.width));
+    }
+
+    public float getRenderColumnLateralOffset(int columnIndex, int columnCount) {
+        return columnIndex - (columnCount - 1) * 0.5f;
+    }
+
+    public float getRenderColumnForwardOffset(int columnIndex, int columnCount) {
+        return 0f;
+    }
+
+    public float getRenderColumnVerticalOffset(int columnIndex, int columnCount) {
+        return 0f;
+    }
+
+    public float getRenderColumnWidth(int columnIndex, int columnCount) {
+        return 1f;
+    }
+
+    public float getRenderColumnLength(int columnIndex, int columnCount) {
+        return this.length;
+    }
+
+    protected void capturePreviousState() {
+        this.prevX = this.x;
+        this.prevY = this.y;
+        this.prevZ = this.z;
+        this.prevYaw = this.yaw;
+    }
+
+    protected void syncBoxToCurrentPosition() {
+        float f = 0.2f / 2.0F;
+        float g = 0.2f;
+        this.box = (new AABB(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f)).inflate(this.scale / 4f, 0, this.scale / 4f);
     }
 
     public void markDead() {

@@ -9,12 +9,13 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.Mth;
 import com.mojang.math.Axis;
 import net.minecraft.world.phys.Vec3;
 import net.superkat.wavify.WavifyClient;
+import net.superkat.wavify.compat.IrisCompat;
+import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 import net.superkat.wavify.sprite.WavifySprites;
 import net.superkat.wavify.wave.WavifyWaveHandler;
@@ -28,6 +29,25 @@ import java.util.Set;
  * THE WAVES AREN'T ENTITIES!!!!!!!!!!!!!!!!!!!!!!!!!!!
  */
 public class WaveRenderer {
+    private static final float WAVE_FOAM_Y_OFFSET = 0.08f;
+
+    // When an Iris/Oculus shaderpack is active, sink the colored wave body so
+    // vanilla water still covers the wave footprint. The shaderpack then
+    // renders its water reflections/refractions on top of (and tinted by) the
+    // wave color, giving the wave the same shader-water look as the rest of
+    // the surface. The foam quad stays at WAVE_FOAM_Y_OFFSET above the body so
+    // the white crest still pokes through the water surface.
+    //
+    // Sink amount is user-tunable via WavifyConfig.shaderWaveYSink. Cached per
+    // frame: isShaderPackActive() reflects into Iris, cheap but not free.
+    //
+    // frameBodyYOffset = waveYOffset + (shaderWaveYSink if shaders else 0)
+    // frameFoamYOffset = waveYOffset
+    // Foam never gets the shader sink; under shaders we WANT it at the water
+    // surface so the shaderpack's water shading covers it.
+    private float frameBodyYOffset = 0f;
+    private float frameFoamYOffset = 0f;
+
     public WavifyWaveHandler handler;
     public WavifySpriteHandler spriteHandler;
     public ClientLevel level;
@@ -46,6 +66,11 @@ public class WaveRenderer {
         float tickDelta = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
         Camera camera = mc.gameRenderer.getMainCamera();
 
+        float shaderSink = IrisCompat.isShaderPackActive() ? (float) WavifyConfig.shaderWaveYSink : 0f;
+        float baseOffset = (float) WavifyConfig.waveYOffset;
+        this.frameFoamYOffset = baseOffset;
+        this.frameBodyYOffset = baseOffset + shaderSink;
+
         for (Wave wave : waves) {
             renderWave(buffer, camera, wave, tickDelta);
         }
@@ -59,19 +84,16 @@ public class WaveRenderer {
         PoseStack matrices = new PoseStack();
         matrices.pushPose();
 
-        AABB box = wave.getBoundingBox();
-        Vec3 center = new Vec3((box.minX + box.maxX) / 2.0, box.minY, (box.minZ + box.maxZ) / 2.0);
+        Vec3 center = new Vec3(wave.getX(delta), wave.getY(delta), wave.getZ(delta));
         Vec3 cameraPos = camera.position();
         Vec3 transPos = center.subtract(cameraPos);
 
         matrices.pushPose();
         matrices.translate(transPos.x, transPos.y, transPos.z); // offsets to the wave's position
-        matrices.mulPose(Axis.YP.rotationDegrees(-wave.yaw + 90)); // rotate wave left/right
+        matrices.mulPose(Axis.YP.rotationDegrees(-wave.getYaw(delta) + 90)); // rotate wave left/right
         matrices.mulPose(Axis.XP.rotationDegrees(wave.pitch));
         float scale = wave.scale;
         matrices.scale(scale, 1, scale);
-        // this is totally messed up but its pretty unnoticeable and my math isn't woroking right now
-        matrices.translate(-wave.width / 3, 0, 0); // translate back to center
 
         Matrix4f posMatrix = matrices.last().pose();
 
@@ -81,37 +103,50 @@ public class WaveRenderer {
 
         int light = wave.getLight();
 
+        float transparency = (float) WavifyConfig.transparency;
         float red = wave.red;
         float green = wave.green;
         float blue = wave.blue;
-        float alpha = wave.alpha;
+        float alpha = wave.alpha * transparency;
+        float foamAlpha = WavifyConfig.applyTransparencyToFoam ? alpha : wave.alpha;
 
         int age = wave.getAge();
         int maxAge = wave.getMaxAge();
 
-        // normal wave texture
-        for (int i = 0; i < wave.width; i++) {
-            waveQuad(posMatrix, buffer, colorableSprite, age, maxAge, i, 0, 0, 1, wave.length, red, green, blue, alpha, light);
-            waveQuad(posMatrix, buffer, whiteSprite, age, maxAge, i, 0.05f, 0, 1, wave.length, 1f, 1f, 1f, alpha, light);
-        }
+        renderWaveColumns(posMatrix, buffer, wave, colorableSprite, whiteSprite, age, maxAge, red, green, blue, alpha, foamAlpha, light);
 
         // beneath wave texture after hitting shore
         if (washingUp && wave.bigWave) {
             TextureAtlasSprite washingColorableSprite = getBottomWashingSprite();
             TextureAtlasSprite washingWhiteSprite = getBottomWashingWhiteSprite();
 
+            // this is beyond cursed but i'm really frustrated right now so its fine
             float ageDelta = (float) age / maxAge;
             float turnBackDelta = 0.5f;
             float washingLength = ageDelta > turnBackDelta ? Mth.lerp((ageDelta - turnBackDelta) * 2, 2f, 3f) : 2f;
             float washingZ = ageDelta > turnBackDelta ? Mth.lerp((ageDelta - turnBackDelta) * 2, 1.35f, 0) : 1.35f;
             matrices.scale(1.25f, 1, 1);
             for (int i = 0; i < wave.width; i++) {
-                waveQuad(posMatrix, buffer, washingColorableSprite, age, maxAge, i - 0.15f, -0.05f, washingZ, 1, washingLength, red, green, blue, alpha, light);
-                waveQuad(posMatrix, buffer, washingWhiteSprite, age, maxAge, i - 0.15f, -0.01f, washingZ, 1, washingLength, 1f, 1f, 1f, alpha, light);
+                waveQuad(posMatrix, buffer, washingColorableSprite, age, maxAge, i - 0.15f, -0.05f + frameBodyYOffset, washingZ, 1, washingLength, red, green, blue, alpha, light);
+                waveQuad(posMatrix, buffer, washingWhiteSprite, age, maxAge, i - 0.15f, -0.01f + frameFoamYOffset, washingZ, 1, washingLength, 1f, 1f, 1f, foamAlpha, light);
             }
         }
 
         matrices.popPose();
+    }
+
+    private void renderWaveColumns(Matrix4f posMatrix, BufferBuilder buffer, Wave wave, TextureAtlasSprite colorableSprite, TextureAtlasSprite whiteSprite, int age, int maxAge, float red, float green, float blue, float alpha, float foamAlpha, int light) {
+        int columnCount = wave.getRenderColumnCount();
+
+        for (int i = 0; i < columnCount; i++) {
+            float x = wave.getRenderColumnLateralOffset(i, columnCount);
+            float y = wave.getRenderColumnVerticalOffset(i, columnCount);
+            float z = wave.getRenderColumnForwardOffset(i, columnCount);
+            float width = wave.getRenderColumnWidth(i, columnCount);
+            float length = wave.getRenderColumnLength(i, columnCount);
+            waveQuad(posMatrix, buffer, colorableSprite, age, maxAge, x, y + frameBodyYOffset, z, width, length, red, green, blue, alpha, light);
+            waveQuad(posMatrix, buffer, whiteSprite, age, maxAge, x, y + WAVE_FOAM_Y_OFFSET + frameFoamYOffset, z, width, length, 1f, 1f, 1f, foamAlpha, light);
+        }
     }
 
     private void waveQuad(Matrix4f matrix4f, BufferBuilder buffer, TextureAtlasSprite sprite, int waveAge, int waveMaxAge, float x, float y, float z, float width, float length, float red, float green, float blue, float alpha, int light) {
@@ -119,10 +154,10 @@ public class WaveRenderer {
         float halfLength = length / 2f;
 
         int frame = WavifySprites.getFrameFromAge(sprite, waveAge, waveMaxAge);
-        float u0 = WavifySprites.getU0(sprite);
-        float u1 = WavifySprites.getU1(sprite);
-        float v0 = WavifySprites.getV0(sprite, frame);
-        float v1 = WavifySprites.getV1(sprite, frame);
+        float u0 = WavifySprites.getMinU(sprite);
+        float u1 = WavifySprites.getMaxU(sprite);
+        float v0 = WavifySprites.getMinV(sprite, frame);
+        float v1 = WavifySprites.getMaxV(sprite, frame);
 
         buffer.addVertex(matrix4f, x - halfWidth, y, z - halfLength)
                 .setColor(red, green, blue, alpha).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);

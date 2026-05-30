@@ -2,34 +2,30 @@ package net.superkat.wavify.particles;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
-import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.particle.WaterDropParticle;
+import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
+import net.superkat.wavify.util.WavifyColors;
+import org.joml.Vector3f;
 
-public class WavifySplashParticle extends WaterDropParticle {
-    public WavifySplashParticle(ClientLevel clientWorld, double x, double y, double z, double velX, double velY, double velZ, SpriteSet spriteProvider) {
+public class SplashParticle extends WaterDropParticle {
+    public SplashParticle(ClientLevel clientWorld, double x, double y, double z, double velX, double velY, double velZ, SpriteSet spriteProvider) {
         super(clientWorld, x, y, z, spriteProvider.first());
         this.gravity = 0.04F;
         this.xd = velX;
         this.yd = velY;
         this.zd = velZ;
-        if(this.random.nextBoolean()) {
-            this.updateWaterColor();
-        }
+        this.updateWaterColor();
     }
 
     public void updateWaterColor() {
-        int color = BiomeColors.getAverageWaterColor(this.level, this.getPos());
-        float r = (float) (color >> 16 & 0xFF) / 255.0F;
-        float g = (float) (color >> 8 & 0xFF) / 255.0F;
-        float b = (float) (color & 0xFF) / 255.0F;
-        this.setColor(r, g, b);
+        Vector3f color = WavifyColors.getWaterColorVec(this.level, this.getPos());
+        this.setColor(color.x, color.y, color.z);
     }
 
     public BlockPos getPos() {
@@ -46,7 +42,7 @@ public class WavifySplashParticle extends WaterDropParticle {
 
         @Override
         public Particle createParticle(SimpleParticleType simpleParticleType, ClientLevel clientWorld, double d, double e, double f, double g, double h, double i, RandomSource random) {
-            return new WavifySplashParticle(clientWorld, d, e, f, g, h, i, this.spriteProvider);
+            return new SplashParticle(clientWorld, d, e, f, g, h, i, this.spriteProvider);
         }
     }
 }

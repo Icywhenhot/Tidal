@@ -5,6 +5,7 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.duck.WavifyWorld;
+import net.superkat.wavify.sound.WavifySounds;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,5 +23,6 @@ public class Wavify implements ModInitializer {
 		});
 
 		WavifyParticles.registerParticles();
+		WavifySounds.init();
 	}
 }

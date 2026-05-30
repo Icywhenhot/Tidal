@@ -26,25 +26,26 @@ public class WavifySprites {
         int frameTime = getMetadata(sprite).frameTime();
         if(frameTime <= 0) {
             return (int) Mth.lerp((float) age / maxAge, 0f, (float) totalFrames);
+//            return (age / maxAge) * totalFrames;
         }
         return (age / frameTime) % totalFrames;
     }
 
-    public static float getU0(TextureAtlasSprite sprite) {
+    public static float getMinU(TextureAtlasSprite sprite) {
         return sprite.getU0();
     }
 
-    public static float getU1(TextureAtlasSprite sprite) {
+    public static float getMaxU(TextureAtlasSprite sprite) {
         return sprite.getU1();
     }
 
-    public static float getV0(TextureAtlasSprite sprite, int frame) {
+    public static float getMinV(TextureAtlasSprite sprite, int frame) {
         int totalFrames = getTotalFrames(sprite);
         float vRange = sprite.getV1() - sprite.getV0();
         return sprite.getV0() + (vRange / totalFrames) * frame;
     }
 
-    public static float getV1(TextureAtlasSprite sprite, int frame) {
+    public static float getMaxV(TextureAtlasSprite sprite, int frame) {
         int totalFrames = getTotalFrames(sprite);
         float vRange = sprite.getV1() - sprite.getV0();
         return sprite.getV0() + (vRange / totalFrames) * (frame + 1);

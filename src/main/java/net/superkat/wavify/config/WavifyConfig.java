@@ -3,15 +3,20 @@ package net.superkat.wavify.config;
 import eu.midnightdust.lib.config.MidnightConfig;
 
 public class WavifyConfig extends MidnightConfig {
-    // A proper config screen will come soon
-    // MidnightLib will be used for BlanketCon versions(bc its fast & easy), YetAnotherConfigLib(YACL) will be used afterward
-    // For now though, this exists to make it easy to implement configurable stuff whilst making the code
-
     public static final String WAVES = "waves";
+    public static final String APPEARANCE = "appearance";
+    public static final String RIVERS = "rivers";
+    public static final String SOUNDS = "sounds";
+
+    public enum ColorSource {
+        BIOME,
+        CUSTOM
+    }
 
     @Comment(category = WAVES, centered = true) public static Comment reloadReminder;
     @Entry(category = WAVES, isSlider = true, min = 3, max = 16) public static int chunkRadius = 5;
     @Entry(category = WAVES, min = 1, max = 1024) public static int chunkUpdatesRescanAmount = 50;
+    @Entry(category = WAVES, isSlider = true, min = 4, max = 32) public static int spawnDistance = 8;
 
     @Entry(category = WAVES) public static boolean debug = false;
     @Comment(category = WAVES, centered = true) public static Comment debugDocs;
@@ -21,8 +26,27 @@ public class WavifyConfig extends MidnightConfig {
     @Comment(category = WAVES) public static Comment debugDocsClock;
     @Comment(category = WAVES) public static Comment debugDocsCompass;
 
+    @Entry(category = APPEARANCE, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double transparency = 1.0;
+    @Entry(category = APPEARANCE) public static boolean applyTransparencyToFoam = false;
+    @Entry(category = APPEARANCE) public static ColorSource colorSource = ColorSource.BIOME;
+    @Entry(category = APPEARANCE, isColor = true) public static int customColor = 0x3F76E4;
+    @Entry(category = APPEARANCE) public static String biomeColorOverrides = "";
+
+    @Entry(category = WAVES, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double lakeWaveMultiplier = 0.2;
+    @Entry(category = RIVERS) public static boolean enableRiverWaves = true;
+    @Entry(category = RIVERS, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double riverWaveFrequency = 0.45;
+    @Entry(category = RIVERS, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double standingRiverWaveFrequency = 0.35;
+
+    @Entry(category = APPEARANCE, isSlider = true, min = -0.5, max = 0.5, precision = 100) public static double waveYOffset = 0.0;
+    @Entry(category = APPEARANCE, isSlider = true, min = -0.5, max = 0.5, precision = 100) public static double shaderWaveYSink = -0.30;
+
+    @Entry(category = SOUNDS) public static boolean enableWaveSounds = true;
+    @Entry(category = SOUNDS, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double waveSoundVolume = 1.0;
+
     public static int waveTicks = 80; // dummy value
+
+    /** Legacy field kept for any external callers; the live value is {@link #spawnDistance}. */
     public static int waveDistFromShore = 8;
 
-    public static boolean modEnabled = true; // unused for now because no time
+    public static boolean modEnabled = true;
 }

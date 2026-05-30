@@ -4,6 +4,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLevelEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleProviderRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
@@ -18,21 +19,30 @@ import net.minecraft.server.packs.PackType;
 import net.superkat.wavify.duck.WavifyWorld;
 import net.superkat.wavify.event.ClientBlockUpdateEvent;
 import net.superkat.wavify.particles.BigSplashParticle;
-import net.superkat.wavify.particles.WavifySplashParticle;
+import net.superkat.wavify.particles.SplashParticle;
 import net.superkat.wavify.particles.SprayParticle;
 import net.superkat.wavify.particles.WhiteSprayParticle;
 import net.superkat.wavify.particles.debug.DebugShoreParticle;
 import net.superkat.wavify.particles.debug.DebugWaterParticle;
 import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
+import net.superkat.wavify.sound.WaveAmbientSoundManager;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 
 public class WavifyClient implements ClientModInitializer {
 
     public static WavifySpriteHandler WAVIFY_SPRITE_HANDLER = new WavifySpriteHandler();
+    public static final WaveAmbientSoundManager SOUND_MANAGER = new WaveAmbientSoundManager();
 
-    // Reusing vanilla's "weather" render layer: translucent textured quads with
-    // depth-write disabled, which lets overlapping wave quads blend cleanly
-    // (the same property the old tripwire shader provided in 1.21.1).
+    // Using entityTranslucent: maps to gbuffers_entities_translucent under
+    // shaderpacks, gives consistent blending + depth-test-on/write-off. Picked
+    // over weather (gbuffers_weather) because several packs (Continuum, Helian,
+    // Photon) treat weather very differently from translucent geometry.
+    //
+    // Shader-mode behavior is handled at vertex level in WaveRenderer:
+    // IrisCompat.isShaderPackActive() lowers wave Y slightly so vanilla water
+    // (which the shaderpack reflects/refracts) renders on top of the wave,
+    // giving the wave color/foam the same shader-water treatment as the rest
+    // of the surface. See WaveRenderer#shaderYOffset.
     private static RenderType waveRenderLayer;
 
     private static RenderType getWaveRenderLayer() {
@@ -46,7 +56,7 @@ public class WavifyClient implements ClientModInitializer {
     public void onInitializeClient() {
         ParticleProviderRegistry.getInstance().register(WavifyParticles.SPRAY_PARTICLE, SprayParticle.Factory::new);
         ParticleProviderRegistry.getInstance().register(WavifyParticles.WHITE_SPRAY_PARTICLE, WhiteSprayParticle.Factory::new);
-        ParticleProviderRegistry.getInstance().register(WavifyParticles.SPLASH_PARTICLE, WavifySplashParticle.Factory::new);
+        ParticleProviderRegistry.getInstance().register(WavifyParticles.SPLASH_PARTICLE, SplashParticle.Factory::new);
         ParticleProviderRegistry.getInstance().register(WavifyParticles.BIG_SPLASH_PARTICLE, BigSplashParticle.Factory::new);
 
         ParticleProviderRegistry.getInstance().register(WavifyParticles.DEBUG_WATERBODY_PARTICLE, DebugWaterParticle.Factory::new);
@@ -57,6 +67,15 @@ public class WavifyClient implements ClientModInitializer {
         ClientLevelEvents.AFTER_CLIENT_LEVEL_CHANGE.register((client, world) -> {
             WavifyWorld wavifyWorld = (WavifyWorld) world;
             wavifyWorld.wavify$wavifyWaveHandler().reloadNearbyChunks();
+            SOUND_MANAGER.hardReset();
+        });
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.level == null || client.player == null) {
+                SOUND_MANAGER.hardReset();
+                return;
+            }
+            SOUND_MANAGER.tick();
         });
 
         ClientChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
@@ -87,6 +106,10 @@ public class WavifyClient implements ClientModInitializer {
             wavifyWorld.wavify$wavifyWaveHandler().waterHandler.rebuild();
         });
 
+        // Render at AFTER_TRANSLUCENT_TERRAIN (after the main world pass, including
+        // translucent water) so waves overlay water properly. The new
+        // entityTranslucent layer writes depth, and rendering before water caused
+        // fade-in quads to punch a hole through the water surface.
         LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register(context -> {
             Minecraft mc = Minecraft.getInstance();
             if(mc.level == null) return;
