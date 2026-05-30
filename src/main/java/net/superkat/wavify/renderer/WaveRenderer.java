@@ -8,7 +8,7 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.LightCoordsUtil;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.util.Mth;
 import com.mojang.math.Axis;
 import net.minecraft.world.phys.Vec3;
@@ -188,7 +188,7 @@ public class WaveRenderer {
         float v0 = sprite.getV0();
         float v1 = sprite.getV1();
 
-        int light = LightCoordsUtil.pack(0, 0);
+        int light = LightTexture.pack(0, 0);
 
         matrices.pushPose();
         matrices.translate(transPos.x - 0.5, transPos.y + 1.01, transPos.z - 0.5);

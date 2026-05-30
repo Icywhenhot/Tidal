@@ -194,12 +194,12 @@ public final class RiverFlowPlanner {
                                                 ChunkPos playerChunk,
                                                 int chunkRadius,
                                                 @Nullable List<DebugMarker> debugMarkers) {
-        ChunkPos start = new ChunkPos(playerChunk.x() + chunkRadius, playerChunk.z() + chunkRadius);
-        ChunkPos end = new ChunkPos(playerChunk.x() - chunkRadius, playerChunk.z() - chunkRadius);
+        ChunkPos start = new ChunkPos(playerChunk.x + chunkRadius, playerChunk.z + chunkRadius);
+        ChunkPos end = new ChunkPos(playerChunk.x - chunkRadius, playerChunk.z - chunkRadius);
 
         Map<Long, BlockPos> allRiverWaters = new HashMap<>();
         for (ChunkPos chunkPos : ChunkPos.rangeClosed(start, end).toList()) {
-            Set<BlockPos> waters = waterHandler.waters.get(chunkPos.pack());
+            Set<BlockPos> waters = waterHandler.waters.get(chunkPos.toLong());
             if (waters == null || waters.isEmpty()) continue;
 
             for (BlockPos water : waters) {

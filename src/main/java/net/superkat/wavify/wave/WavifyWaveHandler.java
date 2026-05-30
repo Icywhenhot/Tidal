@@ -133,8 +133,8 @@ public class WavifyWaveHandler {
         int chunkRadius = WavifyConfig.chunkRadius - 2;
 
         ChunkPos playerChunk = Minecraft.getInstance().player.chunkPosition();
-        ChunkPos start = new ChunkPos(playerChunk.x() + chunkRadius, playerChunk.z() + chunkRadius);
-        ChunkPos end = new ChunkPos(playerChunk.x() - chunkRadius, playerChunk.z() - chunkRadius);
+        ChunkPos start = new ChunkPos(playerChunk.x + chunkRadius, playerChunk.z + chunkRadius);
+        ChunkPos end = new ChunkPos(playerChunk.x - chunkRadius, playerChunk.z - chunkRadius);
         Set<BlockPos> waterBlocks = ChunkPos.rangeClosed(start, end)
                 .map(chunkPos -> this.waterHandler.getWaterCacheAtDistance(chunkPos, distFromShore))
                 .filter(map -> map != null)
@@ -491,8 +491,8 @@ public class WavifyWaveHandler {
 
         // using LevelChunk instead of chunk because it has "isEmpty" method
         // could use chunk instanceof EmptyChunk instead, but this felt better
-        int chunkX = player.chunkPosition().x();
-        int chunkZ = player.chunkPosition().z();
+        int chunkX = player.chunkPosition().x;
+        int chunkZ = player.chunkPosition().z;
         int chunkRadiusReduced = chunkRadius - (chunkRadius / 3);
 
         List<LevelChunk> checkChunks = List.of(
@@ -516,8 +516,8 @@ public class WavifyWaveHandler {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
         ChunkPos playerPos = player.chunkPosition();
-        int playerX = playerPos.x();
-        int playerZ = playerPos.z();
+        int playerX = playerPos.x;
+        int playerZ = playerPos.z;
 
         int radius = getLoadedChunkRadius();
         ChunkPos start = new ChunkPos(playerX + radius, playerZ + radius);
@@ -525,7 +525,7 @@ public class WavifyWaveHandler {
 
         Set<ChunkPos> loadedChunks = Sets.newHashSet();
         for (ChunkPos chunkPos : ChunkPos.rangeClosed(start, end).toList()) {
-            LevelChunk chunk = this.level.getChunk(chunkPos.x(), chunkPos.z());
+            LevelChunk chunk = this.level.getChunk(chunkPos.x, chunkPos.z);
             if (chunk.isEmpty()) continue;
             loadedChunks.add(chunkPos);
         }
@@ -566,13 +566,13 @@ public class WavifyWaveHandler {
             if (DebugHelper.offhandCompass()) {
                 if (client.level.getGameTime() % 5 != 0) return;
                 int radius = 2;
-                ChunkPos start = new ChunkPos(playerChunk.x() + radius, playerChunk.z() + radius);
-                ChunkPos end = new ChunkPos(playerChunk.x() - radius, playerChunk.z() - radius);
+                ChunkPos start = new ChunkPos(playerChunk.x + radius, playerChunk.z + radius);
+                ChunkPos end = new ChunkPos(playerChunk.x - radius, playerChunk.z - radius);
                 for (ChunkPos chunkPos : ChunkPos.rangeClosed(start, end).toList()) {
-                    debugChunkDirectionParticles(chunkPos.pack(), true);
+                    debugChunkDirectionParticles(chunkPos.toLong(), true);
                 }
             } else {
-                debugChunkDirectionParticles(playerChunk.pack(), false);
+                debugChunkDirectionParticles(playerChunk.toLong(), false);
             }
 
         }
@@ -585,7 +585,7 @@ public class WavifyWaveHandler {
 
             List<BlockPos> scannedBlocks = this.waterHandler.waterCache.values().stream().flatMap(map -> map.keySet().stream()).toList();
             if (scannedBlocks.contains(playerPos)) {
-                long chunkPosL = ChunkPos.pack(playerPos);
+                long chunkPosL = ChunkPos.asLong(playerPos);
                 SitePos site = this.waterHandler.waterCache.get(chunkPosL).get(playerPos);
 //                System.out.println(this.level.getBiome(site.getPos()).is(BiomeTags.IS_RIVER));
                 System.out.println(site.xList.size());

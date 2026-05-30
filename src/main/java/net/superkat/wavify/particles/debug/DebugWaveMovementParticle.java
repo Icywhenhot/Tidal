@@ -9,7 +9,6 @@ import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -69,9 +68,11 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
     }
 
     @Override
-    public void extract(QuadParticleRenderState state, Camera camera, float tickDelta) {
-        if(lifetimeColorMode) updateColor(tickDelta);
-        super.extract(state, camera, tickDelta);
+    public void tick() {
+        super.tick();
+        if (lifetimeColorMode && !this.removed) {
+            updateColor(0.0f);
+        }
     }
 
     private void updateColor(float tickDelta) {

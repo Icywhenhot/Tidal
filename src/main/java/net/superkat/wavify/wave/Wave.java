@@ -3,7 +3,7 @@ package net.superkat.wavify.wave;
 import com.google.common.collect.Sets;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.util.LightCoordsUtil;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.core.BlockPos;
@@ -372,11 +372,11 @@ public class Wave {
         //emissive during full moon :)
         long dayTime = this.level.getGameTime();
         if (canFullMoonGlow() && (int)(dayTime / 24000L % 8L) == 0 && dayTime % 24000L >= 12000)
-            return LightCoordsUtil.pack(15, 15);
+            return LightTexture.pack(15, 15);
         BlockPos pos = this.getBlockPos().offset(0, 1, 0);
         int blockLight = this.level.getBrightness(LightLayer.BLOCK, pos);
         int skylight = this.level.getBrightness(LightLayer.SKY, pos);
-        return LightCoordsUtil.pack(blockLight, skylight);
+        return LightTexture.pack(blockLight, skylight);
     }
 
     protected boolean canFullMoonGlow() {

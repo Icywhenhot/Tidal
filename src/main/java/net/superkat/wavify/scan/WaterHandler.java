@@ -293,7 +293,7 @@ public class WaterHandler {
      */
     @Nullable
     public Set<BlockPos> getWaterCacheAtDistance(ChunkPos chunkPos, int distance) {
-        long chunkPosL = chunkPos.pack();
+        long chunkPosL = chunkPos.toLong();
         if (this.waterDistCache.containsKey(chunkPosL)) return this.waterDistCache.get(chunkPosL).get(distance);
         return null;
     }
@@ -305,7 +305,7 @@ public class WaterHandler {
      * @return The BlockPos' closest SitePos, or {@link BlockPos#ORIGIN} if the site is null.
      */
     public SitePos getSiteForPos(BlockPos pos) {
-        long chunkPosL = ChunkPos.pack(pos);
+        long chunkPosL = ChunkPos.asLong(pos);
         return this.waterCache
                 .computeIfAbsent(chunkPosL,
                         chunkPosL2 -> new Object2ObjectOpenHashMap<>()
@@ -393,7 +393,7 @@ public class WaterHandler {
      * @param state The new BlockState of the updated BlockPos
      */
     public void onBlockUpdate(BlockPos pos, BlockState state) {
-        long chunkPosL = ChunkPos.pack(pos);
+        long chunkPosL = ChunkPos.asLong(pos);
         int currentUpdates = this.chunkUpdates.getOrDefault(chunkPosL, 0) + 1;
         if (currentUpdates >= WavifyConfig.chunkUpdatesRescanAmount) {
             if (this.rescanChunkPos(new ChunkPos(ChunkPos.getX(chunkPosL), ChunkPos.getZ(chunkPosL)))) {
@@ -473,7 +473,7 @@ public class WaterHandler {
      * @return If the reschedule was successful. It will return false if a scanner is already associated with the ChunkPos
      */
     public boolean rescanChunkPos(ChunkPos chunkPos) {
-        long chunkPosL = chunkPos.pack();
+        long chunkPosL = chunkPos.toLong();
         this.clearChunk(chunkPosL);
         this.unscannedChunks.add(chunkPos);
         this.checkUnscannedChunks();
@@ -487,7 +487,7 @@ public class WaterHandler {
      */
     public void unloadChunk(ChunkAccess chunk) {
         ChunkPos chunkPos = chunk.getPos();
-        long chunkPosL = chunkPos.pack();
+        long chunkPosL = chunkPos.toLong();
         this.clearChunk(chunkPosL);
         this.chunkUpdates.remove(chunkPosL);
         this.loadedChunks.remove(chunkPos);

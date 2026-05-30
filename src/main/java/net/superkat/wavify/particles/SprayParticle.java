@@ -8,7 +8,6 @@ import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.BlockPos;
@@ -17,7 +16,6 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.RandomSource;
 import net.superkat.wavify.WavifyParticles;
 import net.superkat.wavify.wave.WavifyWaveHandler;
-import org.joml.Quaternionf;
 
 import java.util.List;
 
@@ -96,15 +94,13 @@ public class SprayParticle extends SingleQuadParticle {
     }
 
     @Override
-    public void extract(QuadParticleRenderState state, Camera camera, float tickDelta) {
-        Quaternionf quaternionf = new Quaternionf();
-        quaternionf.rotateX((float) Math.toRadians(-90f));
-        quaternionf.rotateZ((float) Math.toRadians(-90f - this.yaw));
-        float angle = Mth.lerp(tickDelta, this.oRoll, this.roll);
-        quaternionf.rotateX((float) Math.toRadians(angle));
-        extractRotatedQuad(state, camera, quaternionf, tickDelta);
-        quaternionf.rotateY((float) Math.toRadians(180f));
-        extractRotatedQuad(state, camera, quaternionf, tickDelta);
+    public SingleQuadParticle.FacingCameraMode getFacingCameraMode() {
+        return (quaternionf, camera, tickDelta) -> {
+            quaternionf.rotateX((float) Math.toRadians(-90f));
+            quaternionf.rotateZ((float) Math.toRadians(-90f - this.yaw));
+            float angle = Mth.lerp(tickDelta, this.oRoll, this.roll);
+            quaternionf.rotateX((float) Math.toRadians(angle));
+        };
     }
 
     @Override
