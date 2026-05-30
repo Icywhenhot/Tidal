@@ -64,6 +64,9 @@ public final class RiverFlowPlanner {
     public record StandingWaveCandidate(long reachId, BlockPos anchorWater, float yaw, double dirX, double dirZ, float energy, int width, int trainLength) {
     }
 
+    public record CenterlineSample(BlockPos water, double x, double z, double dirX, double dirZ, float yaw, int bankDistance) {
+    }
+
     private record TangentSample(double centerX, double centerZ, double dirX, double dirZ, float yaw) {
     }
 
@@ -75,6 +78,7 @@ public final class RiverFlowPlanner {
         private final Map<Long, Integer> bankDistances;
         private final Map<Long, Integer> depths;
         private final List<BlockPos> centerline;
+        private final List<CenterlineSample> samples;
         private final double centerX;
         private final double centerZ;
         private final double axisX;
@@ -91,6 +95,7 @@ public final class RiverFlowPlanner {
                            Map<Long, Integer> bankDistances,
                            Map<Long, Integer> depths,
                            List<BlockPos> centerline,
+                           List<CenterlineSample> samples,
                            double centerX,
                            double centerZ,
                            double axisX,
@@ -104,6 +109,7 @@ public final class RiverFlowPlanner {
             this.bankDistances = bankDistances;
             this.depths = depths;
             this.centerline = centerline;
+            this.samples = samples;
             this.centerX = centerX;
             this.centerZ = centerZ;
             this.axisX = axisX;
@@ -128,6 +134,10 @@ public final class RiverFlowPlanner {
 
         public List<BlockPos> centerline() {
             return centerline;
+        }
+
+        public List<CenterlineSample> samples() {
+            return samples;
         }
 
         public double axisX() {
@@ -235,66 +245,99 @@ public final class RiverFlowPlanner {
                                                   @Nullable FlowReference reference,
                                                   Random random,
                                                   @Nullable List<DebugMarker> debugMarkers) {
-        BlockPos seed = chooseTravelSeed(world, reach, reference, random);
-        if (seed == null) {
+        List<CenterlineSample> samples = reach.samples();
+        if (samples.size() < 8) {
+            addRejectMarker(debugMarkers, reach.upstreamEnd(), RejectReason.NO_SEED);
+            return null;
+        }
+
+        int startIdx = chooseSeedIndex(world, samples, reference, random);
+        if (startIdx < 0) {
+            addRejectMarker(debugMarkers, reach.upstreamEnd(), RejectReason.NO_SEED);
             return null;
         }
 
         List<RiverPlanPoint> points = new ArrayList<>();
-        Set<Long> used = new HashSet<>();
-        BlockPos current = seed;
-        double preferredDirX = reference != null ? reference.dirX() : reach.axisX();
-        double preferredDirZ = reference != null ? reference.dirZ() : reach.axisZ();
+        int maxLen = Math.min(24, samples.size() - startIdx);
+        int totalBank = 0;
+        int minBank = Integer.MAX_VALUE;
+        BlockPos spawnSurface = null;
 
-        while (points.size() < 24) {
-            int bankDistance = reach.bankDistance(current);
-            if (bankDistance < 2) {
-                addRejectMarker(debugMarkers, current, RejectReason.EDGE_HIT);
+        for (int i = 0; i < maxLen; i++) {
+            CenterlineSample s = samples.get(startIdx + i);
+            if (s.bankDistance() < 2) {
+                if (points.size() >= 6) break;
+                addRejectMarker(debugMarkers, s.water(), RejectReason.EDGE_HIT);
                 return null;
             }
-
-            TangentSample tangent = sampleLocalTangent(reach, current.getX() + 0.5, current.getZ() + 0.5, preferredDirX, preferredDirZ);
-            points.add(new RiverPlanPoint(current, current.getX() + 0.5, current.getZ() + 0.5, tangent.yaw(), tangent.dirX(), tangent.dirZ(), bankDistance));
-            used.add(current.asLong());
-
-            double projection = reach.projection(current);
-            if (projection >= reach.downstreamProjection() - 1.2 && points.size() >= 6) {
+            if (!world.getBlockState(s.water().up()).isAir()) {
+                if (points.size() >= 6) break;
+                if (i == 0) {
+                    addRejectMarker(debugMarkers, s.water(), RejectReason.EDGE_HIT);
+                    return null;
+                }
                 break;
             }
-
-            BlockPos next = chooseNextTravelWater(reach, current, tangent, used, projection);
-            if (next == null) {
-                break;
-            }
-            int stepRequiredBankDistance = Math.max(2, Math.min(3, Math.min(bankDistance, reach.bankDistance(next))));
-            if (!segmentHasClearance(reach, current, next, tangent, stepRequiredBankDistance)) {
-                addRejectMarker(debugMarkers, next, RejectReason.EDGE_HIT);
-                return null;
-            }
-
-            current = next;
-            preferredDirX = tangent.dirX();
-            preferredDirZ = tangent.dirZ();
+            if (i == 0) spawnSurface = s.water().up();
+            points.add(new RiverPlanPoint(s.water(), s.x(), s.z(), s.yaw(), s.dirX(), s.dirZ(), s.bankDistance()));
+            totalBank += s.bankDistance();
+            minBank = Math.min(minBank, s.bankDistance());
         }
 
-        if (points.size() < 6) {
-            addRejectMarker(debugMarkers, seed, RejectReason.TOO_SHORT);
+        if (points.size() < 6 || spawnSurface == null) {
+            addRejectMarker(debugMarkers, samples.get(startIdx).water(), RejectReason.TOO_SHORT);
             return null;
         }
 
-        int requiredBankDistance = Math.max(2, Math.min(3, points.stream().mapToInt(RiverPlanPoint::bankDistance).min().orElse(2)));
-        int width = MathHelper.clamp(requiredBankDistance * 2 - 1, 3, 7);
-        if ((width & 1) == 0) width -= 1;
+        double avgBank = totalBank / (double) points.size();
+        // Per-wave width jitter so a single river produces a mix of crest sizes instead of all waves
+        // clamping to the same value.
+        double widthJitter = 0.75 + random.nextDouble() * 0.55;
+        int width = MathHelper.clamp((int) Math.round(avgBank * 1.25 * widthJitter), 3, 9);
+        if ((width & 1) == 0) width = Math.max(3, width - 1);
+        int requiredBankDistance = Math.max(2, Math.min(3, minBank));
 
         if (!pathHasClearance(reach, points, requiredBankDistance)) {
-            addRejectMarker(debugMarkers, seed, RejectReason.EDGE_HIT);
+            addRejectMarker(debugMarkers, spawnSurface, RejectReason.EDGE_HIT);
             return null;
         }
 
         float speed = computeTravelSpeed(reach, points, requiredBankDistance);
-        RiverTravelPlan plan = new RiverTravelPlan(reach.id(), seed.up(), List.copyOf(points), width, requiredBankDistance, speed);
+        RiverTravelPlan plan = new RiverTravelPlan(reach.id(), spawnSurface, List.copyOf(points), width, requiredBankDistance, speed);
         addAcceptedPathMarkers(debugMarkers, plan);
         return plan;
+    }
+
+    private static int chooseSeedIndex(ClientWorld world,
+                                       List<CenterlineSample> samples,
+                                       @Nullable FlowReference reference,
+                                       Random random) {
+        int latestStart = samples.size() - 6;
+        if (latestStart < 0) return -1;
+
+        if (reference != null) {
+            int refIdx = nearestSampleIndex(samples, reference.x(), reference.z());
+            int offset = 4 + random.nextInt(5);
+            int idx = Math.min(latestStart, Math.max(0, refIdx - offset));
+            for (int probe = 0; probe < 8 && idx <= latestStart; probe++, idx++) {
+                CenterlineSample s = samples.get(idx);
+                if (s.bankDistance() < 2) continue;
+                if (!world.getBlockState(s.water().up()).isAir()) continue;
+                return idx;
+            }
+        }
+
+        int lo = Math.min(latestStart, Math.max(0, (int) (samples.size() * 0.05)));
+        int hi = Math.min(latestStart, Math.max(lo, (int) (samples.size() * 0.55)));
+        int range = Math.max(1, hi - lo + 1);
+        for (int attempt = 0; attempt < 8; attempt++) {
+            int idx = lo + random.nextInt(range);
+            CenterlineSample s = samples.get(idx);
+            if (s.bankDistance() < 2) continue;
+            if (!world.getBlockState(s.water().up()).isAir()) continue;
+            return idx;
+        }
+        return -1;
     }
 
     @Nullable
@@ -314,7 +357,7 @@ public final class RiverFlowPlanner {
             if (reach.bankDistance(water) < 2) continue;
             if (!world.getBlockState(water.up()).isAir()) continue;
 
-            TangentSample tangent = sampleLocalTangent(reach, water.getX() + 0.5, water.getZ() + 0.5, reach.axisX(), reach.axisZ());
+            TangentSample tangent = tangentAtPos(reach, water.getX() + 0.5, water.getZ() + 0.5);
             if (!isStandingAnchorStable(world, reach, water, tangent.dirX(), tangent.dirZ())) continue;
 
             double normalX = -tangent.dirZ();
@@ -452,23 +495,120 @@ public final class RiverFlowPlanner {
         BlockPos upstream = downstreamUsesMax ? minProjection : maxProjection;
         BlockPos downstream = downstreamUsesMax ? maxProjection : minProjection;
 
-        List<BlockPos> centerline = component.stream()
-                .filter(water -> bankDistances.getOrDefault(water.asLong(), 0) >= 2)
-                .filter(water -> isLocalBankMaximum(water, bankDistances, waterKeys))
-                .sorted(Comparator.comparingDouble(water -> projection(water, centerX, centerZ, alignedAxisX, alignedAxisZ)))
-                .toList();
+        Map<Long, Integer> downstreamGraphDist = computeGraphDistance(downstream, waterKeys);
+        List<BlockPos> walked = walkCenterlineDownstream(upstream, waterKeys, bankDistances, downstreamGraphDist);
 
-        if (centerline.isEmpty()) {
-            centerline = component.stream()
+        if (walked.size() < 4) {
+            walked = component.stream()
                     .sorted(Comparator.<BlockPos>comparingInt(water -> bankDistances.getOrDefault(water.asLong(), 0)).reversed())
                     .limit(24)
                     .sorted(Comparator.comparingDouble(water -> projection(water, centerX, centerZ, alignedAxisX, alignedAxisZ)))
                     .toList();
         }
 
-        RiverReach reach = new RiverReach(id, List.copyOf(component), waterKeys, List.copyOf(bankWaters), bankDistances, depths, List.copyOf(centerline), centerX, centerZ, alignedAxisX, alignedAxisZ, upstream, downstream);
+        List<CenterlineSample> samples = buildCenterlineSamples(walked, bankDistances, alignedAxisX, alignedAxisZ);
+
+        RiverReach reach = new RiverReach(id, List.copyOf(component), waterKeys, List.copyOf(bankWaters), bankDistances, depths, List.copyOf(walked), List.copyOf(samples), centerX, centerZ, alignedAxisX, alignedAxisZ, upstream, downstream);
         addReachDebugMarkers(debugMarkers, reach);
         return reach;
+    }
+
+    private static Map<Long, Integer> computeGraphDistance(BlockPos source, Set<Long> waterKeys) {
+        Map<Long, Integer> dist = new HashMap<>();
+        if (!waterKeys.contains(source.asLong())) return dist;
+
+        Queue<BlockPos> queue = new ArrayDeque<>();
+        queue.add(source);
+        dist.put(source.asLong(), 0);
+        while (!queue.isEmpty()) {
+            BlockPos current = queue.poll();
+            int currentDist = dist.get(current.asLong());
+            for (BlockPos neighbor : collectNeighborWaters(current, waterKeys)) {
+                if (dist.containsKey(neighbor.asLong())) continue;
+                dist.put(neighbor.asLong(), currentDist + 1);
+                queue.add(neighbor);
+            }
+        }
+        return dist;
+    }
+
+    private static List<BlockPos> walkCenterlineDownstream(BlockPos upstream,
+                                                           Set<Long> waterKeys,
+                                                           Map<Long, Integer> bankDistances,
+                                                           Map<Long, Integer> downstreamGraphDist) {
+        List<BlockPos> path = new ArrayList<>();
+        if (!waterKeys.contains(upstream.asLong())) return path;
+        if (!downstreamGraphDist.containsKey(upstream.asLong())) return path;
+
+        BlockPos current = upstream;
+        Set<Long> visited = new HashSet<>();
+        int safety = 4096;
+        while (current != null && safety-- > 0) {
+            if (!visited.add(current.asLong())) break;
+            path.add(current);
+
+            int currentDist = downstreamGraphDist.getOrDefault(current.asLong(), Integer.MAX_VALUE);
+            if (currentDist <= 0) break;
+
+            BlockPos best = null;
+            int bestScore = Integer.MIN_VALUE;
+            for (BlockPos neighbor : collectNeighborWaters(current, waterKeys)) {
+                if (visited.contains(neighbor.asLong())) continue;
+                int neighDist = downstreamGraphDist.getOrDefault(neighbor.asLong(), Integer.MAX_VALUE);
+                if (neighDist >= currentDist) continue;
+
+                int bank = bankDistances.getOrDefault(neighbor.asLong(), 0);
+                int score = bank * 6 + (currentDist - neighDist);
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = neighbor;
+                }
+            }
+            current = best;
+        }
+        return path;
+    }
+
+    private static List<CenterlineSample> buildCenterlineSamples(List<BlockPos> walked,
+                                                                 Map<Long, Integer> bankDistances,
+                                                                 double axisX,
+                                                                 double axisZ) {
+        if (walked.isEmpty()) return List.of();
+
+        List<CenterlineSample> samples = new ArrayList<>(walked.size());
+        int window = 2;
+        for (int i = 0; i < walked.size(); i++) {
+            BlockPos cell = walked.get(i);
+            int lo = Math.max(0, i - window);
+            int hi = Math.min(walked.size() - 1, i + window);
+            BlockPos a = walked.get(lo);
+            BlockPos b = walked.get(hi);
+            double dx = b.getX() - a.getX();
+            double dz = b.getZ() - a.getZ();
+            double len = Math.sqrt(dx * dx + dz * dz);
+            double dirX = len > 1e-4 ? dx / len : axisX;
+            double dirZ = len > 1e-4 ? dz / len : axisZ;
+            float yaw = (float) Math.toDegrees(Math.atan2(dirZ, dirX));
+            int bd = Math.max(1, bankDistances.getOrDefault(cell.asLong(), 1));
+            samples.add(new CenterlineSample(cell, cell.getX() + 0.5, cell.getZ() + 0.5, dirX, dirZ, yaw, bd));
+        }
+        return samples;
+    }
+
+    private static int nearestSampleIndex(List<CenterlineSample> samples, double x, double z) {
+        int best = 0;
+        double bestDist = Double.MAX_VALUE;
+        for (int i = 0; i < samples.size(); i++) {
+            CenterlineSample s = samples.get(i);
+            double dx = s.x() - x;
+            double dz = s.z() - z;
+            double d = dx * dx + dz * dz;
+            if (d < bestDist) {
+                bestDist = d;
+                best = i;
+            }
+        }
+        return best;
     }
 
     private static Map<Long, Integer> computeBankDistances(List<BlockPos> component, List<BlockPos> bankWaters, Set<Long> waterKeys) {
@@ -521,144 +661,15 @@ public final class RiverFlowPlanner {
         return new double[]{axisX, axisZ};
     }
 
-    private static TangentSample sampleLocalTangent(RiverReach reach, double x, double z, double preferredDirX, double preferredDirZ) {
-        double meanX = 0.0;
-        double meanZ = 0.0;
-        double totalWeight = 0.0;
-        for (BlockPos water : reach.waters()) {
-            double waterX = water.getX() + 0.5;
-            double waterZ = water.getZ() + 0.5;
-            double distSq = MathHelper.square(waterX - x) + MathHelper.square(waterZ - z);
-            if (distSq > 42.25) continue;
-
-            double weight = Math.max(1.0, reach.bankDistance(water));
-            meanX += waterX * weight;
-            meanZ += waterZ * weight;
-            totalWeight += weight;
+    private static TangentSample tangentAtPos(RiverReach reach, double x, double z) {
+        List<CenterlineSample> samples = reach.samples();
+        if (samples.isEmpty()) {
+            float yaw = (float) Math.toDegrees(Math.atan2(reach.axisZ(), reach.axisX()));
+            return new TangentSample(x, z, reach.axisX(), reach.axisZ(), yaw);
         }
-
-        if (totalWeight <= 0.0) {
-            float yaw = (float) Math.toDegrees(Math.atan2(preferredDirZ, preferredDirX));
-            return new TangentSample(x, z, preferredDirX, preferredDirZ, yaw);
-        }
-
-        meanX /= totalWeight;
-        meanZ /= totalWeight;
-
-        double covXX = 0.0;
-        double covXZ = 0.0;
-        double covZZ = 0.0;
-        for (BlockPos water : reach.waters()) {
-            double waterX = water.getX() + 0.5;
-            double waterZ = water.getZ() + 0.5;
-            double distSq = MathHelper.square(waterX - x) + MathHelper.square(waterZ - z);
-            if (distSq > 42.25) continue;
-
-            double weight = Math.max(1.0, reach.bankDistance(water));
-            double dx = waterX - meanX;
-            double dz = waterZ - meanZ;
-            covXX += dx * dx * weight;
-            covXZ += dx * dz * weight;
-            covZZ += dz * dz * weight;
-        }
-
-        double theta = 0.5 * Math.atan2(2.0 * covXZ, covXX - covZZ);
-        double dirX = Math.cos(theta);
-        double dirZ = Math.sin(theta);
-        if (dirX * preferredDirX + dirZ * preferredDirZ < 0.0) {
-            dirX = -dirX;
-            dirZ = -dirZ;
-        }
-        float yaw = (float) Math.toDegrees(Math.atan2(dirZ, dirX));
-        return new TangentSample(meanX, meanZ, dirX, dirZ, yaw);
-    }
-
-    @Nullable
-    private static BlockPos chooseTravelSeed(ClientWorld world, RiverReach reach, @Nullable FlowReference reference, Random random) {
-        List<BlockPos> candidates = reach.centerline().isEmpty() ? reach.waters() : reach.centerline();
-        BlockPos best = null;
-        double bestScore = Double.MAX_VALUE;
-
-        if (reference != null) {
-            double referenceProjection = reach.projection(reference.x(), reference.z());
-            double targetProjection = referenceProjection - (4.0 + random.nextDouble() * 5.0);
-            for (BlockPos candidate : candidates) {
-                if (!isValidMovingWater(world, reach, candidate)) continue;
-                if (!world.getBlockState(candidate.up()).isAir()) continue;
-
-                double projection = reach.projection(candidate);
-                if (projection >= referenceProjection - 1.2) continue;
-
-                double score = Math.abs(projection - targetProjection) * 0.8
-                        + MathHelper.square(candidate.getX() + 0.5 - reference.x()) * 0.02
-                        + MathHelper.square(candidate.getZ() + 0.5 - reference.z()) * 0.02;
-                if (score < bestScore) {
-                    bestScore = score;
-                    best = candidate;
-                }
-            }
-            if (best != null) return best;
-        }
-
-        double minProjection = reach.upstreamProjection() + reach.reachLength() * 0.15;
-        double maxProjection = reach.upstreamProjection() + reach.reachLength() * 0.9;
-        List<BlockPos> pool = new ArrayList<>();
-        for (BlockPos candidate : candidates) {
-            if (!isValidMovingWater(world, reach, candidate)) continue;
-            if (!world.getBlockState(candidate.up()).isAir()) continue;
-
-            double projection = reach.projection(candidate);
-            if (projection < minProjection || projection > maxProjection) continue;
-            pool.add(candidate);
-        }
-
-        if (pool.isEmpty()) return null;
-        return pool.get(random.nextInt(pool.size()));
-    }
-
-    @Nullable
-    private static BlockPos chooseNextTravelWater(RiverReach reach,
-                                                  BlockPos current,
-                                                  TangentSample tangent,
-                                                  Set<Long> used,
-                                                  double currentProjection) {
-        double originX = current.getX() + 0.5;
-        double originZ = current.getZ() + 0.5;
-        double targetX = tangent.centerX() + tangent.dirX() * 1.45;
-        double targetZ = tangent.centerZ() + tangent.dirZ() * 1.45;
-        double normalX = -tangent.dirZ();
-        double normalZ = tangent.dirX();
-
-        BlockPos best = null;
-        double bestScore = Double.MAX_VALUE;
-        for (BlockPos candidate : reach.waters()) {
-            if (used.contains(candidate.asLong())) continue;
-            if (reach.bankDistance(candidate) < 2) continue;
-            if (reach.depth(candidate) <= 0) continue;
-            if (reach.depth(candidate) == 1 && reach.bankDistance(candidate) < 3) continue;
-
-            double candidateX = candidate.getX() + 0.5;
-            double candidateZ = candidate.getZ() + 0.5;
-            double distTargetSq = MathHelper.square(candidateX - targetX) + MathHelper.square(candidateZ - targetZ);
-            if (distTargetSq > 25.0) continue;
-
-            double stepX = candidateX - originX;
-            double stepZ = candidateZ - originZ;
-            double forward = stepX * tangent.dirX() + stepZ * tangent.dirZ();
-            if (forward < 0.55) continue;
-
-            double projection = reach.projection(candidateX, candidateZ);
-            if (projection <= currentProjection + 0.2) continue;
-
-            double lateral = Math.abs(stepX * normalX + stepZ * normalZ);
-            double score = distTargetSq * 0.7 + lateral * 2.1 - reach.bankDistance(candidate) * 0.55 - reach.depth(candidate) * 0.2;
-            if (score < bestScore) {
-                bestScore = score;
-                best = candidate;
-            }
-        }
-
-        return best;
+        int idx = nearestSampleIndex(samples, x, z);
+        CenterlineSample s = samples.get(idx);
+        return new TangentSample(s.x(), s.z(), s.dirX(), s.dirZ(), s.yaw());
     }
 
     private static boolean pathHasClearance(RiverReach reach, List<RiverPlanPoint> points, int requiredBankDistance) {
@@ -684,34 +695,6 @@ public final class RiverFlowPlanner {
         return true;
     }
 
-    private static boolean segmentHasClearance(RiverReach reach, BlockPos from, BlockPos to, TangentSample tangent, int requiredBankDistance) {
-        double startX = from.getX() + 0.5;
-        double startZ = from.getZ() + 0.5;
-        double endX = to.getX() + 0.5;
-        double endZ = to.getZ() + 0.5;
-        double normalX = -tangent.dirZ();
-        double normalZ = tangent.dirX();
-
-        for (int step = 1; step <= 4; step++) {
-            double delta = step / 4.0;
-            double sampleX = MathHelper.lerp(delta, startX, endX);
-            double sampleZ = MathHelper.lerp(delta, startZ, endZ);
-            BlockPos nearest = findNearestWater(reach, sampleX, sampleZ, 2.5);
-            if (nearest == null) return false;
-            if (reach.bankDistance(nearest) < requiredBankDistance) return false;
-
-            for (int side = 1; side <= Math.max(1, requiredBankDistance - 1); side++) {
-                BlockPos left = offset(nearest, normalX * side, normalZ * side);
-                BlockPos right = offset(nearest, -normalX * side, -normalZ * side);
-                if (!reach.contains(left) || !reach.contains(right)) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
     @Nullable
     private static BlockPos findNearestWater(RiverReach reach, double x, double z, double maxDistanceSq) {
         BlockPos best = null;
@@ -727,16 +710,8 @@ public final class RiverFlowPlanner {
 
     private static float computeTravelSpeed(RiverReach reach, List<RiverPlanPoint> points, int requiredBankDistance) {
         double averageDepth = points.stream().mapToInt(point -> reach.depth(point.water())).average().orElse(2.0);
-        double speed = 0.066 + averageDepth * 0.011 + requiredBankDistance * 0.0045;
-        return (float) MathHelper.clamp(speed, 0.075, 0.125);
-    }
-
-    private static boolean isValidMovingWater(ClientWorld world, RiverReach reach, BlockPos candidate) {
-        if (reach.bankDistance(candidate) < 2) return false;
-        int depth = reach.depth(candidate);
-        if (depth <= 0) return false;
-        if (depth == 1 && reach.bankDistance(candidate) < 3) return false;
-        return world.getBlockState(candidate.up()).isAir();
+        double speed = (0.066 + averageDepth * 0.011 + requiredBankDistance * 0.0045) * 1.2;
+        return (float) MathHelper.clamp(speed, 0.090, 0.150);
     }
 
     private static boolean isBankWater(BlockPos water, Set<Long> waterKeys) {
@@ -751,16 +726,6 @@ public final class RiverFlowPlanner {
             if (!hasNeighbor) return true;
         }
         return false;
-    }
-
-    private static boolean isLocalBankMaximum(BlockPos water, Map<Long, Integer> bankDistances, Set<Long> waterKeys) {
-        int currentDistance = bankDistances.getOrDefault(water.asLong(), 0);
-        for (BlockPos neighbor : collectNeighborWaters(water, waterKeys)) {
-            if (bankDistances.getOrDefault(neighbor.asLong(), 0) > currentDistance) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private static boolean touchesOceanBiome(ClientWorld world, BlockPos water) {

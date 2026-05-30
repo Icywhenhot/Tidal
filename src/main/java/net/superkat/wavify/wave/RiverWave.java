@@ -21,6 +21,8 @@ public class RiverWave extends Wave {
     protected final float baseLength;
     protected final float maxAlpha;
     protected final float motionPhase;
+    protected final float curvatureFactor;
+    protected final float lateralFactor;
 
     protected int planIndex = 0;
     protected boolean fading = false;
@@ -32,13 +34,17 @@ public class RiverWave extends Wave {
         this.travelSpeed = travelPlan.speed();
         this.requiredBankDistance = travelPlan.requiredBankDistance();
         this.setWidth(travelPlan.width());
-        this.scale = Math.max(1.95f, 1.8f + this.width * 0.16f);
-        this.length = Math.max(1.2f, 1.15f + this.width * 0.05f);
+        float sizeJitter = 0.82f + this.world.random.nextFloat() * 0.36f;
+        this.scale = Math.max(1.7f, (1.55f + this.width * 0.24f) * sizeJitter);
+        this.length = Math.max(1.05f, (1.0f + this.width * 0.11f) * sizeJitter);
         this.baseScale = this.scale;
         this.baseLength = this.length;
         this.maxAlpha = 0.78f;
         this.motionPhase = this.world.random.nextFloat() * 24f;
-        this.maxAge = 210 + this.plan.size() * 10;
+        // Always > 0 so no wave is a straight line; upper end produces deep crescents.
+        this.curvatureFactor = 0.65f + this.world.random.nextFloat() * 0.95f;
+        this.lateralFactor = 0.85f + this.world.random.nextFloat() * 0.35f;
+        this.maxAge = 105 + this.plan.size() * 5;
         this.maxWaterAge = this.maxAge;
         this.bigWave = false;
         this.offsetVertical(RIVER_VERTICAL_OFFSET);
@@ -61,18 +67,18 @@ public class RiverWave extends Wave {
     public int getRenderColumnCount() {
         int columns = Math.max(5, Math.round(this.width) + 2);
         if ((columns & 1) == 0) columns++;
-        return Math.min(columns, 7);
+        return Math.min(columns, 11);
     }
 
     @Override
     public float getRenderColumnLateralOffset(int columnIndex, int columnCount) {
-        return normalizedColumn(columnIndex, columnCount) * (0.72f + this.width * 0.03f);
+        return normalizedColumn(columnIndex, columnCount) * (0.68f + this.width * 0.05f) * this.lateralFactor;
     }
 
     @Override
     public float getRenderColumnForwardOffset(int columnIndex, int columnCount) {
         float normalized = Math.abs(normalizedColumn(columnIndex, columnCount));
-        return -(0.16f + normalized * normalized * 0.54f);
+        return -(0.16f + normalized * normalized * 0.54f) * this.curvatureFactor;
     }
 
     @Override

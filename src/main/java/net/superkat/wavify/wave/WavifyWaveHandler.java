@@ -55,6 +55,12 @@ public class WavifyWaveHandler {
     public Set<BlockPos> coveredBlocks = new ObjectArraySet<>();
     private List<RiverFlowPlanner.DebugMarker> riverDebugMarkers = List.of();
 
+    // Per-area spawn cooldown for river waves: prevents two waves spawning in the same spot back-to-back.
+    private static final double RIVER_SPAWN_COOLDOWN_RADIUS_SQ = 7.0 * 7.0;
+    private static final long RIVER_SPAWN_COOLDOWN_TICKS = 20L;
+    // Each entry: [x, z, expiryTick]
+    private final List<double[]> recentRiverSpawns = new ArrayList<>();
+
     public boolean nearbyChunksLoaded = false;
 
     public WavifyWaveHandler(ClientWorld world) {
@@ -296,6 +302,9 @@ public class WavifyWaveHandler {
     }
 
     private void spawnMovingRiverWaves(List<RiverFlowPlanner.RiverReach> reaches, @Nullable List<RiverFlowPlanner.DebugMarker> debugMarkers) {
+        long now = this.world.getTime();
+        this.recentRiverSpawns.removeIf(entry -> entry[2] <= now);
+
         for (RiverFlowPlanner.RiverReach reach : reaches) {
             int existing = 0;
             RiverWave reference = null;
@@ -324,10 +333,23 @@ public class WavifyWaveHandler {
                     : new RiverFlowPlanner.FlowReference(reference.x, reference.z, reference.getFlowDirX(), reference.getFlowDirZ());
             RiverFlowPlanner.RiverTravelPlan plan = RiverFlowPlanner.buildTravelPlan(this.world, reach, flowReference, this.world.random, debugMarkers);
             if (plan == null) continue;
-            if (hasRiverWaveNear(plan.spawnSurface().getX() + 0.5, plan.spawnSurface().getZ() + 0.5, 5.5, reach.id())) continue;
+            double spawnX = plan.spawnSurface().getX() + 0.5;
+            double spawnZ = plan.spawnSurface().getZ() + 0.5;
+            if (hasRiverWaveNear(spawnX, spawnZ, 5.5, reach.id())) continue;
+            if (recentRiverSpawnBlocks(spawnX, spawnZ)) continue;
 
             this.waves.add(new RiverWave(this.world, plan));
+            this.recentRiverSpawns.add(new double[]{spawnX, spawnZ, now + RIVER_SPAWN_COOLDOWN_TICKS});
         }
+    }
+
+    private boolean recentRiverSpawnBlocks(double x, double z) {
+        for (double[] entry : this.recentRiverSpawns) {
+            double dx = entry[0] - x;
+            double dz = entry[1] - z;
+            if (dx * dx + dz * dz <= RIVER_SPAWN_COOLDOWN_RADIUS_SQ) return true;
+        }
+        return false;
     }
 
     private void spawnStandingRiverWaves(List<RiverFlowPlanner.RiverReach> reaches, @Nullable List<RiverFlowPlanner.DebugMarker> debugMarkers) {
@@ -381,12 +403,22 @@ public class WavifyWaveHandler {
 
     private boolean hasRiverWaveNear(double x, double z, double radius, long reachId) {
         double radiusSq = radius * radius;
+        double routeRadiusSq = 4.0 * 4.0;
         for (Wave wave : this.waves) {
             if (!(wave instanceof RiverWave riverWave) || wave instanceof StandingRiverWave) continue;
             if (riverWave.getReachId() != reachId) continue;
             double dx = wave.x - x;
             double dz = wave.z - z;
             if (dx * dx + dz * dz <= radiusSq) return true;
+
+            // Also reject if the spawn falls anywhere along the existing wave's remaining route.
+            List<RiverFlowPlanner.RiverPlanPoint> plan = riverWave.plan;
+            for (int i = riverWave.planIndex; i < plan.size(); i++) {
+                RiverFlowPlanner.RiverPlanPoint point = plan.get(i);
+                double pdx = point.x() - x;
+                double pdz = point.z() - z;
+                if (pdx * pdx + pdz * pdz <= routeRadiusSq) return true;
+            }
         }
         return false;
     }
