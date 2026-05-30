@@ -6,6 +6,7 @@ public class WavifyConfig extends MidnightConfig {
     public static final String WAVES = "waves";
     public static final String APPEARANCE = "appearance";
     public static final String RIVERS = "rivers";
+    public static final String SOUNDS = "sounds";
 
     public enum ColorSource {
         BIOME,
@@ -35,6 +36,12 @@ public class WavifyConfig extends MidnightConfig {
     @Entry(category = RIVERS) public static boolean enableRiverWaves = true;
     @Entry(category = RIVERS, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double riverWaveFrequency = 0.45;
     @Entry(category = RIVERS, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double standingRiverWaveFrequency = 0.35;
+
+    @Entry(category = APPEARANCE, isSlider = true, min = -0.5, max = 0.5, precision = 100) public static double waveYOffset = 0.0;
+    @Entry(category = APPEARANCE, isSlider = true, min = -0.5, max = 0.5, precision = 100) public static double shaderWaveYSink = -0.30;
+
+    @Entry(category = SOUNDS) public static boolean enableWaveSounds = true;
+    @Entry(category = SOUNDS, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double waveSoundVolume = 1.0;
 
     public static int waveTicks = 80; // dummy value
 

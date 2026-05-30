@@ -3,6 +3,7 @@ package net.superkat.wavify;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback;
@@ -24,17 +25,25 @@ import net.superkat.wavify.particles.WhiteSprayParticle;
 import net.superkat.wavify.particles.debug.DebugShoreParticle;
 import net.superkat.wavify.particles.debug.DebugWaterParticle;
 import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
+import net.superkat.wavify.sound.WaveAmbientSoundManager;
+import net.superkat.wavify.sound.WavifySounds;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 
 public class WavifyClient implements ClientModInitializer {
 
     public static WavifySpriteHandler WAVIFY_SPRITE_HANDLER = new WavifySpriteHandler();
+    public static final WaveAmbientSoundManager SOUND_MANAGER = new WaveAmbientSoundManager();
 
-    // Using entityTranslucent instead of the weather layer: shaderpacks route
-    // weather through gbuffers_weather which several packs (Continuum, Helian,
-    // Photon) treat very differently from translucent geometry. The entity
-    // translucent layer maps to gbuffers_entities_translucent across all the
-    // major packs and gives consistent blending + depth-test-on/write-off.
+    // Using entityTranslucent: maps to gbuffers_entities_translucent under
+    // shaderpacks, gives consistent blending + depth-test-on/write-off. Picked
+    // over weather (gbuffers_weather) because several packs (Continuum, Helian,
+    // Photon) treat weather very differently from translucent geometry.
+    //
+    // Shader-mode behavior is handled at vertex level in WaveRenderer:
+    // IrisCompat.isShaderPackActive() lowers wave Y slightly so vanilla water
+    // (which the shaderpack reflects/refracts) renders on top of the wave,
+    // giving the wave color/foam the same shader-water treatment as the rest
+    // of the surface. See WaveRenderer#shaderYOffset.
     private static RenderLayer waveRenderLayer;
 
     private static RenderLayer getWaveRenderLayer() {
@@ -59,6 +68,15 @@ public class WavifyClient implements ClientModInitializer {
         ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> {
             WavifyWorld wavifyWorld = (WavifyWorld) world;
             wavifyWorld.wavify$wavifyWaveHandler().reloadNearbyChunks();
+            SOUND_MANAGER.hardReset();
+        });
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.world == null || client.player == null) {
+                SOUND_MANAGER.hardReset();
+                return;
+            }
+            SOUND_MANAGER.tick();
         });
 
         ClientChunkEvents.CHUNK_LOAD.register((world, chunk) -> {

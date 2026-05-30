@@ -1,0 +1,20 @@
+{
+  "ocean_wave_1": {
+    "sounds": [
+      { "name": "wavify:ocean_wave_1", "stream": true }
+    ],
+    "subtitle": "wavify.subtitle.ocean_wave"
+  },
+  "ocean_wave_2": {
+    "sounds": [
+      { "name": "wavify:ocean_wave_2", "stream": true }
+    ],
+    "subtitle": "wavify.subtitle.ocean_wave"
+  },
+  "river_wave": {
+    "sounds": [
+      { "name": "wavify:river_wave", "stream": true }
+    ],
+    "subtitle": "wavify.subtitle.river_wave"
+  }
+}

@@ -14,6 +14,7 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
 import net.superkat.wavify.WavifyClient;
+import net.superkat.wavify.compat.IrisCompat;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 import net.superkat.wavify.sprite.WavifySprites;
@@ -29,6 +30,23 @@ import java.util.Set;
  */
 public class WaveRenderer {
     private static final float WAVE_FOAM_Y_OFFSET = 0.08f;
+
+    // When an Iris/Oculus shaderpack is active, sink the colored wave body so
+    // vanilla water still covers the wave footprint. The shaderpack then
+    // renders its water reflections/refractions on top of (and tinted by) the
+    // wave color, giving the wave the same shader-water look as the rest of
+    // the surface. The foam quad stays at WAVE_FOAM_Y_OFFSET above the body so
+    // the white crest still pokes through the water surface.
+    //
+    // Sink amount is user-tunable via WavifyConfig.shaderWaveYSink. Cached per
+    // frame: isShaderPackActive() reflects into Iris, cheap but not free.
+    //
+    // frameBodyYOffset = waveYOffset + (shaderWaveYSink if shaders else 0)
+    // frameFoamYOffset = waveYOffset
+    // Foam never gets the shader sink; under shaders we WANT it at the water
+    // surface so the shaderpack's water shading covers it.
+    private float frameBodyYOffset = 0f;
+    private float frameFoamYOffset = 0f;
 
     public WavifyWaveHandler handler;
     public WavifySpriteHandler spriteHandler;
@@ -47,6 +65,11 @@ public class WaveRenderer {
         MinecraftClient mc = MinecraftClient.getInstance();
         float tickDelta = mc.getRenderTickCounter().getTickProgress(false);
         Camera camera = mc.gameRenderer.getCamera();
+
+        float shaderSink = IrisCompat.isShaderPackActive() ? (float) WavifyConfig.shaderWaveYSink : 0f;
+        float baseOffset = (float) WavifyConfig.waveYOffset;
+        this.frameFoamYOffset = baseOffset;
+        this.frameBodyYOffset = baseOffset + shaderSink;
 
         for (Wave wave : waves) {
             renderWave(buffer, camera, wave, tickDelta);
@@ -104,8 +127,8 @@ public class WaveRenderer {
             float washingZ = ageDelta > turnBackDelta ? MathHelper.lerp((ageDelta - turnBackDelta) * 2, 1.35f, 0) : 1.35f;
             matrices.scale(1.25f, 1, 1);
             for (int i = 0; i < wave.width; i++) {
-                waveQuad(posMatrix, buffer, washingColorableSprite, age, maxAge, i - 0.15f, -0.05f, washingZ, 1, washingLength, red, green, blue, alpha, light);
-                waveQuad(posMatrix, buffer, washingWhiteSprite, age, maxAge, i - 0.15f, -0.01f, washingZ, 1, washingLength, 1f, 1f, 1f, foamAlpha, light);
+                waveQuad(posMatrix, buffer, washingColorableSprite, age, maxAge, i - 0.15f, -0.05f + frameBodyYOffset, washingZ, 1, washingLength, red, green, blue, alpha, light);
+                waveQuad(posMatrix, buffer, washingWhiteSprite, age, maxAge, i - 0.15f, -0.01f + frameFoamYOffset, washingZ, 1, washingLength, 1f, 1f, 1f, foamAlpha, light);
             }
         }
 
@@ -121,8 +144,8 @@ public class WaveRenderer {
             float z = wave.getRenderColumnForwardOffset(i, columnCount);
             float width = wave.getRenderColumnWidth(i, columnCount);
             float length = wave.getRenderColumnLength(i, columnCount);
-            waveQuad(posMatrix, buffer, colorableSprite, age, maxAge, x, y, z, width, length, red, green, blue, alpha, light);
-            waveQuad(posMatrix, buffer, whiteSprite, age, maxAge, x, y + WAVE_FOAM_Y_OFFSET, z, width, length, 1f, 1f, 1f, foamAlpha, light);
+            waveQuad(posMatrix, buffer, colorableSprite, age, maxAge, x, y + frameBodyYOffset, z, width, length, red, green, blue, alpha, light);
+            waveQuad(posMatrix, buffer, whiteSprite, age, maxAge, x, y + WAVE_FOAM_Y_OFFSET + frameFoamYOffset, z, width, length, 1f, 1f, 1f, foamAlpha, light);
         }
     }
 
