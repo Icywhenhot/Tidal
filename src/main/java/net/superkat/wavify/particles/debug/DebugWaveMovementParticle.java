@@ -3,11 +3,9 @@ package net.superkat.wavify.particles.debug;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.SpriteSet;
-import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -16,10 +14,8 @@ import net.minecraft.core.particles.ScalableParticleOptionsBase;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
 import net.superkat.wavify.WavifyParticles;
 import org.joml.Vector3f;
-import org.joml.Vector3fc;
 
 public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<DebugWaveMovementParticle.DebugWaveMovementParticleEffect> {
     public float yaw = 0;
@@ -103,7 +99,7 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
         }
 
         @Override
-        public Particle createParticle(DebugWaveMovementParticleEffect dustParticleEffect, ClientLevel clientWorld, double d, double e, double f, double g, double h, double i, RandomSource random) {
+        public Particle createParticle(DebugWaveMovementParticleEffect dustParticleEffect, ClientLevel clientWorld, double d, double e, double f, double g, double h, double i) {
             return new DebugWaveMovementParticle(clientWorld, d, e, f, g, h, i, dustParticleEffect, this.spriteProvider);
         }
     }
@@ -127,12 +123,12 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
                 ByteBufCodecs.INT, DebugWaveMovementParticleEffect::getLifetime,
                 DebugWaveMovementParticleEffect::new
         );
-        private final Vector3fc color;
+        private final Vector3f color;
         private final float yaw;
         private final float speed;
         private final int lifetime;
 
-        public DebugWaveMovementParticleEffect(Vector3fc color, float scale, float yaw, float speed, int lifetime) {
+        public DebugWaveMovementParticleEffect(Vector3f color, float scale, float yaw, float speed, int lifetime) {
             super(scale);
             this.color = color;
             this.yaw = yaw;

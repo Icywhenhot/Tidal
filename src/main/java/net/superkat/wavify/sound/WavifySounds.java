@@ -1,6 +1,6 @@
 package net.superkat.wavify.sound;
 
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.sounds.SoundEvent;
 import net.neoforged.bus.api.IEventBus;
@@ -16,7 +16,7 @@ public class WavifySounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> RIVER_WAVE = register("river_wave");
 
     private static DeferredHolder<SoundEvent, SoundEvent> register(String name) {
-        Identifier id = Identifier.fromNamespaceAndPath(Wavify.MOD_ID, name);
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(Wavify.MOD_ID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));
     }
 

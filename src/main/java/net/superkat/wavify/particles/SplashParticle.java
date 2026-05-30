@@ -7,13 +7,13 @@ import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.RandomSource;
 import net.superkat.wavify.util.WavifyColors;
 import org.joml.Vector3f;
 
 public class SplashParticle extends WaterDropParticle {
     public SplashParticle(ClientLevel clientWorld, double x, double y, double z, double velX, double velY, double velZ, SpriteSet spriteProvider) {
-        super(clientWorld, x, y, z, spriteProvider.first());
+        super(clientWorld, x, y, z);
+        this.pickSprite(spriteProvider);
         this.gravity = 0.04F;
         this.xd = velX;
         this.yd = velY;
@@ -38,7 +38,7 @@ public class SplashParticle extends WaterDropParticle {
         }
 
         @Override
-        public Particle createParticle(SimpleParticleType simpleParticleType, ClientLevel clientWorld, double d, double e, double f, double g, double h, double i, RandomSource random) {
+        public Particle createParticle(SimpleParticleType simpleParticleType, ClientLevel clientWorld, double d, double e, double f, double g, double h, double i) {
             return new SplashParticle(clientWorld, d, e, f, g, h, i, this.spriteProvider);
         }
     }

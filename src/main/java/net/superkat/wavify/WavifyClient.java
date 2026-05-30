@@ -1,26 +1,23 @@
 package net.superkat.wavify;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.MeshData;
-import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
-import com.mojang.blaze3d.vertex.Tesselator;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
+import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.client.resources.VanillaClientListeners;
 import net.neoforged.neoforge.common.NeoForge;
-import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
@@ -41,21 +38,11 @@ public class WavifyClient {
     public static WavifySpriteHandler WAVIFY_SPRITE_HANDLER = new WavifySpriteHandler();
     public static final WaveAmbientSoundManager SOUND_MANAGER = new WaveAmbientSoundManager();
 
-    // Using entityTranslucent: maps to gbuffers_entities_translucent under
-    // shaderpacks, gives consistent blending + depth-test-on/write-off. Picked
-    // over weather (gbuffers_weather) because several packs (Continuum, Helian,
-    // Photon) treat weather very differently from translucent geometry.
-    //
-    // Shader-mode behavior is handled at vertex level in WaveRenderer:
-    // IrisCompat.isShaderPackActive() lowers wave Y slightly so vanilla water
-    // (which the shaderpack reflects/refracts) renders on top of the wave,
-    // giving the wave color/foam the same shader-water treatment as the rest
-    // of the surface. See WaveRenderer#shaderYOffset.
     private static RenderType waveRenderLayer;
 
-    private static RenderType getWaveRenderLayer() {
+    public static RenderType getWaveRenderLayer() {
         if (waveRenderLayer == null) {
-            waveRenderLayer = RenderTypes.entityTranslucent(WavifySpriteHandler.WAVE_ATLAS_ID, false);
+            waveRenderLayer = RenderType.entityTranslucent(WavifySpriteHandler.WAVE_ATLAS_ID);
         }
         return waveRenderLayer;
     }
@@ -87,11 +74,8 @@ public class WavifyClient {
         event.registerSpriteSet(WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE.get(), DebugWaveMovementParticle.Factory::new);
     }
 
-    private void registerReloadListeners(AddClientReloadListenersEvent event) {
-        Identifier key = Identifier.fromNamespaceAndPath(Wavify.MOD_ID, "wave_sprites");
-        event.addListener(key, WAVIFY_SPRITE_HANDLER);
-        event.addDependency(VanillaClientListeners.TEXTURES, key);
-        event.addDependency(key, VanillaClientListeners.LEVEL_RENDERER);
+    private void registerReloadListeners(RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener(WAVIFY_SPRITE_HANDLER);
     }
 
     private void onClientTick(ClientTickEvent.Post event) {
@@ -134,21 +118,18 @@ public class WavifyClient {
         }
     }
 
-    private void onRenderLevelStage(RenderLevelStageEvent.AfterTranslucentBlocks event) {
+    private void onRenderLevelStage(RenderLevelStageEvent event) {
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
 
         WavifyWorld wavifyWorld = (WavifyWorld) mc.level;
         RenderType layer = getWaveRenderLayer();
-        Tesselator tessellator = Tesselator.getInstance();
-        BufferBuilder buffer = tessellator.begin(layer.mode(), layer.format());
+        MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
 
-        wavifyWorld.wavify$wavifyWaveHandler().render(buffer);
+        wavifyWorld.wavify$wavifyWaveHandler().render(bufferSource, layer);
 
-        MeshData builtBuffer = buffer.build();
-        if (builtBuffer == null) return;
-
-        layer.draw(builtBuffer);
+        bufferSource.endBatch(layer);
     }
 
     private void onPlayerLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {

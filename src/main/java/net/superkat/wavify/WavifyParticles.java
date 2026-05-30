@@ -31,11 +31,11 @@ public class WavifyParticles {
 
     public static final DeferredHolder<ParticleType<?>, SimpleParticleType> SPLASH_PARTICLE = PARTICLES.register(
             "splash",
-            () -> new SimpleParticleType(false)
+            () -> new SimpleParticleType(false) {}
     );
     public static final DeferredHolder<ParticleType<?>, SimpleParticleType> BIG_SPLASH_PARTICLE = PARTICLES.register(
             "bigsplash",
-            () -> new SimpleParticleType(false)
+            () -> new SimpleParticleType(false) {}
     );
 
     public static final DeferredHolder<ParticleType<?>, ParticleType<DebugWaterParticle.DebugWaterParticleEffect>> DEBUG_WATERBODY_PARTICLE = PARTICLES.register(

@@ -1,48 +1,86 @@
 package net.superkat.wavify.sprite;
 
+import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.SpriteLoader;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.metadata.MetadataSectionType;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
+import net.minecraft.util.GsonHelper;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.superkat.wavify.Wavify;
 import net.superkat.wavify.duck.WavifyWorld;
 
-import java.util.Set;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * This is an alternative to Minecraft's particle texture system.<br><br>
- * Because SpriteIdentifier's Sprites are always ticking their animation, I can't have different timed animations for different waves.<br><br>
- * Particle's fix for this is splitting each frame into its own texture, and using their own ResourceReloader.<br><br>
- * My fix for this is using my own metadata (given via .mcmeta) which says the frame height/width/time, and using my own resource loader. The normal sprite metadata is ignored completely, disallowing the animation to be setup in my atlas.
+ * Custom wave atlas loader. Reads per-sprite wave_animation metadata directly
+ * from .mcmeta files since 1.21.1 doesn't expose a public sprite-metadata
+ * registration API.
  */
 public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySpriteHandler.AtlasPreparations> {
     public static final String MOD_ID = Wavify.MOD_ID;
-    public static final Identifier WAVE_ATLAS_ID = Identifier.fromNamespaceAndPath(MOD_ID, "textures/atlas/waves.png");
-    private static final Identifier TEXTURE_SOURCE_PATH = Identifier.fromNamespaceAndPath(MOD_ID, "wave");
-
-    public static final Set<MetadataSectionType<?>> METADATA_READERS = Set.of(WaveResourceMetadata.SERIALIZER);
+    public static final ResourceLocation WAVE_ATLAS_ID = ResourceLocation.fromNamespaceAndPath(MOD_ID, "textures/atlas/waves.png");
+    private static final ResourceLocation TEXTURE_SOURCE_PATH = ResourceLocation.fromNamespaceAndPath(MOD_ID, "wave");
+    private static final String TEXTURE_FOLDER = "textures/wave";
 
     public TextureAtlas atlas;
+    public Map<ResourceLocation, WaveResourceMetadata> waveMetadata = new HashMap<>();
 
-    public record AtlasPreparations(TextureAtlas atlas, SpriteLoader.Preparations stitchResult) {
+    public record AtlasPreparations(TextureAtlas atlas, SpriteLoader.Preparations stitchResult, Map<ResourceLocation, WaveResourceMetadata> waveMetadata) {
     }
 
-    public TextureAtlasSprite getSprite(Identifier id) {
+    public TextureAtlasSprite getSprite(ResourceLocation id) {
         return this.atlas.getSprite(id);
+    }
+
+    public WaveResourceMetadata getMetadata(ResourceLocation spriteId) {
+        return this.waveMetadata.getOrDefault(spriteId, WaveResourceMetadata.DEFAULT);
     }
 
     @Override
     protected AtlasPreparations prepare(ResourceManager manager, ProfilerFiller profiler) {
+        Map<ResourceLocation, WaveResourceMetadata> meta = loadWaveMetadata(manager);
+
         TextureAtlas atlas = this.atlas == null ? new TextureAtlas(WAVE_ATLAS_ID) : this.atlas;
         SpriteLoader.Preparations stitchResult = SpriteLoader.create(atlas)
-                .loadAndStitch(manager, TEXTURE_SOURCE_PATH, 0, Runnable::run, METADATA_READERS)
+                .loadAndStitch(manager, TEXTURE_SOURCE_PATH, 0, Runnable::run)
                 .join();
-        return new AtlasPreparations(atlas, stitchResult);
+        return new AtlasPreparations(atlas, stitchResult, meta);
+    }
+
+    private Map<ResourceLocation, WaveResourceMetadata> loadWaveMetadata(ResourceManager manager) {
+        Map<ResourceLocation, WaveResourceMetadata> map = new HashMap<>();
+        Map<ResourceLocation, Resource> mcmetaResources = manager.listResources(TEXTURE_FOLDER,
+                id -> id.getNamespace().equals(MOD_ID) && id.getPath().endsWith(".png.mcmeta"));
+
+        for (Map.Entry<ResourceLocation, Resource> entry : mcmetaResources.entrySet()) {
+            ResourceLocation mcmetaId = entry.getKey();
+            try (InputStream is = entry.getValue().open();
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                JsonObject root = GsonHelper.parse(reader);
+                if (!root.has("wave_animation")) continue;
+                JsonObject section = GsonHelper.getAsJsonObject(root, "wave_animation");
+                int frameTime = GsonHelper.getAsInt(section, "frametime", 5);
+                int frameHeight = GsonHelper.getAsInt(section, "frame_height", 16);
+
+                String path = mcmetaId.getPath();
+                // Strip "textures/wave/" prefix and ".png.mcmeta" suffix.
+                String stripped = path.substring(TEXTURE_FOLDER.length() + 1, path.length() - ".png.mcmeta".length());
+                ResourceLocation spriteId = ResourceLocation.fromNamespaceAndPath(MOD_ID, stripped);
+                map.put(spriteId, new WaveResourceMetadata(frameTime, frameHeight));
+            } catch (Exception ignored) {
+            }
+        }
+        return map;
     }
 
     @Override
@@ -53,6 +91,7 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
         }
 
         this.atlas.upload(preparations.stitchResult());
+        this.waveMetadata = preparations.waveMetadata();
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;

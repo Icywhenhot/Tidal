@@ -7,7 +7,8 @@ import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import com.mojang.blaze3d.vertex.BufferBuilder;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.core.particles.ParticleTypes;
@@ -94,8 +95,8 @@ public class WavifyWaveHandler {
 
     }
 
-    public void render(BufferBuilder buffer) {
-        this.renderer.render(buffer);
+    public void render(MultiBufferSource bufferSource, RenderType layer) {
+        this.renderer.render(bufferSource, layer);
     }
 
     /**
@@ -476,7 +477,7 @@ public class WavifyWaveHandler {
                     site.getYaw(),
                     0.3f,
                     20);
-            this.level.addParticle(particleEffect, farParticles, false, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
+            this.level.addParticle(particleEffect, farParticles, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
         }
     }
 
@@ -607,7 +608,7 @@ public class WavifyWaveHandler {
                         marker.speed(),
                         marker.lifetime()
                 );
-                this.level.addParticle(effect, false, false, marker.x(), marker.y(), marker.z(), 0, 0, 0);
+                this.level.addParticle(effect, false, marker.x(), marker.y(), marker.z(), 0, 0, 0);
             } else {
                 DebugWaterParticle.DebugWaterParticleEffect effect = new DebugWaterParticle.DebugWaterParticleEffect(marker.color(), marker.scale());
                 this.level.addParticle(effect, marker.x(), marker.y(), marker.z(), 0, 0, 0);
@@ -632,7 +633,7 @@ public class WavifyWaveHandler {
                     sitePos.getYaw(),
                     0.3f,
                     20);
-            this.level.addParticle(particleEffect, farParticles, false, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
+            this.level.addParticle(particleEffect, farParticles, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
         }
     }
 

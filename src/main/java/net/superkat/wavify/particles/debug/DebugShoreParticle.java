@@ -12,10 +12,8 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.core.particles.ScalableParticleOptionsBase;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.util.ExtraCodecs;
-import net.minecraft.util.RandomSource;
 import net.superkat.wavify.WavifyParticles;
 import org.joml.Vector3f;
-import org.joml.Vector3fc;
 
 public class DebugShoreParticle extends DebugAbstractColoredParticle<DebugShoreParticle.DebugShoreParticleEffect> {
 
@@ -34,7 +32,7 @@ public class DebugShoreParticle extends DebugAbstractColoredParticle<DebugShoreP
         }
 
         @Override
-        public Particle createParticle(DebugShoreParticleEffect dustParticleEffect, ClientLevel clientWorld, double d, double e, double f, double g, double h, double i, RandomSource random) {
+        public Particle createParticle(DebugShoreParticleEffect dustParticleEffect, ClientLevel clientWorld, double d, double e, double f, double g, double h, double i) {
             return new DebugShoreParticle(clientWorld, d, e, f, g, h, i, dustParticleEffect, this.spriteProvider);
         }
     }
@@ -49,9 +47,9 @@ public class DebugShoreParticle extends DebugAbstractColoredParticle<DebugShoreP
         public static final StreamCodec<RegistryFriendlyByteBuf, DebugShoreParticleEffect> PACKET_CODEC = StreamCodec.composite(
                 ByteBufCodecs.VECTOR3F, effect -> effect.color, ByteBufCodecs.FLOAT, ScalableParticleOptionsBase::getScale, DebugShoreParticleEffect::new
         );
-        private final Vector3fc color;
+        private final Vector3f color;
 
-        public DebugShoreParticleEffect(Vector3fc color, float scale) {
+        public DebugShoreParticleEffect(Vector3f color, float scale) {
             super(scale);
             this.color = color;
         }

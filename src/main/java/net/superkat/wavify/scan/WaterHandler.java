@@ -15,7 +15,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
@@ -354,7 +354,7 @@ public class WaterHandler {
         // display all sitePos'
         List<SitePos> allSites = this.sites.values().stream().flatMap(Collection::stream).toList();
         for (SitePos site : allSites) {
-            this.level.addParticle(ParticleTypes.EGG_CRACK, true, false, site.getX() + 0.5, site.getY() + 2, site.getZ() + 0.5, 0, 0, 0);
+            this.level.addParticle(ParticleTypes.EGG_CRACK, true, site.getX() + 0.5, site.getY() + 2, site.getZ() + 0.5, 0, 0, 0);
         }
 
         if (!DebugHelper.debug()) return;
@@ -381,7 +381,7 @@ public class WaterHandler {
 
                 Vec3 pos = blockPos.getCenter();
                 ParticleOptions particleEffect = new DebugWaterParticle.DebugWaterParticleEffect(color, 1f);
-                this.level.addParticle(particleEffect, farParticles, false, pos.x(), pos.y() + 1, pos.z(), 0, 0, 0);
+                this.level.addParticle(particleEffect, farParticles, pos.x(), pos.y() + 1, pos.z(), 0, 0, 0);
             }
         }
     }
@@ -452,7 +452,8 @@ public class WaterHandler {
      * Searches through all loaded, unscanned chunks, and queues unscanned chunks which are within scanning distance to {@link WaterHandler#unscannedChunkQueue}
      */
     public void checkUnscannedChunks() {
-        ChunkPos cameraChunk = new ChunkPos(Minecraft.getInstance().gameRenderer.getMainCamera().blockPosition().getX() >> 4, Minecraft.getInstance().gameRenderer.getMainCamera().blockPosition().getZ() >> 4);
+        net.minecraft.world.phys.Vec3 camPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        ChunkPos cameraChunk = new ChunkPos(((int) Math.floor(camPos.x)) >> 4, ((int) Math.floor(camPos.z)) >> 4);
         double radius = WavifyConfig.chunkRadius * WavifyConfig.chunkRadius;
         Iterator<ChunkPos> iterator = this.unscannedChunks.iterator();
         while (iterator.hasNext()) {
