@@ -229,9 +229,9 @@ public class Wave {
             double splashZ = this.z + this.velZ * 10;
 
             for (int i = 0; i < sprayAmount; i++) {
-                this.level.addParticle(WavifyParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.level.getRandom().nextGaussian() * 0.1f, Math.abs(this.level.getRandom().nextGaussian()) * 0.1f + 0.1f, this.level.getRandom().nextGaussian() * 0.1f);
+            this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(), splashX, this.y, splashZ, this.level.getRandom().nextGaussian() * 0.1f, Math.abs(this.level.getRandom().nextGaussian()) * 0.1f + 0.1f, this.level.getRandom().nextGaussian() * 0.1f);
                 if (this.bigWave) {
-                    this.level.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE, splashX + this.level.getRandom().nextGaussian() / 2f, this.y, splashZ + this.level.getRandom().nextGaussian() / 2f, 0, 0.01, 0);
+            this.level.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE.get(), splashX + this.level.getRandom().nextGaussian() / 2f, this.y, splashZ + this.level.getRandom().nextGaussian() / 2f, 0, 0.01, 0);
                 }
             }
 
@@ -271,7 +271,7 @@ public class Wave {
 
             for (int i = 0; i < this.width; i++) {
                 for (int j = 0; j < splashAmount; j++) {
-                    this.level.addParticle(WavifyParticles.SPLASH_PARTICLE,
+            this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(),
                             splashX + this.level.getRandom().nextGaussian(),
                             this.y,
                             splashZ + this.level.getRandom().nextGaussian(),
@@ -371,12 +371,16 @@ public class Wave {
     public int getLight() {
         //emissive during full moon :)
         long dayTime = this.level.getGameTime();
-        if ((int)(dayTime / 24000L % 8L) == 0 && dayTime % 24000L >= 12000)
+        if (canFullMoonGlow() && (int)(dayTime / 24000L % 8L) == 0 && dayTime % 24000L >= 12000)
             return LightCoordsUtil.pack(15, 15);
         BlockPos pos = this.getBlockPos().offset(0, 1, 0);
         int blockLight = this.level.getBrightness(LightLayer.BLOCK, pos);
         int skylight = this.level.getBrightness(LightLayer.SKY, pos);
         return LightCoordsUtil.pack(blockLight, skylight);
+    }
+
+    protected boolean canFullMoonGlow() {
+        return true;
     }
 
     public int getRenderColumnCount() {

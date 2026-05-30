@@ -130,7 +130,7 @@ public class StandingRiverWave extends Wave {
         float sprayIntensity = 0.12f + crest * 0.08f + this.energy * 0.05f;
 
         this.level.addParticle(
-                WavifyParticles.SPLASH_PARTICLE,
+                            WavifyParticles.SPLASH_PARTICLE.get(),
                 splashX + this.level.getRandom().nextGaussian() * 0.08f,
                 this.y,
                 splashZ + this.level.getRandom().nextGaussian() * 0.08f,
@@ -153,5 +153,10 @@ public class StandingRiverWave extends Wave {
         if (columnCount <= 1) return 0f;
         float center = (columnCount - 1) * 0.5f;
         return (columnIndex - center) / center;
+    }
+
+    @Override
+    protected boolean canFullMoonGlow() {
+        return false;
     }
 }

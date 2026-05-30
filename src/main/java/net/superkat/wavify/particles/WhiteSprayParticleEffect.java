@@ -16,6 +16,6 @@ public class WhiteSprayParticleEffect extends SprayParticleEffect {
 
     @Override
     public ParticleType<?> getType() {
-        return WavifyParticles.WHITE_SPRAY_PARTICLE;
+        return WavifyParticles.WHITE_SPRAY_PARTICLE.get();
     }
 }

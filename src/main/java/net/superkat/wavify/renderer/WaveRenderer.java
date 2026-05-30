@@ -1,6 +1,5 @@
 package net.superkat.wavify.renderer;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import net.minecraft.client.Camera;
@@ -58,7 +57,7 @@ public class WaveRenderer {
         this.level = level;
     }
 
-    public void render(BufferBuilder buffer, LevelRenderContext context) {
+    public void render(BufferBuilder buffer) {
         List<Wave> waves = this.handler.getWaves();
         if (waves == null || waves.isEmpty()) return;
 

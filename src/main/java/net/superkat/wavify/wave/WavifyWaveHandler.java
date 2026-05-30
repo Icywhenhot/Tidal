@@ -4,7 +4,6 @@ import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -23,6 +22,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.superkat.wavify.DebugHelper;
 import net.superkat.wavify.config.WavifyConfig;
+import net.superkat.wavify.mixin.OptionsAccessor;
 import net.superkat.wavify.particles.debug.DebugWaterParticle;
 import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
 import net.superkat.wavify.renderer.WaveRenderer;
@@ -94,8 +94,8 @@ public class WavifyWaveHandler {
 
     }
 
-    public void render(BufferBuilder buffer, LevelRenderContext context) {
-        this.renderer.render(buffer, context);
+    public void render(BufferBuilder buffer) {
+        this.renderer.render(buffer);
     }
 
     /**
@@ -539,7 +539,7 @@ public class WavifyWaveHandler {
     public int getChunkRadius() {
         Minecraft client = Minecraft.getInstance();
         int configRadius = WavifyConfig.chunkRadius;
-        int serverRadius = client.options.serverRenderDistance;
+        int serverRadius = ((OptionsAccessor) client.options).wavify$getServerRenderDistance();
 
         return Math.min(configRadius, serverRadius);
     }
@@ -549,7 +549,7 @@ public class WavifyWaveHandler {
      */
     public int getLoadedChunkRadius() {
         Minecraft client = Minecraft.getInstance();
-        int loadRadius = client.options.serverRenderDistance;
+        int loadRadius = ((OptionsAccessor) client.options).wavify$getServerRenderDistance();
         return Math.max(2, loadRadius) + 3;
     }
 

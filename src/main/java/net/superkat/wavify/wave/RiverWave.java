@@ -208,4 +208,9 @@ public class RiverWave extends Wave {
         float center = (columnCount - 1) * 0.5f;
         return (columnIndex - center) / center;
     }
+
+    @Override
+    protected boolean canFullMoonGlow() {
+        return false;
+    }
 }

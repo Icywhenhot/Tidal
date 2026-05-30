@@ -1,7 +1,5 @@
 package net.superkat.wavify.particles;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.WaterDropParticle;
@@ -24,15 +22,14 @@ public class SplashParticle extends WaterDropParticle {
     }
 
     public void updateWaterColor() {
-        Vector3f color = WavifyColors.getWaterColorVec(this.level, this.getPos());
+        Vector3f color = WavifyColors.getWaterColorVec(this.level, this.getBlockPos());
         this.setColor(color.x, color.y, color.z);
     }
 
-    public BlockPos getPos() {
+    public BlockPos getBlockPos() {
         return BlockPos.containing(this.x, this.y, this.z);
     }
 
-    @Environment(EnvType.CLIENT)
     public static class Factory implements ParticleProvider<SimpleParticleType> {
         private final SpriteSet spriteProvider;
 

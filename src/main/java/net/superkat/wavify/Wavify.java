@@ -1,28 +1,24 @@
 package net.superkat.wavify;
 
-import eu.midnightdust.lib.config.MidnightConfig;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.superkat.wavify.config.WavifyConfig;
-import net.superkat.wavify.duck.WavifyWorld;
 import net.superkat.wavify.sound.WavifySounds;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class Wavify implements ModInitializer {
-	public static final String MOD_ID = "wavify";
-	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+@Mod(Wavify.MOD_ID)
+public class Wavify {
+    public static final String MOD_ID = "wavify";
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	@Override
-	public void onInitialize() {
-		MidnightConfig.init(MOD_ID, WavifyConfig.class);
-
-		ClientTickEvents.END_LEVEL_TICK.register(clientWorld -> {
-			WavifyWorld wavifyWorld = (WavifyWorld) clientWorld;
-			wavifyWorld.wavify$wavifyWaveHandler().tick();
-		});
-
-		WavifyParticles.registerParticles();
-		WavifySounds.init();
-	}
+    public Wavify(IEventBus modEventBus, ModContainer modContainer) {
+        WavifyParticles.register(modEventBus);
+        WavifySounds.register(modEventBus);
+        modEventBus.addListener(WavifyConfig::onLoad);
+        modEventBus.addListener(WavifyConfig::onReload);
+        modContainer.registerConfig(ModConfig.Type.CLIENT, WavifyConfig.SPEC);
+    }
 }

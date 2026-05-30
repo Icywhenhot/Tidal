@@ -3,8 +3,6 @@ package net.superkat.wavify.particles.debug;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
@@ -96,7 +94,6 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
         this.setAlpha(Mth.lerp((float) this.age / this.lifetime, 1f, 0f));
     }
 
-    @Environment(EnvType.CLIENT)
     public static class Factory implements ParticleProvider<DebugWaveMovementParticleEffect> {
         private final SpriteSet spriteProvider;
 
@@ -144,7 +141,7 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
 
         @Override
         public ParticleType<DebugWaveMovementParticleEffect> getType() {
-            return WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE;
+            return WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE.get();
         }
 
         public float getYaw() {
