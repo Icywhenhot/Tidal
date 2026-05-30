@@ -8,7 +8,10 @@ import net.minecraft.client.particle.ParticleFactory;
 import net.minecraft.client.particle.SpriteProvider;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.SimpleParticleType;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
+import net.superkat.wavify.util.WavifyColors;
+import org.joml.Vector3f;
 
 public class BigSplashParticle extends BillboardParticle {
     private final SpriteProvider spriteProvider;
@@ -20,6 +23,9 @@ public class BigSplashParticle extends BillboardParticle {
         this.scale = 0.5f;
         this.gravityStrength = 0.04f;
         this.updateSprite(this.spriteProvider);
+
+        Vector3f color = WavifyColors.getWaterColorVec(clientWorld, BlockPos.ofFloored(x, y, z));
+        this.setColor(color.x, color.y, color.z);
     }
 
     @Override

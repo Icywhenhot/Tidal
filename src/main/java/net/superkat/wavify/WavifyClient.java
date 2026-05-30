@@ -30,14 +30,16 @@ public class WavifyClient implements ClientModInitializer {
 
     public static WavifySpriteHandler WAVIFY_SPRITE_HANDLER = new WavifySpriteHandler();
 
-    // Reusing vanilla's "weather" render layer: translucent textured quads with
-    // depth-write disabled, which lets overlapping wave quads blend cleanly
-    // (the same property the old tripwire shader provided in 1.21.1).
+    // Using entityTranslucent instead of the weather layer: shaderpacks route
+    // weather through gbuffers_weather which several packs (Continuum, Helian,
+    // Photon) treat very differently from translucent geometry. The entity
+    // translucent layer maps to gbuffers_entities_translucent across all the
+    // major packs and gives consistent blending + depth-test-on/write-off.
     private static RenderLayer waveRenderLayer;
 
     private static RenderLayer getWaveRenderLayer() {
         if (waveRenderLayer == null) {
-            waveRenderLayer = RenderLayers.weather(WavifySpriteHandler.WAVE_ATLAS_ID, false);
+            waveRenderLayer = RenderLayers.entityTranslucent(WavifySpriteHandler.WAVE_ATLAS_ID, false);
         }
         return waveRenderLayer;
     }
@@ -87,7 +89,11 @@ public class WavifyClient implements ClientModInitializer {
             wavifyWorld.wavify$wavifyWaveHandler().waterHandler.rebuild();
         });
 
-        WorldRenderEvents.BEFORE_TRANSLUCENT.register(context -> {
+        // Render at END_MAIN (after the main world pass, including translucent
+        // water) so waves overlay water properly. The new entityTranslucent
+        // layer writes depth, and rendering before water caused fade-in quads
+        // to punch a hole through the water surface.
+        WorldRenderEvents.END_MAIN.register(context -> {
             MinecraftClient mc = MinecraftClient.getInstance();
             if(mc.world == null) return;
             WavifyWorld wavifyWorld = (WavifyWorld) mc.world;

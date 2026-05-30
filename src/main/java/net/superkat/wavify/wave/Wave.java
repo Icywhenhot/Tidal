@@ -3,7 +3,6 @@ package net.superkat.wavify.wave;
 import com.google.common.collect.Sets;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.client.color.world.BiomeColors;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
@@ -14,6 +13,8 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
 import net.superkat.wavify.WavifyParticles;
 import net.superkat.wavify.particles.SprayParticleEffect;
+import net.superkat.wavify.util.WavifyColors;
+import org.joml.Vector3f;
 import org.jetbrains.annotations.Range;
 
 import java.util.List;
@@ -69,6 +70,7 @@ public class Wave {
 
     public boolean waterfallMode = false;
     public boolean waterfallSplashed = false;
+    public float prevYaw = 0f;
 
     public float red = 1f;
     public float green = 1f;
@@ -105,6 +107,11 @@ public class Wave {
 
         this.velX = (float) (Math.cos(Math.toRadians(yaw)) * speed);
         this.velZ = (float) (Math.sin(Math.toRadians(yaw)) * speed);
+
+        this.prevX = this.x;
+        this.prevY = this.y;
+        this.prevZ = this.z;
+        this.prevYaw = this.yaw;
 
         this.alpha = 0f;
     }
@@ -315,12 +322,15 @@ public class Wave {
         this.width = width;
     }
 
+    public void offsetVertical(float offset) {
+        this.y += offset;
+        this.prevY += offset;
+        syncBoxToCurrentPosition();
+    }
+
     public void updateWaterColor() {
-        int color = BiomeColors.getWaterColor(this.world, this.getBlockPos());
-        float r = (float) (color >> 16 & 0xFF) / 255.0F;
-        float g = (float) (color >> 8 & 0xFF) / 255.0F;
-        float b = (float) (color & 0xFF) / 255.0F;
-        this.setColor(r, g, b); // colorhelp here?
+        Vector3f color = WavifyColors.getWaterColorVec(this.world, this.getBlockPos());
+        this.setColor(color.x, color.y, color.z);
     }
 
     /**
@@ -346,6 +356,10 @@ public class Wave {
         return MathHelper.lerp(delta, this.prevZ, this.z);
     }
 
+    public float getYaw(float delta) {
+        return MathHelper.lerpAngleDegrees(delta, this.prevYaw, this.yaw);
+    }
+
     public int getAge() {
         return this.isWashingUp() ? this.getWashingAge() : this.age;
     }
@@ -362,6 +376,43 @@ public class Wave {
         int blockLight = this.world.getLightLevel(LightType.BLOCK, pos);
         int skylight = this.world.getLightLevel(LightType.SKY, pos);
         return LightmapTextureManager.pack(blockLight, skylight);
+    }
+
+    public int getRenderColumnCount() {
+        return Math.max(1, Math.round(this.width));
+    }
+
+    public float getRenderColumnLateralOffset(int columnIndex, int columnCount) {
+        return columnIndex - (columnCount - 1) * 0.5f;
+    }
+
+    public float getRenderColumnForwardOffset(int columnIndex, int columnCount) {
+        return 0f;
+    }
+
+    public float getRenderColumnVerticalOffset(int columnIndex, int columnCount) {
+        return 0f;
+    }
+
+    public float getRenderColumnWidth(int columnIndex, int columnCount) {
+        return 1f;
+    }
+
+    public float getRenderColumnLength(int columnIndex, int columnCount) {
+        return this.length;
+    }
+
+    protected void capturePreviousState() {
+        this.prevX = this.x;
+        this.prevY = this.y;
+        this.prevZ = this.z;
+        this.prevYaw = this.yaw;
+    }
+
+    protected void syncBoxToCurrentPosition() {
+        float f = 0.2f / 2.0F;
+        float g = 0.2f;
+        this.box = (new Box(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f)).expand(this.scale / 4f, 0, this.scale / 4f);
     }
 
     public void markDead() {
