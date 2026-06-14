@@ -27,16 +27,15 @@ import net.superkat.wavify.mixin.OptionsAccessor;
 import net.superkat.wavify.particles.debug.DebugWaterParticle;
 import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
 import net.superkat.wavify.renderer.WaveRenderer;
-import net.superkat.wavify.river.RiverFlowPlanner;
+import net.superkat.wavify.river.RiverFlow;
+import net.superkat.wavify.river.RiverFlowField;
 import net.superkat.wavify.scan.SitePos;
 import net.superkat.wavify.scan.WaterHandler;
-import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -54,13 +53,17 @@ public class WavifyWaveHandler {
     public List<Wave> waves = new ObjectArrayList<>();
     // Set of BlockPos's currently being covered by waves - used for rendering wet overlay
     public Set<BlockPos> coveredBlocks = new ObjectArraySet<>();
-    private List<RiverFlowPlanner.DebugMarker> riverDebugMarkers = List.of();
+    private List<RiverFlow.DebugMarker> riverDebugMarkers = List.of();
+    private final RiverFlowField riverFlow = new RiverFlowField();
 
-    // Per-area spawn cooldown for river waves: prevents two waves spawning in the same spot back-to-back.
-    private static final double RIVER_SPAWN_COOLDOWN_RADIUS_SQ = 7.0 * 7.0;
-    private static final long RIVER_SPAWN_COOLDOWN_TICKS = 20L;
-    // Each entry: [x, z, expiryTick]
-    private final List<double[]> recentRiverSpawns = new ArrayList<>();
+    // Near-player blue-noise scatter parameters for river waves. River waves are small and only read up
+    // close, so we only ever consider water within a configurable radius of the player - cost is
+    // independent of how large the river actually is. The radius itself comes from
+    // WavifyConfig.riverWaveSpawnRadius; the chunk radius is derived from it.
+    private static final double RIVER_MIN_SPACING_SQ = 5.0 * 5.0;
+    /** Water blocks required to the nearest bank on each side before a river wave may spawn there. Keeps
+     *  waves off the very edge, where the flow direction is least reliable and they jitter. */
+    private static final int SPAWN_BANK_MARGIN = 1;
 
     public boolean nearbyChunksLoaded = false;
 
@@ -105,10 +108,17 @@ public class WavifyWaveHandler {
     public void wavifyTick() {
         if (!this.level.tickRateManager().runsNormally()) return;
         double time = this.level.getGameTime();
-        if (time % 80 == 0) {
+        if (WavifyConfig.enableOceanWaves && time % 80 == 0) {
             spawnAllWaves();
-        } else if (WavifyConfig.enableRiverWaves && time % 40 == 0) {
-            spawnRiverWavesNearPlayer();
+        }
+        if (WavifyConfig.enableRiverWaves) {
+            LocalPlayer riverPlayer = Minecraft.getInstance().player;
+            if (riverPlayer != null) {
+                this.riverFlow.ensureBuilt(this.level, this.waterHandler, riverPlayer.getX(), riverPlayer.getZ(), (long) time);
+                if (time % 40 == 0) spawnRiverWavesNearPlayer();
+            }
+        } else {
+            this.riverDebugMarkers = List.of();
         }
 
         boolean updateCoveredBlocks = time % 10 == 0;
@@ -143,11 +153,6 @@ public class WavifyWaveHandler {
                 .filter(water -> !isRiverBiomeWater(water))
                 .collect(ObjectArraySet::new, Set::add, Set::addAll);
         if (!waterBlocks.isEmpty()) spawnWaves(waterBlocks);
-        if (WavifyConfig.enableRiverWaves) {
-            spawnRiverWaves(playerChunk, chunkRadius);
-        } else {
-            this.riverDebugMarkers = List.of();
-        }
 
         if (DebugHelper.debug()) {
             if (DebugHelper.holdingSpyglass()) debugWaveParticles(waterBlocks);
@@ -194,12 +199,6 @@ public class WavifyWaveHandler {
             wave.setWidth(width);
             this.waves.add(wave);
         }
-    }
-
-    private void spawnRiverWavesNearPlayer() {
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) return;
-        spawnRiverWaves(player.chunkPosition(), WavifyConfig.chunkRadius - 2);
     }
 
     private boolean isOceanConnectedWave(BlockPos surfaceSpawn, float yaw) {
@@ -288,149 +287,98 @@ public class WavifyWaveHandler {
         return false;
     }
 
-    public void spawnRiverWaves(ChunkPos playerChunk, int chunkRadius) {
-        List<RiverFlowPlanner.DebugMarker> debugMarkers = DebugHelper.debug() ? new ArrayList<>() : null;
-        List<RiverFlowPlanner.RiverReach> reaches = RiverFlowPlanner.buildReaches(this.level, this.waterHandler, playerChunk, chunkRadius, debugMarkers);
-        if (reaches.isEmpty()) {
-            this.riverDebugMarkers = debugMarkers == null ? List.of() : List.copyOf(debugMarkers);
+    /**
+     * Blue-noise scatter of river waves across river water near the player. No flood-fill, no reach
+     * building, no accept/reject gate: every chosen spot becomes a visible wave, so coverage is uniform
+     * and nothing is ever silently discarded. Cost depends only on nearby water and the density config,
+     * never on the size of the river.
+     */
+    private void spawnRiverWavesNearPlayer() {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) return;
+
+        double px = player.getX();
+        double pz = player.getZ();
+        ChunkPos playerChunk = player.chunkPosition();
+
+        double spawnRadius = WavifyConfig.riverWaveSpawnRadius;
+        double spawnRadiusSq = spawnRadius * spawnRadius;
+        int spawnChunkRadius = Mth.ceil(spawnRadius / 16.0);
+
+        List<BlockPos> candidates = new ArrayList<>();
+        for (int cdx = -spawnChunkRadius; cdx <= spawnChunkRadius; cdx++) {
+            for (int cdz = -spawnChunkRadius; cdz <= spawnChunkRadius; cdz++) {
+                long chunkPosL = new ChunkPos(playerChunk.x + cdx, playerChunk.z + cdz).toLong();
+                Set<BlockPos> waters = this.waterHandler.waters.get(chunkPosL);
+                if (waters == null || waters.isEmpty()) continue;
+
+                for (BlockPos water : waters) {
+                    double dx = water.getX() + 0.5 - px;
+                    double dz = water.getZ() + 0.5 - pz;
+                    if (dx * dx + dz * dz > spawnRadiusSq) continue;
+                    if (!isRiverBiomeWater(water)) continue;
+                    if (!posIsWater(this.level, water)) continue;
+                    if (!this.level.getBlockState(water.above()).isAir()) continue;
+                    candidates.add(water);
+                }
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            this.riverDebugMarkers = List.of();
             return;
         }
 
-        spawnMovingRiverWaves(reaches, debugMarkers);
-        spawnStandingRiverWaves(reaches, debugMarkers);
-        this.riverDebugMarkers = debugMarkers == null ? List.of() : List.copyOf(debugMarkers);
-    }
-
-    private void spawnMovingRiverWaves(List<RiverFlowPlanner.RiverReach> reaches, @Nullable List<RiverFlowPlanner.DebugMarker> debugMarkers) {
-        long now = this.level.getGameTime();
-        this.recentRiverSpawns.removeIf(entry -> entry[2] <= now);
-
-        for (RiverFlowPlanner.RiverReach reach : reaches) {
-            int existing = 0;
-            RiverWave reference = null;
-            double referenceDistanceSq = Double.MAX_VALUE;
-            for (Wave wave : this.waves) {
-                if (!(wave instanceof RiverWave riverWave) || wave instanceof StandingRiverWave) continue;
-                if (riverWave.getReachId() != reach.id()) continue;
-                existing++;
-
-                double dx = riverWave.x - (reach.downstreamEnd().getX() + 0.5);
-                double dz = riverWave.z - (reach.downstreamEnd().getZ() + 0.5);
-                double distanceSq = dx * dx + dz * dz;
-                if (distanceSq < referenceDistanceSq) {
-                    referenceDistanceSq = distanceSq;
-                    reference = riverWave;
-                }
+        List<double[]> taken = new ArrayList<>();
+        for (Wave wave : this.waves) {
+            if (wave instanceof RiverWave riverWave) {
+                taken.add(new double[]{riverWave.x, riverWave.z});
             }
+        }
 
-            int maxMoving = Mth.clamp((int) Math.round(reach.reachLength() / 18.0), 2, 4);
-            if (existing >= maxMoving) continue;
+        int target = (int) Math.round(candidates.size() / 100.0 * WavifyConfig.riverWaveDensity);
+        target = Mth.clamp(target, 1, 48);
+        int toSpawn = target - taken.size();
+        if (toSpawn <= 0) {
+            this.riverDebugMarkers = List.of();
+            return;
+        }
 
-            double chance = Mth.clamp(WavifyConfig.riverWaveFrequency + reach.reachLength() / 140.0, 0.58, 0.97);
-            if (this.level.getRandom().nextDouble() > chance) continue;
+        RandomSource random = this.level.getRandom();
+        int spawned = 0;
+        int attempts = 0;
+        int maxAttempts = toSpawn * 8 + 16;
 
-            RiverFlowPlanner.FlowReference flowReference = reference == null ? null
-                    : new RiverFlowPlanner.FlowReference(reference.x, reference.z, reference.getFlowDirX(), reference.getFlowDirZ());
-            RiverFlowPlanner.RiverTravelPlan plan = RiverFlowPlanner.buildTravelPlan(this.level, reach, flowReference, this.level.getRandom(), debugMarkers);
-            if (plan == null) continue;
-            double spawnX = plan.spawnSurface().getX() + 0.5;
-            double spawnZ = plan.spawnSurface().getZ() + 0.5;
-            if (hasRiverWaveNear(spawnX, spawnZ, 5.5, reach.id())) continue;
-            if (recentRiverSpawnBlocks(spawnX, spawnZ)) continue;
+        while (spawned < toSpawn && attempts++ < maxAttempts) {
+            BlockPos water = candidates.get(random.nextInt(candidates.size()));
+            double cx = water.getX() + 0.5;
+            double cz = water.getZ() + 0.5;
+            if (tooCloseToExistingRiverWave(taken, cx, cz)) continue;
 
-            this.waves.add(new RiverWave(this.level, plan));
-            this.recentRiverSpawns.add(new double[]{spawnX, spawnZ, now + RIVER_SPAWN_COOLDOWN_TICKS});
+            RiverFlow.Flow flow = this.riverFlow.flowAt(cx, cz);
+            if (flow == null) continue;
+            // Don't spawn against a bank - that's where the flow is least reliable and waves jitter.
+            if (RiverFlow.bankClearance(this.level, cx, cz, water.getY(), flow.dirX(), flow.dirZ(), 4) < SPAWN_BANK_MARGIN) continue;
+
+            this.waves.add(new RiverWave(this.level, water, this.riverFlow, flow.dirX(), flow.dirZ(), (float) WavifyConfig.riverWaveTravelBlocks));
+            taken.add(new double[]{cx, cz});
+            spawned++;
+        }
+
+        if (DebugHelper.debug()) {
+            List<RiverFlow.DebugMarker> debugMarkers = new ArrayList<>();
+            this.riverFlow.addDebugMarkers(this.level, debugMarkers, Mth.floor(player.getY()));
+            this.riverDebugMarkers = List.copyOf(debugMarkers);
+        } else {
+            this.riverDebugMarkers = List.of();
         }
     }
 
-    private boolean recentRiverSpawnBlocks(double x, double z) {
-        for (double[] entry : this.recentRiverSpawns) {
+    private boolean tooCloseToExistingRiverWave(List<double[]> taken, double x, double z) {
+        for (double[] entry : taken) {
             double dx = entry[0] - x;
             double dz = entry[1] - z;
-            if (dx * dx + dz * dz <= RIVER_SPAWN_COOLDOWN_RADIUS_SQ) return true;
-        }
-        return false;
-    }
-
-    private void spawnStandingRiverWaves(List<RiverFlowPlanner.RiverReach> reaches, @Nullable List<RiverFlowPlanner.DebugMarker> debugMarkers) {
-        for (RiverFlowPlanner.RiverReach reach : reaches) {
-            Set<Long> occupiedAnchors = new HashSet<>();
-            int existingStanding = 0;
-            for (Wave wave : this.waves) {
-                if (!(wave instanceof StandingRiverWave standingWave)) continue;
-                if (standingWave.getReachId() != reach.id()) continue;
-                existingStanding++;
-                occupiedAnchors.add(standingWave.getBlockPos().below().asLong());
-            }
-
-            if (existingStanding >= 3) continue;
-            if (this.level.getRandom().nextDouble() > WavifyConfig.standingRiverWaveFrequency) continue;
-
-            RiverFlowPlanner.StandingWaveCandidate candidate = RiverFlowPlanner.findStandingWaveCandidate(this.level, reach, occupiedAnchors, this.level.getRandom(), debugMarkers);
-            if (candidate == null) continue;
-            if (hasStandingWaveNear(candidate.anchorWater().getX() + 0.5, candidate.anchorWater().getZ() + 0.5, 6.0, reach.id())) continue;
-
-            for (int i = 0; i < candidate.trainLength(); i++) {
-                double offsetX = candidate.anchorWater().getX() + 0.5 + candidate.dirX() * (i * 1.9);
-                double offsetZ = candidate.anchorWater().getZ() + 0.5 + candidate.dirZ() * (i * 1.9);
-                BlockPos anchor = findNearestReachWater(reach, offsetX, offsetZ, 4.5, true, candidate.dirX(), candidate.dirZ());
-                if (anchor == null) continue;
-                if (hasStandingWaveNear(anchor.getX() + 0.5, anchor.getZ() + 0.5, 1.6, reach.id())) continue;
-
-                occupiedAnchors.add(anchor.asLong());
-                this.waves.add(new StandingRiverWave(this.level, candidate, anchor, i));
-            }
-        }
-    }
-
-    @Nullable
-    private BlockPos findNearestReachWater(RiverFlowPlanner.RiverReach reach, double x, double z, double maxDistanceRadius, boolean shallowOnly, double dirX, double dirZ) {
-        BlockPos best = null;
-        double bestDistance = maxDistanceRadius * maxDistanceRadius;
-        for (BlockPos water : reach.waters()) {
-            if (shallowOnly && (reach.depth(water) < 1 || reach.depth(water) > 2)) continue;
-            if (reach.bankDistance(water) < 2) continue;
-            if (!this.level.getBlockState(water.above()).isAir()) continue;
-            if (shallowOnly && !RiverFlowPlanner.isStandingAnchorStable(this.level, reach, water, dirX, dirZ)) continue;
-
-            double distance = Mth.square(water.getX() + 0.5 - x) + Mth.square(water.getZ() + 0.5 - z);
-            if (distance > bestDistance) continue;
-            bestDistance = distance;
-            best = water;
-        }
-        return best;
-    }
-
-    private boolean hasRiverWaveNear(double x, double z, double radius, long reachId) {
-        double radiusSq = radius * radius;
-        double routeRadiusSq = 4.0 * 4.0;
-        for (Wave wave : this.waves) {
-            if (!(wave instanceof RiverWave riverWave) || wave instanceof StandingRiverWave) continue;
-            if (riverWave.getReachId() != reachId) continue;
-            double dx = wave.x - x;
-            double dz = wave.z - z;
-            if (dx * dx + dz * dz <= radiusSq) return true;
-
-            // Also reject if the spawn falls anywhere along the existing wave's remaining route.
-            List<RiverFlowPlanner.RiverPlanPoint> plan = riverWave.plan;
-            for (int i = riverWave.planIndex; i < plan.size(); i++) {
-                RiverFlowPlanner.RiverPlanPoint point = plan.get(i);
-                double pdx = point.x() - x;
-                double pdz = point.z() - z;
-                if (pdx * pdx + pdz * pdz <= routeRadiusSq) return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean hasStandingWaveNear(double x, double z, double radius, long reachId) {
-        double radiusSq = radius * radius;
-        for (Wave wave : this.waves) {
-            if (!(wave instanceof StandingRiverWave standingWave)) continue;
-            if (standingWave.getReachId() != reachId) continue;
-            double dx = wave.x - x;
-            double dz = wave.z - z;
-            if (dx * dx + dz * dz <= radiusSq) return true;
+            if (dx * dx + dz * dz <= RIVER_MIN_SPACING_SQ) return true;
         }
         return false;
     }
@@ -596,7 +544,7 @@ public class WavifyWaveHandler {
     private void renderRiverDebugMarkers(LocalPlayer player) {
         if (this.riverDebugMarkers.isEmpty()) return;
 
-        for (RiverFlowPlanner.DebugMarker marker : this.riverDebugMarkers) {
+        for (RiverFlow.DebugMarker marker : this.riverDebugMarkers) {
             if (!new Vec3(marker.x(), marker.y(), marker.z()).closerThan(new Vec3(player.getX(), player.getY(), player.getZ()), 96.0)) continue;
 
             if (marker.arrow()) {
