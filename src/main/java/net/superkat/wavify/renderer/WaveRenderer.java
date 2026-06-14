@@ -18,7 +18,6 @@ import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 import net.superkat.wavify.sprite.WavifySprites;
 import net.superkat.wavify.wave.RiverWave;
-import net.superkat.wavify.wave.StandingRiverWave;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import net.superkat.wavify.wave.Wave;
 import org.joml.Matrix4f;
@@ -120,7 +119,7 @@ public class WaveRenderer {
         int age = wave.getAge();
         int maxAge = wave.getMaxAge();
 
-        boolean isOcean = !(wave instanceof RiverWave) && !(wave instanceof StandingRiverWave);
+        boolean isOcean = !(wave instanceof RiverWave);
         float oceanSink = isOcean ? OCEAN_RENDER_Y_SINK : 0f;
         float bodyYOffset = frameBodyYOffset + oceanSink;
         float foamYOffset = frameFoamYOffset + oceanSink;

@@ -9,11 +9,7 @@ version="${mod_version}"
 displayName="${mod_name}"
 modUrl="https://modrinth.com/mod/wavify-waves"
 logoFile="assets/wavify/icon.png"
-description='''
-Dynamic ocean, shoreline, and river waves for Minecraft.
-
-Wavify adds ambient water motion to Minecraft with dedicated ocean and river wave systems, shader-aware rendering offsets, ambient shoreline audio, and off-thread scanning to keep wave generation smooth.
-'''
+description='''Adds ambient tidal waves to beaches, oceans and rivers!'''
 
 [[mixins]]
 config="wavify.mixins.json"

@@ -3,7 +3,7 @@
 	"id": "wavify",
 	"version": "${version}",
 	"name": "Wavify",
-	"description": "Adds ambient waves to beaches and oceans!",
+	"description": "Adds ambient tidal waves to beaches, oceans and rivers!",
 	"authors": [
 		"Superkat32"
 	],
