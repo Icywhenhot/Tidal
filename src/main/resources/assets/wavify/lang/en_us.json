@@ -24,5 +24,36 @@
   "wavify.midnightconfig.waveSoundVolume": "Wave Sound Volume",
   "wavify.midnightconfig.waveSoundVolume.tooltip": "Master volume multiplier for the ocean and river ambient loops.",
   "wavify.subtitle.ocean_wave": "Waves crashing",
-  "wavify.subtitle.river_wave": "River flowing"
+  "wavify.subtitle.river_wave": "River flowing",
+
+  "wavify.configuration.waves": "Waves",
+  "wavify.configuration.appearance": "Appearance",
+  "wavify.configuration.rivers": "Rivers",
+  "wavify.configuration.sounds": "Sounds",
+
+  "wavify.configuration.enable_ocean_waves": "Enable Ocean Waves",
+  "wavify.configuration.enable_ocean_waves.tooltip": "Master toggle for ocean and beach (shoreline) waves. Turn off if you only want river waves, or no waves at all.",
+  "wavify.configuration.chunk_radius": "Render Radius",
+  "wavify.configuration.chunk_updates_rescan_amount": "Chunk Updates Rescan Amount",
+  "wavify.configuration.spawn_distance": "Spawn Distance",
+  "wavify.configuration.debug": "Debug Mode",
+  "wavify.configuration.lake_wave_multiplier": "Lake Wave Multiplier",
+
+  "wavify.configuration.transparency": "Transparency",
+  "wavify.configuration.apply_transparency_to_foam": "Apply Transparency To Foam",
+  "wavify.configuration.color_source": "Color Source",
+  "wavify.configuration.custom_color": "Custom Color",
+  "wavify.configuration.biome_color_overrides": "Biome Color Overrides",
+  "wavify.configuration.wave_y_offset": "Wave Y Offset",
+  "wavify.configuration.shader_wave_y_sink": "Shader Wave Y Sink",
+
+  "wavify.configuration.enable_river_waves": "Enable River Waves",
+  "wavify.configuration.enable_river_waves.tooltip": "Master toggle for river waves. Turn off if you don't want waves on rivers.",
+  "wavify.configuration.river_wave_spawn_radius": "River Wave Spawn Radius",
+  "wavify.configuration.river_wave_spawn_radius.tooltip": "Radius (in blocks) around you within which river waves spawn. Larger = waves appear further away; smaller = only close by.",
+  "wavify.configuration.river_wave_density": "River Wave Density",
+  "wavify.configuration.river_wave_travel_blocks": "River Wave Travel Distance",
+
+  "wavify.configuration.enable_wave_sounds": "Enable Wave Sounds",
+  "wavify.configuration.wave_sound_volume": "Wave Sound Volume"
 }

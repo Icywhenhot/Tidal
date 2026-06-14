@@ -16,6 +16,7 @@ public final class WavifyConfig {
         CUSTOM
     }
 
+    private static final ModConfigSpec.BooleanValue ENABLE_OCEAN_WAVES_VALUE;
     private static final ModConfigSpec.IntValue CHUNK_RADIUS_VALUE;
     private static final ModConfigSpec.IntValue CHUNK_UPDATES_RESCAN_AMOUNT_VALUE;
     private static final ModConfigSpec.IntValue SPAWN_DISTANCE_VALUE;
@@ -27,8 +28,9 @@ public final class WavifyConfig {
     private static final ModConfigSpec.ConfigValue<String> BIOME_COLOR_OVERRIDES_VALUE;
     private static final ModConfigSpec.DoubleValue LAKE_WAVE_MULTIPLIER_VALUE;
     private static final ModConfigSpec.BooleanValue ENABLE_RIVER_WAVES_VALUE;
-    private static final ModConfigSpec.DoubleValue RIVER_WAVE_FREQUENCY_VALUE;
-    private static final ModConfigSpec.DoubleValue STANDING_RIVER_WAVE_FREQUENCY_VALUE;
+    private static final ModConfigSpec.IntValue RIVER_WAVE_SPAWN_RADIUS_VALUE;
+    private static final ModConfigSpec.DoubleValue RIVER_WAVE_DENSITY_VALUE;
+    private static final ModConfigSpec.IntValue RIVER_WAVE_TRAVEL_BLOCKS_VALUE;
     private static final ModConfigSpec.DoubleValue WAVE_Y_OFFSET_VALUE;
     private static final ModConfigSpec.DoubleValue SHADER_WAVE_Y_SINK_VALUE;
     private static final ModConfigSpec.BooleanValue ENABLE_WAVE_SOUNDS_VALUE;
@@ -38,6 +40,9 @@ public final class WavifyConfig {
 
     static {
         BUILDER.translation("wavify.configuration." + WAVES).push(WAVES);
+        ENABLE_OCEAN_WAVES_VALUE = BUILDER.comment("Master toggle for ocean and beach (shoreline) waves.")
+                .translation("wavify.configuration.enable_ocean_waves")
+                .define("enableOceanWaves", true);
         CHUNK_RADIUS_VALUE = BUILDER.comment("Chunk radius around the player that is considered for wave spawning.")
                 .translation("wavify.configuration.chunk_radius")
                 .defineInRange("chunkRadius", 5, 3, 16);
@@ -83,12 +88,15 @@ public final class WavifyConfig {
         ENABLE_RIVER_WAVES_VALUE = BUILDER.comment("Master toggle for river waves.")
                 .translation("wavify.configuration.enable_river_waves")
                 .define("enableRiverWaves", true);
-        RIVER_WAVE_FREQUENCY_VALUE = BUILDER.comment("Spawn frequency for moving river waves.")
-                .translation("wavify.configuration.river_wave_frequency")
-                .defineInRange("riverWaveFrequency", 0.45D, 0.0D, 1.0D);
-        STANDING_RIVER_WAVE_FREQUENCY_VALUE = BUILDER.comment("Spawn frequency for standing river waves.")
-                .translation("wavify.configuration.standing_river_wave_frequency")
-                .defineInRange("standingRiverWaveFrequency", 0.35D, 0.0D, 1.0D);
+        RIVER_WAVE_SPAWN_RADIUS_VALUE = BUILDER.comment("Radius (in blocks) around the player within which river waves are spawned. Larger = waves appear further away, smaller = they only appear close by.")
+                .translation("wavify.configuration.river_wave_spawn_radius")
+                .defineInRange("riverWaveSpawnRadius", 56, 16, 128);
+        RIVER_WAVE_DENSITY_VALUE = BUILDER.comment("River wave density - roughly how many river waves appear per 100 river water blocks near you.")
+                .translation("wavify.configuration.river_wave_density")
+                .defineInRange("riverWaveDensity", 4.0D, 0.0D, 20.0D);
+        RIVER_WAVE_TRAVEL_BLOCKS_VALUE = BUILDER.comment("How far (in blocks) a river wave travels down the channel before fading out.")
+                .translation("wavify.configuration.river_wave_travel_blocks")
+                .defineInRange("riverWaveTravelBlocks", 11, 4, 32);
         BUILDER.pop();
 
         BUILDER.translation("wavify.configuration." + SOUNDS).push(SOUNDS);
@@ -103,6 +111,7 @@ public final class WavifyConfig {
         SPEC = BUILDER.build();
     }
 
+    public static boolean enableOceanWaves = true;
     public static int chunkRadius = 5;
     public static int chunkUpdatesRescanAmount = 50;
     public static int spawnDistance = 8;
@@ -114,8 +123,9 @@ public final class WavifyConfig {
     public static String biomeColorOverrides = "";
     public static double lakeWaveMultiplier = 0.2;
     public static boolean enableRiverWaves = true;
-    public static double riverWaveFrequency = 0.45;
-    public static double standingRiverWaveFrequency = 0.35;
+    public static int riverWaveSpawnRadius = 56;
+    public static double riverWaveDensity = 4.0;
+    public static int riverWaveTravelBlocks = 11;
     public static double waveYOffset = 0.0;
     public static double shaderWaveYSink = -0.30;
     public static boolean enableWaveSounds = true;
@@ -142,6 +152,7 @@ public final class WavifyConfig {
     private static void sync(ModConfigEvent event) {
         if (event.getConfig().getSpec() != SPEC) return;
 
+        enableOceanWaves = ENABLE_OCEAN_WAVES_VALUE.get();
         chunkRadius = CHUNK_RADIUS_VALUE.get();
         chunkUpdatesRescanAmount = CHUNK_UPDATES_RESCAN_AMOUNT_VALUE.get();
         spawnDistance = SPAWN_DISTANCE_VALUE.get();
@@ -153,8 +164,9 @@ public final class WavifyConfig {
         biomeColorOverrides = BIOME_COLOR_OVERRIDES_VALUE.get();
         lakeWaveMultiplier = LAKE_WAVE_MULTIPLIER_VALUE.get();
         enableRiverWaves = ENABLE_RIVER_WAVES_VALUE.get();
-        riverWaveFrequency = RIVER_WAVE_FREQUENCY_VALUE.get();
-        standingRiverWaveFrequency = STANDING_RIVER_WAVE_FREQUENCY_VALUE.get();
+        riverWaveSpawnRadius = RIVER_WAVE_SPAWN_RADIUS_VALUE.get();
+        riverWaveDensity = RIVER_WAVE_DENSITY_VALUE.get();
+        riverWaveTravelBlocks = RIVER_WAVE_TRAVEL_BLOCKS_VALUE.get();
         waveYOffset = WAVE_Y_OFFSET_VALUE.get();
         shaderWaveYSink = SHADER_WAVE_Y_SINK_VALUE.get();
         enableWaveSounds = ENABLE_WAVE_SOUNDS_VALUE.get();
