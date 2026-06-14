@@ -8,7 +8,6 @@ import net.minecraft.world.phys.Vec3;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.duck.WavifyWorld;
 import net.superkat.wavify.wave.RiverWave;
-import net.superkat.wavify.wave.StandingRiverWave;
 import net.superkat.wavify.wave.Wave;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 
@@ -67,7 +66,7 @@ public final class WaveAmbientSoundManager {
                 double distSq = dx * dx + dy * dy + dz * dz;
                 if (distSq > DETECTION_RADIUS_SQ) continue;
 
-                if (wave instanceof RiverWave || wave instanceof StandingRiverWave) {
+                if (wave instanceof RiverWave) {
                     if (distSq < closestRiverSq) closestRiverSq = distSq;
                 } else {
                     if (distSq < closestOceanSq) closestOceanSq = distSq;

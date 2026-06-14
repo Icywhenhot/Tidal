@@ -3,20 +3,34 @@ package net.superkat.wavify.wave;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
-import net.superkat.wavify.river.RiverFlowPlanner;
-
-import java.util.List;
+import net.superkat.wavify.river.RiverFlow;
+import net.superkat.wavify.river.RiverFlowField;
 
 /**
- * Traveling river wave that follows a precomputed path instead of deciding direction at runtime.
+ * A river wave: a particle that follows the cached {@link RiverFlowField flow field} down the length of
+ * the channel, then fades out after a fixed travel distance.
+ * <br><br>
+ * Unlike ocean {@link Wave}s, a river wave never washes up: it fully overrides {@link #tick()} and never
+ * enters {@link Wave#updateWashingUp()}, so {@link #isWashingUp()} stays {@code false}. It travels
+ * <i>along</i> the channel (parallel to the banks). A predictive bank check fades it out <i>before</i> it
+ * can reach a bank, and the coherent flow field means neighbouring waves never point at each other.
  */
 public class RiverWave extends Wave {
-    protected static final float RIVER_VERTICAL_OFFSET = -0.4f;
+    /** Render height above the water block: ~0.15 above the surface, matching the prior river-wave look. */
+    private static final float BODY_HEIGHT = 1.15f;
 
-    protected final long reachId;
-    protected final List<RiverFlowPlanner.RiverPlanPoint> plan;
+    /** Per-tick steering blend toward the flow field direction. */
+    private static final double STEER_BLEND = 0.18;
+
+    protected final RiverFlowField field;
+    protected double dirX;
+    protected double dirZ;
     protected final float travelSpeed;
-    protected final int requiredBankDistance;
+    protected final double distanceBudget;
+    protected double distanceTraveled = 0.0;
+    protected int waterY;
+    protected boolean fading = false;
+
     protected final float baseScale;
     protected final float baseLength;
     protected final float maxAlpha;
@@ -24,43 +38,41 @@ public class RiverWave extends Wave {
     protected final float curvatureFactor;
     protected final float lateralFactor;
 
-    protected int planIndex = 0;
-    protected boolean fading = false;
+    public RiverWave(ClientLevel world, BlockPos spawnWater, RiverFlowField field, double dirX, double dirZ, float travelBlocks) {
+        super(world, spawnWater.above(), (float) Math.toDegrees(Math.atan2(dirZ, dirX)), 0.4f, false);
+        this.field = field;
+        this.dirX = dirX;
+        this.dirZ = dirZ;
+        this.waterY = spawnWater.getY();
 
-    public RiverWave(ClientLevel world, RiverFlowPlanner.RiverTravelPlan travelPlan) {
-        super(world, travelPlan.spawnSurface(), travelPlan.points().get(0).yaw(), 0.4f, false);
-        this.reachId = travelPlan.reachId();
-        this.plan = List.copyOf(travelPlan.points());
-        this.travelSpeed = travelPlan.speed();
-        this.requiredBankDistance = travelPlan.requiredBankDistance();
-        this.setWidth(travelPlan.width());
-        float sizeJitter = 0.82f + this.level.getRandom().nextFloat() * 0.36f;
+        int rawWidth = RiverFlow.channelWidth(world, this.x, this.z, this.waterY, dirX, dirZ, 5);
+        int width = Mth.clamp(rawWidth, 3, 9);
+        if ((width & 1) == 0) width = Math.max(3, width - 1);
+        this.setWidth(width);
+
+        int depth = RiverFlow.depthAt(world, spawnWater, 4);
+        this.travelSpeed = (float) Mth.clamp((0.072 + depth * 0.012) * 1.2, 0.090, 0.150);
+
+        float sizeJitter = 0.82f + world.getRandom().nextFloat() * 0.36f;
         this.scale = Math.max(1.7f, (1.55f + this.width * 0.24f) * sizeJitter);
         this.length = Math.max(1.05f, (1.0f + this.width * 0.11f) * sizeJitter);
         this.baseScale = this.scale;
         this.baseLength = this.length;
         this.maxAlpha = 0.78f;
-        this.motionPhase = this.level.getRandom().nextFloat() * 24f;
+        this.motionPhase = world.getRandom().nextFloat() * 24f;
         // Always > 0 so no wave is a straight line; upper end produces deep crescents.
-        this.curvatureFactor = 0.65f + this.level.getRandom().nextFloat() * 0.95f;
-        this.lateralFactor = 0.85f + this.level.getRandom().nextFloat() * 0.35f;
-        this.maxAge = 105 + this.plan.size() * 5;
+        this.curvatureFactor = 0.65f + world.getRandom().nextFloat() * 0.95f;
+        this.lateralFactor = 0.85f + world.getRandom().nextFloat() * 0.35f;
+
+        double budgetJitter = 0.85 + world.getRandom().nextDouble() * 0.30;
+        this.distanceBudget = Math.max(4.0, travelBlocks * budgetJitter);
+        this.maxAge = (int) (this.distanceBudget / this.travelSpeed) + 40;
         this.maxWaterAge = this.maxAge;
         this.bigWave = false;
-        this.offsetVertical(RIVER_VERTICAL_OFFSET);
+
+        this.y = this.waterY + BODY_HEIGHT;
+        this.prevY = this.y;
         syncBoxToCurrentPosition();
-    }
-
-    public long getReachId() {
-        return this.reachId;
-    }
-
-    public double getFlowDirX() {
-        return Math.cos(Math.toRadians(this.yaw));
-    }
-
-    public double getFlowDirZ() {
-        return Math.sin(Math.toRadians(this.yaw));
     }
 
     @Override
@@ -101,67 +113,78 @@ public class RiverWave extends Wave {
 
     @Override
     public void tick() {
-        if (this.age++ >= this.maxAge || this.plan.isEmpty()) {
+        if (this.age++ >= this.maxAge) {
             this.markDead();
             return;
-        }
-
-        RiverFlowPlanner.RiverPlanPoint currentPoint = this.plan.get(Mth.clamp(this.planIndex, 0, this.plan.size() - 1));
-        RiverFlowPlanner.RiverPlanPoint nextPoint = this.plan.get(Mth.clamp(this.planIndex + 1, 0, this.plan.size() - 1));
-
-        if (!isPlanPointSupported(currentPoint)) {
-            this.fading = true;
         }
 
         capturePreviousState();
         updateWaterColor();
-        updateTravelMotion(currentPoint, nextPoint);
+
+        int surfaceY = RiverFlow.surfaceWaterY(this.level, this.x, this.z, this.waterY);
+        if (surfaceY == Integer.MIN_VALUE) {
+            this.fading = true;
+        } else {
+            this.waterY = surfaceY;
+        }
+
+        if (!this.fading) {
+            steerAndAdvance();
+        }
+
         updateShapeAndOpacity();
-        RiverFlowPlanner.RiverPlanPoint activePoint = this.plan.get(Mth.clamp(this.planIndex, 0, this.plan.size() - 1));
-        updateVerticalPlacement(activePoint.water());
+        this.y = this.waterY + BODY_HEIGHT;
+        this.yaw = (float) Math.toDegrees(Math.atan2(this.dirZ, this.dirX));
         syncBoxToCurrentPosition();
 
-        if ((this.fading || this.planIndex >= this.plan.size() - 1) && this.alpha <= 0.02f) {
+        if (this.fading && this.alpha <= 0.02f) {
             this.markDead();
         }
     }
 
-    protected void updateTravelMotion(RiverFlowPlanner.RiverPlanPoint currentPoint, RiverFlowPlanner.RiverPlanPoint nextPoint) {
-        if (this.planIndex < this.plan.size() - 1 && hasPassedTarget(currentPoint, nextPoint)) {
-            this.planIndex++;
-            currentPoint = this.plan.get(Mth.clamp(this.planIndex, 0, this.plan.size() - 1));
-            nextPoint = this.plan.get(Mth.clamp(this.planIndex + 1, 0, this.plan.size() - 1));
+    protected void steerAndAdvance() {
+        // Steer gently toward the flow field so the wave curves down the channel.
+        RiverFlow.Flow flow = this.field.flowAt(this.x, this.z);
+        if (flow != null) {
+            double tx = flow.dirX();
+            double tz = flow.dirZ();
+            // Keep moving forward: never let an orientation flip reverse a wave mid-channel.
+            if (tx * this.dirX + tz * this.dirZ < 0.0) {
+                tx = -tx;
+                tz = -tz;
+            }
+            double nx = this.dirX + (tx - this.dirX) * STEER_BLEND;
+            double nz = this.dirZ + (tz - this.dirZ) * STEER_BLEND;
+            double len = Math.sqrt(nx * nx + nz * nz);
+            if (len > 1e-6) {
+                this.dirX = nx / len;
+                this.dirZ = nz / len;
+            }
         }
 
-        double targetX = nextPoint.x();
-        double targetZ = nextPoint.z();
-        double deltaX = targetX - this.x;
-        double deltaZ = targetZ - this.z;
-        double lengthSq = deltaX * deltaX + deltaZ * deltaZ;
-
-        if (lengthSq < 0.0001) {
-            if (this.planIndex >= this.plan.size() - 1) {
-                this.fading = true;
-            }
-            this.velX = 0f;
-            this.velY = 0f;
-            this.velZ = 0f;
+        // Move along the heading. If the wave's CENTERPOINT would land on a block instead of water, fade
+        // out immediately rather than trying to dodge the bank - that dodging was the edge jitter.
+        double nextX = this.x + this.dirX * this.travelSpeed;
+        double nextZ = this.z + this.dirZ * this.travelSpeed;
+        if (!waterAt(nextX, nextZ)) {
+            this.fading = true;
             return;
         }
 
-        double length = Math.sqrt(lengthSq);
-        double dirX = deltaX / length;
-        double dirZ = deltaZ / length;
-        this.velX = Mth.lerp(0.42f, this.velX, (float) (dirX * this.travelSpeed));
-        this.velZ = Mth.lerp(0.42f, this.velZ, (float) (dirZ * this.travelSpeed));
+        this.velX = (float) (this.dirX * this.travelSpeed);
         this.velY = 0f;
+        this.velZ = (float) (this.dirZ * this.travelSpeed);
         this.x += this.velX;
         this.z += this.velZ;
-        this.yaw = Mth.rotLerp(0.35f, this.yaw, currentPoint.yaw());
-
-        if (this.planIndex >= this.plan.size() - 1 && length < 0.95) {
+        this.distanceTraveled += this.travelSpeed;
+        if (this.distanceTraveled >= this.distanceBudget) {
             this.fading = true;
         }
+    }
+
+    /** True if a position's centerpoint column is open surface water (not a block). */
+    private boolean waterAt(double wx, double wz) {
+        return RiverFlow.surfaceWaterY(this.level, wx, wz, this.waterY) != Integer.MIN_VALUE;
     }
 
     protected void updateShapeAndOpacity() {
@@ -179,33 +202,14 @@ public class RiverWave extends Wave {
         }
     }
 
-    protected void updateVerticalPlacement(BlockPos water) {
-        this.y = water.getY() + 1.15f;
-    }
-
-    protected boolean isPlanPointSupported(RiverFlowPlanner.RiverPlanPoint point) {
-        if (point.bankDistance() < this.requiredBankDistance) return false;
-        if (!WavifyWaveHandler.posIsWater(this.level, point.water())) return false;
-        return this.level.getBlockState(point.water().above()).isAir();
-    }
-
-    protected boolean hasPassedTarget(RiverFlowPlanner.RiverPlanPoint currentPoint, RiverFlowPlanner.RiverPlanPoint nextPoint) {
-        double segmentX = nextPoint.x() - currentPoint.x();
-        double segmentZ = nextPoint.z() - currentPoint.z();
-        double lengthSq = segmentX * segmentX + segmentZ * segmentZ;
-        if (lengthSq < 0.0001) return true;
-
-        double offsetX = this.x - currentPoint.x();
-        double offsetZ = this.z - currentPoint.z();
-        double delta = (offsetX * segmentX + offsetZ * segmentZ) / lengthSq;
-        double toTargetX = this.x - nextPoint.x();
-        double toTargetZ = this.z - nextPoint.z();
-        return delta >= 0.92 || toTargetX * toTargetX + toTargetZ * toTargetZ <= Mth.square(0.8);
-    }
-
     protected float normalizedColumn(int columnIndex, int columnCount) {
         if (columnCount <= 1) return 0f;
         float center = (columnCount - 1) * 0.5f;
         return (columnIndex - center) / center;
+    }
+
+    @Override
+    protected boolean canFullMoonGlow() {
+        return false;
     }
 }

@@ -371,12 +371,16 @@ public class Wave {
     public int getLight() {
         //emissive during full moon :)
         long dayTime = this.level.getGameTime();
-        if ((int)(dayTime / 24000L % 8L) == 0 && dayTime % 24000L >= 12000)
+        if (canFullMoonGlow() && (int)(dayTime / 24000L % 8L) == 0 && dayTime % 24000L >= 12000)
             return LightCoordsUtil.pack(15, 15);
         BlockPos pos = this.getBlockPos().offset(0, 1, 0);
         int blockLight = this.level.getBrightness(LightLayer.BLOCK, pos);
         int skylight = this.level.getBrightness(LightLayer.SKY, pos);
         return LightCoordsUtil.pack(blockLight, skylight);
+    }
+
+    protected boolean canFullMoonGlow() {
+        return true;
     }
 
     public int getRenderColumnCount() {
