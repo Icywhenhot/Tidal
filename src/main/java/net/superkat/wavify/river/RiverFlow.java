@@ -55,6 +55,29 @@ public final class RiverFlow {
         return left + right + 1;
     }
 
+    /**
+     * Distance to the nearest bank perpendicular to the flow, taking the closer of the two sides. Used to
+     * keep waves from spawning right against a bank, where the flow direction is least reliable and the
+     * predictive bank check would otherwise flail.
+     *
+     * @return {@code min(left run, right run)} of water blocks, capped at {@code max}.
+     */
+    public static int bankClearance(ClientLevel level, double x, double z, int y, double dirX, double dirZ, int max) {
+        double nx = -dirZ;
+        double nz = dirX;
+        int left = 0;
+        for (int s = 1; s <= max; s++) {
+            if (surfaceWaterY(level, x + nx * s, z + nz * s, y) == Integer.MIN_VALUE) break;
+            left++;
+        }
+        int right = 0;
+        for (int s = 1; s <= max; s++) {
+            if (surfaceWaterY(level, x - nx * s, z - nz * s, y) == Integer.MIN_VALUE) break;
+            right++;
+        }
+        return Math.min(left, right);
+    }
+
     /** Counts contiguous water blocks downward from {@code waterTop}, capped at {@code max}. */
     public static int depthAt(ClientLevel level, BlockPos waterTop, int max) {
         int depth = 0;

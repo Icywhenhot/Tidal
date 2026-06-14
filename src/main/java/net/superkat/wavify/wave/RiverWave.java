@@ -19,8 +19,6 @@ public class RiverWave extends Wave {
     /** Render height above the water block: ~0.15 above the surface, matching the prior river-wave look. */
     private static final float BODY_HEIGHT = 1.15f;
 
-    /** How far ahead (blocks) the bank probe looks beyond the next step. */
-    private static final double LOOK_AHEAD = 2.2;
     /** Per-tick steering blend toward the flow field direction. */
     private static final double STEER_BLEND = 0.18;
 
@@ -145,7 +143,7 @@ public class RiverWave extends Wave {
     }
 
     protected void steerAndAdvance() {
-        // Steer gently toward the flow field so the wave curves with the river.
+        // Steer gently toward the flow field so the wave curves down the channel.
         RiverFlow.Flow flow = this.field.flowAt(this.x, this.z);
         if (flow != null) {
             double tx = flow.dirX();
@@ -164,16 +162,13 @@ public class RiverWave extends Wave {
             }
         }
 
-        // Predictive bank safeguard: if the path ahead leaves the water, try to follow the bend; if there
-        // is no open bend, fade in place WITHOUT advancing, so the wave never reaches the bank.
-        if (!pathClear(this.dirX, this.dirZ)) {
-            double[] turned = tryFollowBend();
-            if (turned == null) {
-                this.fading = true;
-                return;
-            }
-            this.dirX = turned[0];
-            this.dirZ = turned[1];
+        // Move along the heading. If the wave's CENTERPOINT would land on a block instead of water, fade
+        // out immediately rather than trying to dodge the bank - that dodging was the edge jitter.
+        double nextX = this.x + this.dirX * this.travelSpeed;
+        double nextZ = this.z + this.dirZ * this.travelSpeed;
+        if (!waterAt(nextX, nextZ)) {
+            this.fading = true;
+            return;
         }
 
         this.velX = (float) (this.dirX * this.travelSpeed);
@@ -187,29 +182,9 @@ public class RiverWave extends Wave {
         }
     }
 
-    /** True only if both the immediate next position and a point further ahead are still water. */
-    private boolean pathClear(double dx, double dz) {
-        return waterAt(this.x + dx * this.travelSpeed, this.z + dz * this.travelSpeed)
-                && waterAt(this.x + dx * LOOK_AHEAD, this.z + dz * LOOK_AHEAD);
-    }
-
+    /** True if a position's centerpoint column is open surface water (not a block). */
     private boolean waterAt(double wx, double wz) {
         return RiverFlow.surfaceWaterY(this.level, wx, wz, this.waterY) != Integer.MIN_VALUE;
-    }
-
-    private double[] tryFollowBend() {
-        double[] angles = {25, -25, 50, -50};
-        for (double deg : angles) {
-            double rad = Math.toRadians(deg);
-            double cos = Math.cos(rad);
-            double sin = Math.sin(rad);
-            double rx = this.dirX * cos - this.dirZ * sin;
-            double rz = this.dirX * sin + this.dirZ * cos;
-            if (pathClear(rx, rz)) {
-                return new double[]{rx, rz};
-            }
-        }
-        return null;
     }
 
     protected void updateShapeAndOpacity() {

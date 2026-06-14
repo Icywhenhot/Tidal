@@ -60,6 +60,9 @@ public class WavifyWaveHandler {
     // independent of how large the river actually is. The radius itself comes from
     // WavifyConfig.riverWaveSpawnRadius; the chunk radius is derived from it.
     private static final double RIVER_MIN_SPACING_SQ = 5.0 * 5.0;
+    /** Water blocks required to the nearest bank on each side before a river wave may spawn there. Keeps
+     *  waves off the very edge, where the flow direction is least reliable and they jitter. */
+    private static final int SPAWN_BANK_MARGIN = 1;
 
     public boolean nearbyChunksLoaded = false;
 
@@ -343,7 +346,7 @@ public class WavifyWaveHandler {
         RandomSource random = this.level.getRandom();
         int spawned = 0;
         int attempts = 0;
-        int maxAttempts = toSpawn * 6 + 12;
+        int maxAttempts = toSpawn * 8 + 16;
 
         while (spawned < toSpawn && attempts++ < maxAttempts) {
             BlockPos water = candidates.get(random.nextInt(candidates.size()));
@@ -353,6 +356,8 @@ public class WavifyWaveHandler {
 
             RiverFlow.Flow flow = this.riverFlow.flowAt(cx, cz);
             if (flow == null) continue;
+            // Don't spawn against a bank - that's where the flow is least reliable and waves jitter.
+            if (RiverFlow.bankClearance(this.level, cx, cz, water.getY(), flow.dirX(), flow.dirZ(), 4) < SPAWN_BANK_MARGIN) continue;
 
             this.waves.add(new RiverWave(this.level, water, this.riverFlow, flow.dirX(), flow.dirZ(), (float) WavifyConfig.riverWaveTravelBlocks));
             taken.add(new double[]{cx, cz});
