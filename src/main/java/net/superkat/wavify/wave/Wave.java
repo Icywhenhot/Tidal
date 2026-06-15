@@ -370,12 +370,16 @@ public class Wave {
 
     public int getLight() {
         //emissive during full moon :)
-        if ((int)(this.world.getTimeOfDay() / 24000L % 8L) == 0 && this.world.getTimeOfDay() >= 12000)
+        if (canFullMoonGlow() && (int)(this.world.getTimeOfDay() / 24000L % 8L) == 0 && this.world.getTimeOfDay() >= 12000)
             return LightmapTextureManager.pack(15, 15);
         BlockPos pos = this.getBlockPos().add(0, 1, 0);
         int blockLight = this.world.getLightLevel(LightType.BLOCK, pos);
         int skylight = this.world.getLightLevel(LightType.SKY, pos);
         return LightmapTextureManager.pack(blockLight, skylight);
+    }
+
+    protected boolean canFullMoonGlow() {
+        return true;
     }
 
     public int getRenderColumnCount() {
