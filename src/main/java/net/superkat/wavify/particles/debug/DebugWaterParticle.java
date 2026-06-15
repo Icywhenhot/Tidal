@@ -14,9 +14,8 @@ import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.particle.AbstractDustParticleEffect;
 import net.minecraft.particle.ParticleType;
 import net.minecraft.util.dynamic.Codecs;
-import net.minecraft.util.math.random.Random;
 import net.superkat.wavify.WavifyParticles;
-import org.joml.Vector3fc;
+import org.joml.Vector3f;
 
 public class DebugWaterParticle extends DebugAbstractColoredParticle<DebugWaterParticle.DebugWaterParticleEffect> {
 
@@ -35,8 +34,7 @@ public class DebugWaterParticle extends DebugAbstractColoredParticle<DebugWaterP
             this.spriteProvider = spriteProvider;
         }
 
-        @Override
-        public Particle createParticle(DebugWaterParticleEffect dustParticleEffect, ClientWorld clientWorld, double d, double e, double f, double g, double h, double i, Random random) {
+        public Particle createParticle(DebugWaterParticleEffect dustParticleEffect, ClientWorld clientWorld, double d, double e, double f, double g, double h, double i) {
             return new DebugWaterParticle(clientWorld, d, e, f, g, h, i, dustParticleEffect, this.spriteProvider);
         }
     }
@@ -49,11 +47,11 @@ public class DebugWaterParticle extends DebugAbstractColoredParticle<DebugWaterP
                         .apply(instance, DebugWaterParticleEffect::new)
         );
         public static final PacketCodec<RegistryByteBuf, DebugWaterParticleEffect> PACKET_CODEC = PacketCodec.tuple(
-                PacketCodecs.VECTOR_3F, effect -> effect.color, PacketCodecs.FLOAT, AbstractDustParticleEffect::getScale, DebugWaterParticleEffect::new
+                PacketCodecs.VECTOR3F, effect -> effect.color, PacketCodecs.FLOAT, AbstractDustParticleEffect::getScale, DebugWaterParticleEffect::new
         );
-        private final Vector3fc color;
+        private final Vector3f color;
 
-        public DebugWaterParticleEffect(Vector3fc color, float scale) {
+        public DebugWaterParticleEffect(Vector3f color, float scale) {
             super(scale);
             this.color = color;
         }

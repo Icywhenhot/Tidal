@@ -229,14 +229,14 @@ public class Wave {
             double splashZ = this.z + this.velZ * 10;
 
             for (int i = 0; i < sprayAmount; i++) {
-                this.world.addParticleClient(WavifyParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.world.random.nextGaussian() * 0.1f, Math.abs(this.world.random.nextGaussian()) * 0.1f + 0.1f, this.world.random.nextGaussian() * 0.1f);
+                this.world.addParticle(WavifyParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.world.random.nextGaussian() * 0.1f, Math.abs(this.world.random.nextGaussian()) * 0.1f + 0.1f, this.world.random.nextGaussian() * 0.1f);
                 if (this.bigWave) {
-                    this.world.addParticleClient(WavifyParticles.BIG_SPLASH_PARTICLE, splashX + this.world.random.nextGaussian() / 2f, this.y, splashZ + this.world.random.nextGaussian() / 2f, 0, 0.01, 0);
+                    this.world.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE, splashX + this.world.random.nextGaussian() / 2f, this.y, splashZ + this.world.random.nextGaussian() / 2f, 0, 0.01, 0);
                 }
             }
 
 
-            this.world.addParticleClient(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
+            this.world.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;
@@ -271,7 +271,7 @@ public class Wave {
 
             for (int i = 0; i < this.width; i++) {
                 for (int j = 0; j < splashAmount; j++) {
-                    this.world.addParticleClient(WavifyParticles.SPLASH_PARTICLE,
+                    this.world.addParticle(WavifyParticles.SPLASH_PARTICLE,
                             splashX + this.world.random.nextGaussian(),
                             this.y,
                             splashZ + this.world.random.nextGaussian(),

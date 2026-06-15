@@ -3,26 +3,27 @@ package net.superkat.wavify.particles;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.color.world.BiomeColors;
-import net.minecraft.client.particle.BillboardParticle;
-import net.minecraft.client.particle.BillboardParticleSubmittable;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.ParticleTextureSheet;
+import net.minecraft.client.particle.SpriteBillboardParticle;
 import net.minecraft.client.particle.SpriteProvider;
 import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
 import net.superkat.wavify.WavifyParticles;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.List;
 
-public class SprayParticle extends BillboardParticle {
+public class SprayParticle extends SpriteBillboardParticle {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = MathHelper.square(100.0);
     protected final SpriteProvider spriteProvider;
 
@@ -31,7 +32,7 @@ public class SprayParticle extends BillboardParticle {
     private boolean stopped;
 
     public SprayParticle(ClientWorld world, double x, double y, double z, double velX, double velY, double velZ, SprayParticleEffect params, SpriteProvider spriteProvider) {
-        super(world, x, y, z, velX, velY, velZ, spriteProvider.getFirst());
+        super(world, x, y, z, velX, velY, velZ);
         this.spriteProvider = spriteProvider;
 
         this.yaw = params.getYaw();
@@ -48,13 +49,13 @@ public class SprayParticle extends BillboardParticle {
         this.gravityStrength = 0.5f;
 
         if(spawnWhite()) {
-            this.world.addParticleClient(new WhiteSprayParticleEffect(yaw, intensity, this.scale), x, y, z, velX, velY, velZ);
+            this.world.addParticle(new WhiteSprayParticleEffect(yaw, intensity, this.scale), x, y, z, velX, velY, velZ);
             this.updateWaterColor(); //only need to update on spawn because it lasts for so little time
         }
 
-        this.zRotation = 15 * intensity * 5f;
+        this.angle = 15 * intensity * 5f;
 
-        this.updateSprite(this.spriteProvider);
+        this.setSpriteForAge(this.spriteProvider);
     }
 
     @Override
@@ -69,14 +70,14 @@ public class SprayParticle extends BillboardParticle {
             this.x -= this.velocityX * 8;
             this.z -= this.velocityZ * 8f;
             for (int i = 0; i < 5; i++) {
-                this.world.addParticleClient(WavifyParticles.SPLASH_PARTICLE,
+                this.world.addParticle(WavifyParticles.SPLASH_PARTICLE,
                         this.x + this.random.nextGaussian(), this.y + 1,
                         this.z + this.random.nextGaussian(),
                         this.random.nextGaussian() * 0.05f,
                         Math.abs(this.world.random.nextGaussian()) * 0.1f + MathHelper.clamp(intensity, 0.1, 0.3),
                         this.random.nextGaussian() * 0.05f);
 
-                this.world.addParticleClient(ParticleTypes.BUBBLE,
+                this.world.addParticle(ParticleTypes.BUBBLE,
                         this.x + this.random.nextGaussian() / 2f, this.y + 1,
                         this.z + this.random.nextGaussian() / 2f,
                         this.random.nextGaussian() / 8f,
@@ -86,32 +87,65 @@ public class SprayParticle extends BillboardParticle {
             this.markDead();
         }
 
-        this.lastZRotation = this.zRotation;
+        this.prevAngle = this.angle;
         if(this.velocityY != 0 && !onGround) {
-            this.zRotation = this.zRotation + (float) this.velocityY * 35f;
+            this.angle = this.angle + (float) this.velocityY * 35f;
         } else {
-            this.zRotation = 0f;
+            this.angle = 0f;
         }
 
-        this.updateSprite(this.spriteProvider);
+        this.setSpriteForAge(this.spriteProvider);
     }
 
     @Override
-    public void render(BillboardParticleSubmittable submittable, Camera camera, float tickDelta) {
+    public void buildGeometry(VertexConsumer vertexConsumer, Camera camera, float tickDelta) {
         Quaternionf quaternionf = new Quaternionf();
         quaternionf.rotateX((float) Math.toRadians(-90f));
         quaternionf.rotateZ((float) Math.toRadians(-90f - this.yaw));
-        float angle = MathHelper.lerp(tickDelta, this.lastZRotation, this.zRotation);
-        quaternionf.rotateX((float) Math.toRadians(angle));
-        super.render(submittable, camera, quaternionf, tickDelta);
+        quaternionf.rotateX((float) Math.toRadians(this.angle));
+        render(vertexConsumer, camera, quaternionf, tickDelta);
         quaternionf.rotateY((float) Math.toRadians(180f));
-        super.render(submittable, camera, quaternionf, tickDelta);
+        render(vertexConsumer, camera, quaternionf, tickDelta);
     }
 
-    @Override
+    protected void render(VertexConsumer vertexConsumer, Camera camera, Quaternionf quaternionf, float tickDelta) {
+        Vec3d vec3d = camera.getPos();
+        float x = (float)(MathHelper.lerp(tickDelta, this.prevPosX, this.x) - vec3d.getX());
+        float y = (float)(MathHelper.lerp(tickDelta, this.prevPosY, this.y) - vec3d.getY()) + (spawnWhite() ? 0.025f : 0.125f);
+        float z = (float)(MathHelper.lerp(tickDelta, this.prevPosZ, this.z) - vec3d.getZ());
+        this.quad(vertexConsumer, quaternionf, x, y, z, tickDelta);
+    }
+
+    protected void quad(VertexConsumer vertexConsumer, Quaternionf quaternionf, float x, float y, float z, float tickDelta) {
+        float scale = this.getSize(tickDelta);
+        float minU = this.getMinU();
+        float maxU = this.getMaxU();
+        float minV = this.getMinV();
+        float maxV = this.getMaxV();
+        int light = this.getBrightness(tickDelta);
+        this.vertex(vertexConsumer, quaternionf, x, y, z, 1f, -1f, scale, maxU, maxV, light);
+        this.vertex(vertexConsumer, quaternionf, x, y, z, 1f, 1f, scale, maxU, minV, light);
+        this.vertex(vertexConsumer, quaternionf, x, y, z, -1f, 1f, scale, minU, minV, light);
+        this.vertex(vertexConsumer, quaternionf, x, y, z, -1f, -1f, scale, minU, maxV, light);
+    }
+
+    private void vertex(
+            VertexConsumer vertexConsumer, Quaternionf quaternionf,
+            float x, float y, float z,
+            float offsetX, float offsetY,
+            float scale,
+            float u, float v,
+            int light
+    ) {
+        Vector3f vector3f = new Vector3f(offsetX, offsetY, 0.0F).rotate(quaternionf).mul(scale, 1, scale).add(x, y, z);
+        vertexConsumer.vertex(vector3f.x(), vector3f.y(), vector3f.z()).texture(u, v).color(this.red, this.green, this.blue, this.alpha).light(light);
+    }
+
     public void move(double dx, double dy, double dz) {
         if (!this.stopped) {
+            double d = dx;
             double e = dy;
+            double f = dz;
             if (this.collidesWithWorld && (dx != 0.0 || dy != 0.0 || dz != 0.0) && dx * dx + dy * dy + dz * dz < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
                 //expanding bounding box to specifically account for mud and I guess soul sand too?
                 Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(dx, dy, dz), this.getBoundingBox().expand(0, 0.15, 0), this.world, List.of());
@@ -146,8 +180,8 @@ public class SprayParticle extends BillboardParticle {
     }
 
     @Override
-    protected RenderType getRenderType() {
-        return RenderType.PARTICLE_ATLAS_TRANSLUCENT;
+    public ParticleTextureSheet getType() {
+        return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
     }
 
     @Environment(EnvType.CLIENT)
@@ -158,8 +192,7 @@ public class SprayParticle extends BillboardParticle {
             this.spriteProvider = spriteProvider;
         }
 
-        @Override
-        public Particle createParticle(SprayParticleEffect params, ClientWorld world, double x, double y, double z, double velX, double velY, double velZ, Random random) {
+        public Particle createParticle(SprayParticleEffect params, ClientWorld world, double x, double y, double z, double velX, double velY, double velZ) {
             return new SprayParticle(world, x, y, z, velX, velY, velZ, params, spriteProvider);
         }
     }

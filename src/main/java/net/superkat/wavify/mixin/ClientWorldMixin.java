@@ -16,13 +16,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.function.Supplier;
+
 @Mixin(ClientWorld.class)
 public class ClientWorldMixin implements WavifyWorld {
     @Unique
     public WavifyWaveHandler wavifyWaveHandler;
 
     @Inject(method = "<init>", at = @At("TAIL"))
-    public void wavify$createWavifyWaveHandler(ClientPlayNetworkHandler networkHandler, ClientWorld.Properties properties, RegistryKey registryRef, RegistryEntry dimensionTypeEntry, int loadDistance, int simulationDistance, WorldRenderer worldRenderer, boolean debugWorld, long seed, int seaLevel, CallbackInfo ci) {
+    public void wavify$createWavifyWaveHandler(ClientPlayNetworkHandler networkHandler, ClientWorld.Properties properties, RegistryKey registryRef, RegistryEntry dimensionTypeEntry, int loadDistance, int simulationDistance, Supplier profiler, WorldRenderer worldRenderer, boolean debugWorld, long seed, CallbackInfo ci) {
         this.wavifyWaveHandler = new WavifyWaveHandler((ClientWorld) (Object) this);
     }
 

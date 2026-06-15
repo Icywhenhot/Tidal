@@ -7,14 +7,18 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.client.MinecraftClient;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
 import net.minecraft.resource.ResourceType;
 import net.superkat.wavify.duck.WavifyWorld;
 import net.superkat.wavify.event.ClientBlockUpdateEvent;
@@ -44,15 +48,6 @@ public class WavifyClient implements ClientModInitializer {
     // (which the shaderpack reflects/refracts) renders on top of the wave,
     // giving the wave color/foam the same shader-water treatment as the rest
     // of the surface. See WaveRenderer#shaderYOffset.
-    private static RenderLayer waveRenderLayer;
-
-    private static RenderLayer getWaveRenderLayer() {
-        if (waveRenderLayer == null) {
-            waveRenderLayer = RenderLayers.entityTranslucent(WavifySpriteHandler.WAVE_ATLAS_ID, false);
-        }
-        return waveRenderLayer;
-    }
-
     @Override
     public void onInitializeClient() {
         ParticleFactoryRegistry.getInstance().register(WavifyParticles.SPRAY_PARTICLE, SprayParticle.Factory::new);
@@ -111,20 +106,32 @@ public class WavifyClient implements ClientModInitializer {
         // water) so waves overlay water properly. The new entityTranslucent
         // layer writes depth, and rendering before water caused fade-in quads
         // to punch a hole through the water surface.
-        WorldRenderEvents.END_MAIN.register(context -> {
-            MinecraftClient mc = MinecraftClient.getInstance();
-            if(mc.world == null) return;
-            WavifyWorld wavifyWorld = (WavifyWorld) mc.world;
-            RenderLayer layer = getWaveRenderLayer();
+        WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> {
+            if(context.world() == null) return;
+            WavifyWorld wavifyWorld = (WavifyWorld) context.world();
             Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder buffer = tessellator.begin(layer.getDrawMode(), layer.getVertexFormat());
+            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
 
             wavifyWorld.wavify$wavifyWaveHandler().render(buffer, context);
 
             BuiltBuffer builtBuffer = buffer.endNullable();
             if(builtBuffer == null) return;
 
-            layer.draw(builtBuffer);
+            LightmapTextureManager lightmapTextureManager = MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager();
+            lightmapTextureManager.enable();
+
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.setShader(GameRenderer::getRenderTypeTripwireProgram);
+            RenderSystem.setShaderTexture(0, WavifySpriteHandler.WAVE_ATLAS_ID);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+
+            BufferRenderer.drawWithGlobalProgram(builtBuffer);
+
+            RenderSystem.depthMask(true);
+            RenderSystem.disableBlend();
+            lightmapTextureManager.disable();
         });
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(WAVIFY_SPRITE_HANDLER);

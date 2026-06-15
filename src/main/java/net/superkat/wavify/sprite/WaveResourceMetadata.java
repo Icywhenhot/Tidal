@@ -14,7 +14,7 @@ public record WaveResourceMetadata(int frameTime, int frameHeight) {
                     Codec.INT.optionalFieldOf("frametime", 5).forGetter(WaveResourceMetadata::frameTime),
                     Codecs.POSITIVE_INT.optionalFieldOf("frame_height", 16).forGetter(WaveResourceMetadata::frameHeight)
             ).apply(instance, WaveResourceMetadata::new));
-    public static final ResourceMetadataSerializer<WaveResourceMetadata> SERIALIZER = new ResourceMetadataSerializer<>(KEY, CODEC);
+    public static final ResourceMetadataSerializer<WaveResourceMetadata> SERIALIZER = ResourceMetadataSerializer.fromCodec(KEY, CODEC);
 
 
 }

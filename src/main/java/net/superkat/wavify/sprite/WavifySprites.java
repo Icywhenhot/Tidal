@@ -56,6 +56,6 @@ public class WavifySprites {
     }
 
     private static WaveResourceMetadata getMetadata(Sprite sprite) {
-        return sprite.getContents().getAdditionalMetadataValue(WaveResourceMetadata.SERIALIZER).orElse(WaveResourceMetadata.DEFAULT);
+        return sprite.getContents().getMetadata().decode(WaveResourceMetadata.SERIALIZER).orElse(WaveResourceMetadata.DEFAULT);
     }
 }

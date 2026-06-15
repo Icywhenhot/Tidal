@@ -1,11 +1,10 @@
 package net.superkat.wavify.renderer;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
@@ -69,9 +68,8 @@ public class WaveRenderer {
         List<Wave> waves = this.handler.getWaves();
         if (waves == null || waves.isEmpty()) return;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        float tickDelta = mc.getRenderTickCounter().getTickProgress(false);
-        Camera camera = mc.gameRenderer.getCamera();
+        float tickDelta = context.tickCounter().getTickDelta(false);
+        Camera camera = context.camera();
 
         float shaderSink = IrisCompat.isShaderPackActive() ? (float) WavifyConfig.shaderWaveYSink : 0f;
         float baseOffset = (float) WavifyConfig.waveYOffset;
@@ -92,7 +90,7 @@ public class WaveRenderer {
         matrices.push();
 
         Vec3d center = new Vec3d(wave.getX(delta), wave.getY(delta), wave.getZ(delta));
-        Vec3d cameraPos = camera.getCameraPos();
+        Vec3d cameraPos = camera.getPos();
         Vec3d transPos = center.subtract(cameraPos);
 
         matrices.push();
@@ -176,19 +174,17 @@ public class WaveRenderer {
 //        float v0 = 0f;
 //        float v1 = 1f;
 
-        int overlay = OverlayTexture.DEFAULT_UV;
-
         buffer.vertex(matrix4f, x - halfWidth, y, z - halfLength)
-                .color(red, green, blue, alpha).texture(u0, v1).overlay(overlay).light(light).normal(0f, 1f, 0f);
+                .color(red, green, blue, alpha).texture(u0, v1).light(light);
 
         buffer.vertex(matrix4f, x - halfWidth, y, z + halfLength)
-                .color(red, green, blue, alpha).texture(u0, v0).overlay(overlay).light(light).normal(0f, 1f, 0f);
+                .color(red, green, blue, alpha).texture(u0, v0).light(light);
 
         buffer.vertex(matrix4f, x + halfWidth, y, z + halfLength)
-                .color(red, green, blue, alpha).texture(u1, v0).overlay(overlay).light(light).normal(0f, 1f, 0f);
+                .color(red, green, blue, alpha).texture(u1, v0).light(light);
 
         buffer.vertex(matrix4f, x + halfWidth, y, z - halfLength)
-                .color(red, green, blue, alpha).texture(u1, v1).overlay(overlay).light(light).normal(0f, 1f, 0f);
+                .color(red, green, blue, alpha).texture(u1, v1).light(light);
     }
 
     public void renderOverlays(BufferBuilder buffer, Camera camera, Set<BlockPos> coveredBlocks) {
@@ -199,7 +195,7 @@ public class WaveRenderer {
 
     public void renderCoverOverlay(BufferBuilder buffer, Camera camera, BlockPos pos) {
         MatrixStack matrices = new MatrixStack();
-        Vec3d cameraPos = camera.getCameraPos();
+        Vec3d cameraPos = camera.getPos();
         Vec3d transPos = pos.toBottomCenterPos().subtract(cameraPos);
 
         Sprite sprite = getWetOverlaySprite();
@@ -214,19 +210,17 @@ public class WaveRenderer {
         matrices.translate(transPos.x - 0.5, transPos.y + 1.01, transPos.z - 0.5); // offsets to the wave's position
         Matrix4f matrix4f = matrices.peek().getPositionMatrix();
 
-        int overlay = OverlayTexture.DEFAULT_UV;
-
         buffer.vertex(matrix4f, 0, 0, 0)
-                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u0, v0).overlay(overlay).light(light).normal(0f, 1f, 0f);
+                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u0, v0).light(light);
 
         buffer.vertex(matrix4f, 0, 0, 1)
-                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u0, v1).overlay(overlay).light(light).normal(0f, 1f, 0f);
+                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u0, v1).light(light);
 
         buffer.vertex(matrix4f, 1, 0, 1)
-                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u1, v1).overlay(overlay).light(light).normal(0f, 1f, 0f);
+                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u1, v1).light(light);
 
         buffer.vertex(matrix4f, 1, 0, 0)
-                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u1, v0).overlay(overlay).light(light).normal(0f, 1f, 0f);
+                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u1, v0).light(light);
 
         matrices.pop();
     }

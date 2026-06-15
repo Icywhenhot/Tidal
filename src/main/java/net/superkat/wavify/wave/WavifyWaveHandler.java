@@ -4,7 +4,7 @@ import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -158,7 +158,7 @@ public class WavifyWaveHandler {
             if (DebugHelper.offhandClock()) {
                 for (BlockPos water : waterBlocks) {
                     Vec3d pos = water.toCenterPos();
-                    this.world.addParticleClient(ParticleTypes.END_ROD, pos.getX(), pos.getY() + 2.5, pos.getZ(), 0, 0, 0);
+                    this.world.addParticle(ParticleTypes.END_ROD, pos.getX(), pos.getY() + 2.5, pos.getZ(), 0, 0, 0);
                 }
             }
         }
@@ -423,7 +423,7 @@ public class WavifyWaveHandler {
                     site.getYaw(),
                     0.3f,
                     20);
-            this.world.addParticleClient(particleEffect, farParticles, false, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
+            this.world.addParticle(particleEffect, farParticles, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
         }
     }
 
@@ -554,10 +554,10 @@ public class WavifyWaveHandler {
                         marker.speed(),
                         marker.lifetime()
                 );
-                this.world.addParticleClient(effect, false, false, marker.x(), marker.y(), marker.z(), 0, 0, 0);
+                this.world.addParticle(effect, false, marker.x(), marker.y(), marker.z(), 0, 0, 0);
             } else {
                 DebugWaterParticle.DebugWaterParticleEffect effect = new DebugWaterParticle.DebugWaterParticleEffect(marker.color(), marker.scale());
-                this.world.addParticleClient(effect, marker.x(), marker.y(), marker.z(), 0, 0, 0);
+                this.world.addParticle(effect, marker.x(), marker.y(), marker.z(), 0, 0, 0);
             }
         }
     }
@@ -579,7 +579,7 @@ public class WavifyWaveHandler {
                     sitePos.getYaw(),
                     0.3f,
                     20);
-            this.world.addParticleClient(particleEffect, farParticles, false, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
+            this.world.addParticle(particleEffect, farParticles, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
         }
     }
 
