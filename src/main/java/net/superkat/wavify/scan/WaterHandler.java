@@ -1,6 +1,5 @@
 package net.superkat.wavify.scan;
 
-import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -37,36 +36,14 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
-/**
- * Handles water/shoreline blocks & SitePos'
- * <br><br>
- * How this goofy thing works:<br><br>
- * <p>
- * ChunkAccess loaded -> {@link WaterHandler#loadChunk(ChunkAccess)} -> adds the ChunkPos to {@link WaterHandler#loadedChunks}.<br><br>
- * <p>
- * {@link WaterHandler#checkUnscannedChunks()} adds unscanned chunks within scanning distance to {@link WaterHandler#unscannedChunkQueue}.<br>
- * In {@link WaterHandler#tick()}, that unscannedChunkQueue is iterated though via {@link WaterHandler#scheduleChunkScans()}, where a {@link ChunkScanner} is created, and returns a {@link ScannedChunk} with that chunk's water blocks, shoreline blocks, and created {@link SitePos} sites.<br><br>
- * Currently, nothing is done to the ChunkScanner if the chunk is unloaded during its scan process, as the CompletableFuture does not get cancelled. That could be an improvement.<br><br>
- * Once all queued ChunkScanners are finished, the scanner provides the info to here, the WaterHandler.<br><br>
- * Then, all known water blocks have their closest SitePos calculated via {@link  WaterHandler#scheduleWaterCache()}, and once that is done, the values for {@link WaterHandler#waterCache} & {@link WaterHandler#waterDistCache} are set.<br><br>
- * <p>
- * ChunkAccess unloaded -> {@link WaterHandler#unloadChunk(ChunkAccess)}. Because nearly everything is split per chunk via Maps, all keys with that ChunkPos(as a long) are removed, removing the values with it.<br><br>
- * <p>
- * Join world -> Nearby chunks are added via loadChunk(), then once all nearby chunks are loaded via {@link WavifyWaveHandler#nearbyChunksLoaded(LocalPlayer)}, the scheduleChunkScans method is called.<br><br>
- * <p>
- * Block updated -> {@link WaterHandler#onBlockUpdate(BlockPos, BlockState)}. A count of all block updates per chunk is kept track of in {@link WaterHandler#chunkUpdates}.<br>After enough block updates in a chunk(configurable), that chunk will be rescanned via {@link WaterHandler#rescanChunkPos(ChunkPos)}.
- *
- * @see WavifyWaveHandler
- * @see ChunkScanner
- * @see SitePos
- */
+
 public class WaterHandler {
     public final WavifyWaveHandler wavifyWaveHandler;
     public final ClientLevel level;
-    // using fastutils because... it has fast in its name? I've been told its fast! And I gotta go fast!
 
     // Keep track of how many block updates have happened in a chunk - used to rescan chunks after enough(configurable) updates
     public Map<Long, Integer> chunkUpdates = new Long2IntOpenHashMap(81, 0.25f);
@@ -80,20 +57,6 @@ public class WaterHandler {
     // Keep track of which SitePos is closest to all scanned water blocks
     public Map<Long, Map<BlockPos, SitePos>> waterCache = new Long2ObjectOpenHashMap<>();
 
-    // This is being kept as its own map only for now. I considered a few other options, but didn't know which one was better:
-    // - it's own map(already done)
-    // - Changing the waterCache's Object2ObjectMap to have a ObjectIntPair<SitePos> for the BlockPos value, instead of the current SitePos
-    // - Changing the waterCache's Object2ObjectMap to a Table<SitePos, Integer, Set<BlockPos>> instead
-
-    // That third option would be the easiest to work with after everything was cached,
-    // but I was afraid that the process of checking if a Set<BlockPos> had already been created for a Table,
-    // and then checking if that set contained the BlockPos given to WaterHandler#findClosestSite would be too expensive
-
-    // The second option I was afraid would be too expensive when trying to find all water blocks within a specific distance,
-    // as you'd need to filter through all of them each time you wanted to find a block within a specific distance
-
-    // this is the equal to Map<ChunkPos, Map<Integer, Set<BlockPos>>>, which may not be great performance-wise?
-    // alternatively, use Long2ObjectOpenHashMap<HashMultimap<Integer, BlockPos>>????
     public Map<Long, Map<Integer, Set<BlockPos>>> waterDistCache = new Long2ObjectOpenHashMap<>();
 
     // All scanned shoreline blocks
@@ -117,18 +80,10 @@ public class WaterHandler {
     // Set of all chunks ready to be scanned(e.g. within wave spawning distance)
     public Queue<ChunkPos> unscannedChunkQueue = Queues.newArrayDeque();
 
-    // List of all known water blocks, split by chunk
-    public Map<Long, Set<BlockPos>> waters = Maps.newHashMap();
+    // List of all known water blocks, split by chunk. Concurrent because the scan pipeline fills these on
+    // background threads while the main thread reads them (e.g. WavifyWaveHandler#spawnRiverWavesNearPlayer).
+    public Map<Long, Set<BlockPos>> waters = new ConcurrentHashMap<>();
 
-    // Always use Mth when working with floats!
-
-    // idea: if no site is within configurable distance, that water is considered open ocean and extra effects can be added there
-    // idea 2: if the amount of blocks associated with a SitePos is really small, non-directional ambient particles spawn
-
-    // TODO - create own thread pool
-    // TODO - fastutils new maps/sets
-    // TODO - QuickSort algorithm for finding nearest SitePos???
-    // TODO - update waterDistCache to be better?
 
     public WaterHandler(WavifyWaveHandler wavifyWaveHandler, ClientLevel level) {
         this.wavifyWaveHandler = wavifyWaveHandler;
@@ -145,11 +100,11 @@ public class WaterHandler {
             if (this.chunkScanFuture == null) { // I don't know if there's a better way to do this or not but okay
                 long start = Util.getMillis();
                 this.chunkScanFuture = scheduleChunkScans();
-                this.chunkScanFuture.thenCompose(chunks -> {
+                this.chunkScanFuture.thenComposeAsync(chunks -> {
                     for (ScannedChunk chunk : chunks) {
                         long chunkPosL = chunk.chunkPos;
                         if (chunk.waters != null && !chunk.waters.isEmpty()) {
-                            this.waters.computeIfAbsent(chunkPosL, aLong -> Sets.newHashSet()).addAll(chunk.waters);
+                            this.waters.computeIfAbsent(chunkPosL, aLong -> ConcurrentHashMap.newKeySet()).addAll(chunk.waters);
                         }
 
                         if (chunk.sites != null && !chunk.sites.isEmpty()) {
@@ -164,7 +119,7 @@ public class WaterHandler {
                     this.cacheSiteSet();
 
                     return this.scheduleWaterCache();
-                }).thenAccept(waterCacheResult -> {
+                }, client).thenAcceptAsync(waterCacheResult -> {
                     this.waterCache = waterCacheResult.waterCache;
 
                     this.sites.values().forEach(siteSet -> siteSet.forEach(SitePos::clearPositions));
@@ -178,15 +133,15 @@ public class WaterHandler {
                     }
 
                     this.waterDistCache = waterCacheResult.distCache;
-                }).thenRun(() -> {
+                }, client).thenRunAsync(() -> {
                     calcAllSiteCenters();
                     this.built = true;
-                });
+                }, client);
 
-                this.chunkScanFuture.whenComplete((chunks, throwable) -> {
+                this.chunkScanFuture.whenCompleteAsync((chunks, throwable) -> {
                     if(DebugHelper.debug()) Wavify.LOGGER.info("Scan time: {} ms", Util.getMillis() - start);
                     this.chunkScanFuture = null;
-                });
+                }, client);
             }
         }
 
@@ -214,9 +169,6 @@ public class WaterHandler {
         }, executor);
     }
 
-    // Gives waterCache/waterDistCache maps to replace current maps with, instead of trying to modify current maps
-    // Trying to modify the current maps via the CompletableFutures, even from `.thenApply()`, (supposed to be main thread I think)
-    // kept resulting with weird, seemingly desync-related issues, so I gave up.
     public record WaterCacheResult(Map<Long, Map<BlockPos, SitePos>> waterCache,
                                    Map<Long, Map<Integer, Set<BlockPos>>> distCache) {
     }
@@ -271,8 +223,6 @@ public class WaterHandler {
             double dx = pos.getX() + 0.5 - site.getX();
             double dz = pos.getZ() + 0.5 - site.getZ();
             double checkDist = dx * dx + dz * dz;
-//            double checkDist = Math.max(Math.abs(dx), Math.abs(dz)); //alt distance formulas for future config
-//            double checkDist = Math.abs(dx) + Math.abs(dz);
 
             if (closest == null || checkDist < distance) {
                 closest = site;
@@ -284,13 +234,7 @@ public class WaterHandler {
         return IntObjectPair.of(intDistance, closest);
     }
 
-    /**
-     * Gets a Set of BlockPos' that are a specified distance away from their closest SitePos within a ChunkPos. Used for spawning waves.
-     *
-     * @param chunkPos The ChunkPos to get the water blocks from
-     * @param distance The distance to check for
-     * @return The Set of BlockPos, or null if none are found.
-     */
+
     @Nullable
     public Set<BlockPos> getWaterCacheAtDistance(ChunkPos chunkPos, int distance) {
         long chunkPosL = chunkPos.toLong();
@@ -298,12 +242,7 @@ public class WaterHandler {
         return null;
     }
 
-    /**
-     * Cache and or return the closest SitePos of a BlockPos(assumed to be, but technically doesn't have to be, a water block).
-     *
-     * @param pos BlockPos to use for finding the closest SitePos.
-     * @return The BlockPos' closest SitePos, or {@link BlockPos#ORIGIN} if the site is null.
-     */
+
     public SitePos getSiteForPos(BlockPos pos) {
         long chunkPosL = ChunkPos.asLong(pos);
         return this.waterCache
@@ -316,12 +255,6 @@ public class WaterHandler {
                 });
     }
 
-    /**
-     * Calculates the closest SitePos from a BlockPos. Used by {@link WaterHandler#getSiteForPos(BlockPos)}.
-     *
-     * @param pos The BlockPos to use for finding the closest SitePos
-     * @return The closest SitePos, or null if no SitePos' are currently stored.
-     */
     @Nullable
     public SitePos findAndCacheClosestSite(long chunkPosL, BlockPos pos) {
         if (this.sites.isEmpty()) return null;
@@ -386,12 +319,7 @@ public class WaterHandler {
         }
     }
 
-    /**
-     * Called during a block update. Used to count how many block updates have happened in any given chunk. After enough updates in a chunk, that chunk is rescanned.
-     *
-     * @param pos   The BlockPos that was updated
-     * @param state The new BlockState of the updated BlockPos
-     */
+
     public void onBlockUpdate(BlockPos pos, BlockState state) {
         long chunkPosL = ChunkPos.asLong(pos);
         int currentUpdates = this.chunkUpdates.getOrDefault(chunkPosL, 0) + 1;
@@ -403,9 +331,6 @@ public class WaterHandler {
         this.chunkUpdates.put(chunkPosL, currentUpdates);
     }
 
-    /**
-     * Easy method to clear & rescan chunks - called from chunk reload(f3+a)
-     */
     public void rebuild() {
         this.clear(); // clear all data(ticking scanners -> null, sites/shoreblocks/waterblocks all cleared)
 
@@ -426,31 +351,19 @@ public class WaterHandler {
         this.cachedSiteSet = new ObjectOpenHashSet<>(this.sites.values().stream().flatMap(Collection::stream).collect(Collectors.toSet()));
     }
 
-    /**
-     * Schedules a chunk to be scanned water blocks, shoreblocks, sites, etc. Called when a new chunk is loaded.
-     *
-     * @param chunk ChunkAccess to schedule
-     * @see WaterHandler#addChunkPos(ChunkPos)
-     */
+
     public void loadChunk(ChunkAccess chunk) {
         addChunkPos(chunk.getPos());
     }
 
-    /**
-     * Schedules a chunk to be scanned for water blocks, shoreblocks, sites, etc.
-     *
-     * @param chunkPos ChunkPos of the chunk to be scanned
-     * @see WaterHandler#loadChunk(ChunkAccess)
-     */
+
     public void addChunkPos(ChunkPos chunkPos) {
         this.loadedChunks.add(chunkPos);
         this.unscannedChunks.add(chunkPos);
         checkUnscannedChunks();
     }
 
-    /**
-     * Searches through all loaded, unscanned chunks, and queues unscanned chunks which are within scanning distance to {@link WaterHandler#unscannedChunkQueue}
-     */
+
     public void checkUnscannedChunks() {
         net.minecraft.world.phys.Vec3 camPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         ChunkPos cameraChunk = new ChunkPos(((int) Math.floor(camPos.x)) >> 4, ((int) Math.floor(camPos.z)) >> 4);
@@ -467,12 +380,7 @@ public class WaterHandler {
         }
     }
 
-    /**
-     * Schedules a ChunkPos to be rescanned, removing the chunk's blocks from all trackers.
-     *
-     * @param chunkPos ChunkPos to remove
-     * @return If the reschedule was successful. It will return false if a scanner is already associated with the ChunkPos
-     */
+
     public boolean rescanChunkPos(ChunkPos chunkPos) {
         long chunkPosL = chunkPos.toLong();
         this.clearChunk(chunkPosL);
@@ -481,11 +389,6 @@ public class WaterHandler {
         return true;
     }
 
-    /**
-     * Fully removes a chunk form all trackers, scanners, and updates. Called once a chunk is unloaded.
-     *
-     * @param chunk The ChunkPos(as a long) to remove
-     */
     public void unloadChunk(ChunkAccess chunk) {
         ChunkPos chunkPos = chunk.getPos();
         long chunkPosL = chunkPos.toLong();
@@ -495,12 +398,6 @@ public class WaterHandler {
         this.unscannedChunks.remove(chunkPos);
     }
 
-    /**
-     * Removes a chunk from all trackers, e.g. waitingWaterBlocks, sites, siteCache, shoreblocks.
-     * <br><br>The chunk remains in the scannedChunks & chunkUpdates maps, as it is assumed it is still loaded.
-     *
-     * @param chunkPosL The ChunkPos(as a long) to remove
-     */
     public void clearChunk(long chunkPosL) {
         this.shoreBlocks.remove(chunkPosL);
         this.waterCache.remove(chunkPosL);
@@ -510,9 +407,6 @@ public class WaterHandler {
         this.cachedSiteSet.clear(); //resets it
     }
 
-    /**
-     * Clears all maps/sets EXCEPT {@link WaterHandler#loadedChunks}! Used for rebuilding via f3+a
-     */
     public void clear() {
         this.shoreBlocks.clear();
         this.sites.clear();
