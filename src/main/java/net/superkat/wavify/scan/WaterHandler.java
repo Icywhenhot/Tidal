@@ -1,6 +1,5 @@
 package net.superkat.wavify.scan;
 
-import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -37,6 +36,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
@@ -117,8 +117,9 @@ public class WaterHandler {
     // Set of all chunks ready to be scanned(e.g. within wave spawning distance)
     public Queue<ChunkPos> unscannedChunkQueue = Queues.newArrayDeque();
 
-    // List of all known water blocks, split by chunk
-    public Map<Long, Set<BlockPos>> waters = Maps.newHashMap();
+    // List of all known water blocks, split by chunk. Concurrent because the scan pipeline fills these on
+    // background threads while the main thread reads them (e.g. WavifyWaveHandler#spawnRiverWavesNearPlayer).
+    public Map<Long, Set<BlockPos>> waters = new ConcurrentHashMap<>();
 
     // Always use Mth when working with floats!
 
@@ -145,11 +146,16 @@ public class WaterHandler {
             if (this.chunkScanFuture == null) { // I don't know if there's a better way to do this or not but okay
                 long start = Util.getMillis();
                 this.chunkScanFuture = scheduleChunkScans();
-                this.chunkScanFuture.thenCompose(chunks -> {
+                // The chunk scans run on the background executor, so a plain thenCompose/thenAccept/thenRun
+                // would apply their results on a background thread - racing with the main thread that reads
+                // these maps every tick (see WavifyWaveHandler#spawnRiverWavesNearPlayer). Pin every stage
+                // that touches shared state to `client`, which dispatches the task onto the main thread. The
+                // heavy work (chunk scanning, closest-site calc) stays async via scheduleChunkScans/scheduleWaterCache.
+                this.chunkScanFuture.thenComposeAsync(chunks -> {
                     for (ScannedChunk chunk : chunks) {
                         long chunkPosL = chunk.chunkPos;
                         if (chunk.waters != null && !chunk.waters.isEmpty()) {
-                            this.waters.computeIfAbsent(chunkPosL, aLong -> Sets.newHashSet()).addAll(chunk.waters);
+                            this.waters.computeIfAbsent(chunkPosL, aLong -> ConcurrentHashMap.newKeySet()).addAll(chunk.waters);
                         }
 
                         if (chunk.sites != null && !chunk.sites.isEmpty()) {
@@ -164,7 +170,7 @@ public class WaterHandler {
                     this.cacheSiteSet();
 
                     return this.scheduleWaterCache();
-                }).thenAccept(waterCacheResult -> {
+                }, client).thenAcceptAsync(waterCacheResult -> {
                     this.waterCache = waterCacheResult.waterCache;
 
                     this.sites.values().forEach(siteSet -> siteSet.forEach(SitePos::clearPositions));
@@ -178,15 +184,15 @@ public class WaterHandler {
                     }
 
                     this.waterDistCache = waterCacheResult.distCache;
-                }).thenRun(() -> {
+                }, client).thenRunAsync(() -> {
                     calcAllSiteCenters();
                     this.built = true;
-                });
+                }, client);
 
-                this.chunkScanFuture.whenComplete((chunks, throwable) -> {
+                this.chunkScanFuture.whenCompleteAsync((chunks, throwable) -> {
                     if(DebugHelper.debug()) Wavify.LOGGER.info("Scan time: {} ms", Util.getMillis() - start);
                     this.chunkScanFuture = null;
-                });
+                }, client);
             }
         }
 
