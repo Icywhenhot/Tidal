@@ -1,5 +1,6 @@
 package net.superkat.wavify.river;
 
+import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
@@ -50,6 +51,10 @@ public final class RiverFlowField {
 
     private static final double SQRT2 = Math.sqrt(2.0);
 
+    private static final int OCEAN_RIVER_RAY = 24;
+    private static final int OCEAN_RIVER_CELL_BITS = 2; // 4-block classification cells
+    private final Long2ByteOpenHashMap oceanRiverCache = new Long2ByteOpenHashMap();
+
     // Occupancy (block resolution) over the window.
     private int originX;
     private int originZ;
@@ -98,7 +103,22 @@ public final class RiverFlowField {
         return new RiverFlow.Flow(dx, dz);
     }
 
+    /**
+     * True if the river water at {@code pos} is an ocean-embedded stripe (worldgen tagged ocean as IS_RIVER)
+     * rather than a real river. Cached per ~4-block cell; the cache is dropped on every field rebuild.
+     */
+    public boolean isOceanSurroundedRiver(ClientWorld world, BlockPos pos) {
+        long key = (((long) (pos.getX() >> OCEAN_RIVER_CELL_BITS)) & 0xFFFFFFFFL)
+                | (((long) (pos.getZ() >> OCEAN_RIVER_CELL_BITS)) << 32);
+        byte cached = this.oceanRiverCache.get(key);   // default return 0 = unknown
+        if (cached != 0) return cached == 2;
+        boolean embedded = RiverFlow.isOceanSurrounded(world, pos, OCEAN_RIVER_RAY);
+        this.oceanRiverCache.put(key, (byte) (embedded ? 2 : 1)); // 1 real, 2 embedded
+        return embedded;
+    }
+
     private void build(ClientWorld world, WaterHandler waterHandler, int cx, int cz, long tick) {
+        this.oceanRiverCache.clear();
         // Snapshot the previous field so the new build can keep the same flow sense where they overlap.
         boolean hadPrev = this.built;
         int prevOriginX = this.originX;

@@ -16,12 +16,14 @@ import net.minecraft.registry.tag.BiomeTags;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.Vec3i;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.chunk.WorldChunk;
 import net.superkat.wavify.DebugHelper;
+import net.superkat.wavify.Wavify;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.particles.debug.DebugWaterParticle;
 import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
@@ -63,6 +65,10 @@ public class WavifyWaveHandler {
     /** Water blocks required to the nearest bank on each side before a river wave may spawn there. Keeps
      *  waves off the very edge, where the flow direction is least reliable and they jitter. */
     private static final int SPAWN_BANK_MARGIN = 1;
+
+    // Isolated-object suppression: classify a shoreline site by flooding the connected solid blocks at the
+    // waterline. At/under the cap => small isolated object (shipwreck/ruin/debris) => spawn no waves.
+    private static final int LANDMASS_CAP = 768; // footprint flood cap; at/under this => "small object"
 
     public boolean nearbyChunksLoaded = false;
 
@@ -120,7 +126,7 @@ public class WavifyWaveHandler {
             this.riverDebugMarkers = List.of();
         }
 
-        boolean updateCoveredBlocks = time % 10 == 0;
+        boolean updateCoveredBlocks = WavifyConfig.enableWetOverlay && time % 10 == 0;
         ObjectArraySet<BlockPos> updatedCovered = new ObjectArraySet<>();
 
         for (Iterator<Wave> iterator = waves.iterator(); iterator.hasNext(); ) {
@@ -134,7 +140,11 @@ public class WavifyWaveHandler {
             }
         }
 
-        if (updateCoveredBlocks) this.coveredBlocks = updatedCovered;
+        if (updateCoveredBlocks) {
+            this.coveredBlocks = updatedCovered;
+        } else if (!WavifyConfig.enableWetOverlay && !this.coveredBlocks.isEmpty()) {
+            this.coveredBlocks = updatedCovered; // empty: drop any lingering wet when the feature is off
+        }
     }
 
     public void spawnAllWaves() {
@@ -192,6 +202,7 @@ public class WavifyWaveHandler {
             boolean oceanConnected = isOceanConnectedWave(spawnPos, yaw);
             if (!oceanConnected) continue;
             if (!isShoreWavePathSafe(spawnPos, yaw)) continue;
+            if (isIsolatedObjectSite(site)) continue;
 
             Wave wave = new Wave(this.world, spawnPos, yaw, yOffset, bigWave);
             int width = (int) MathHelper.clamp(connected.size() * 1.5, 1, 3);
@@ -276,6 +287,71 @@ public class WavifyWaveHandler {
         return null;
     }
 
+    private boolean isIsolatedObjectSite(SitePos site) {
+        if (site.shoreClass != 0) return site.shoreClass == 1;
+        boolean small = isSmallObject(site);
+        site.shoreClass = (byte) (small ? 1 : 2);
+        return small;
+    }
+
+    private boolean isSmallObject(SitePos site) {
+        BlockPos waterPos = site.getPos();
+        BlockPos seed = solidNeighborAt(waterPos);
+        if (seed == null) {
+            if (DebugHelper.debug()) {
+                Wavify.LOGGER.info("[wavify] site {} has no solid waterline neighbour -> treated as shore", waterPos);
+            }
+            return false;
+        }
+        int size = floodLandmassSize(seed, waterPos.getY());
+        boolean small = size <= LANDMASS_CAP;
+        if (DebugHelper.debug()) {
+            Wavify.LOGGER.info("[wavify] landmass at {} (seaY {}) size={} cap={} -> {}",
+                    waterPos, waterPos.getY(), size, LANDMASS_CAP, small ? "OBJECT (suppress)" : "shore (keep)");
+        }
+        return small;
+    }
+
+    private BlockPos solidNeighborAt(BlockPos waterPos) {
+        for (Direction dir : Direction.Type.HORIZONTAL) {
+            BlockPos neighbor = waterPos.offset(dir);
+            if (isSolidColumn(neighbor)) return neighbor;
+        }
+        return null;
+    }
+
+    private boolean isSolidColumn(BlockPos pos) {
+        return !this.world.isAir(pos) && !posIsWater(this.world, pos);
+    }
+
+    private int floodLandmassSize(BlockPos seed, int seaY) {
+        Set<Long> visited = Sets.newHashSet();
+        Queue<BlockPos> queue = Queues.newArrayDeque();
+        queue.add(seed);
+        visited.add(packXZ(seed.getX(), seed.getZ()));
+        int count = 0;
+        BlockPos.Mutable cursor = new BlockPos.Mutable();
+        while (!queue.isEmpty()) {
+            BlockPos current = queue.poll();
+            if (++count > LANDMASS_CAP) return count;
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (dx == 0 && dz == 0) continue;
+                    int nx = current.getX() + dx;
+                    int nz = current.getZ() + dz;
+                    if (!visited.add(packXZ(nx, nz))) continue;
+                    cursor.set(nx, seaY, nz);
+                    if (isSolidColumn(cursor)) queue.add(new BlockPos(nx, seaY, nz));
+                }
+            }
+        }
+        return count;
+    }
+
+    private static long packXZ(int x, int z) {
+        return (x & 0xFFFFFFFFL) | ((long) z << 32);
+    }
+
     private boolean isRiverBiomeWater(BlockPos pos) {
         if (this.world.getBiome(pos).isIn(BiomeTags.IS_RIVER)) return true;
 
@@ -316,6 +392,7 @@ public class WavifyWaveHandler {
                     double dz = water.getZ() + 0.5 - pz;
                     if (dx * dx + dz * dz > spawnRadiusSq) continue;
                     if (!isRiverBiomeWater(water)) continue;
+                    if (this.riverFlow.isOceanSurroundedRiver(this.world, water)) continue;
                     if (!posIsWater(this.world, water)) continue;
                     if (!this.world.getBlockState(water.up()).isAir()) continue;
                     candidates.add(water);

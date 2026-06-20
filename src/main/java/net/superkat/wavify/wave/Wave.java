@@ -126,6 +126,7 @@ public class Wave {
 
     public Set<BlockPos> getCoveredBlocks() {
         Set<BlockPos> set = Sets.newHashSet();
+        if (!this.isWashingUp()) return set;
         BlockPos currentPos = this.getBlockPos();
 
         int extra = 0;
