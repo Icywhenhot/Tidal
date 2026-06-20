@@ -29,6 +29,7 @@ public class WavifyConfig extends MidnightConfig {
 
     @Entry(category = APPEARANCE, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double transparency = 1.0;
     @Entry(category = APPEARANCE) public static boolean applyTransparencyToFoam = false;
+    @Entry(category = APPEARANCE) public static boolean enableWetOverlay = true;
     @Entry(category = APPEARANCE) public static ColorSource colorSource = ColorSource.BIOME;
     @Entry(category = APPEARANCE, isColor = true) public static int customColor = 0x3F76E4;
     @Entry(category = APPEARANCE) public static String biomeColorOverrides = "";

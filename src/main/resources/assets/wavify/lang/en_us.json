@@ -27,6 +27,8 @@
   "wavify.midnightconfig.waveYOffset.tooltip": "Shifts the whole wave (body and foam) up or down. Applied in both vanilla and shader modes. Negative = lower.",
   "wavify.midnightconfig.shaderWaveYSink": "Shader Wave Y Sink",
   "wavify.midnightconfig.shaderWaveYSink.tooltip": "Only applied when an Iris/Oculus shaderpack is active. Sinks the wave body below water so the shaderpack's water reflections render on top. More negative = waves sit deeper. 0 disables shader compensation.",
+  "wavify.midnightconfig.enableWetOverlay": "Enable Wet Sand Overlay",
+  "wavify.midnightconfig.enableWetOverlay.tooltip": "Darkens the ground where a wave washes up, as if the sand got wet. Turn off to disable the effect entirely.",
   "wavify.midnightconfig.enableWaveSounds": "Enable Wave Sounds",
   "wavify.midnightconfig.enableWaveSounds.tooltip": "Plays a looping ambient ocean sound when ocean waves are nearby, and a river sound when river waves are nearby. Sounds fade in/out smoothly.",
   "wavify.midnightconfig.waveSoundVolume": "Wave Sound Volume",

@@ -1,5 +1,6 @@
 package net.superkat.wavify.river;
 
+import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
@@ -50,6 +51,13 @@ public final class RiverFlowField {
 
     private static final double SQRT2 = Math.sqrt(2.0);
 
+    /** Max ray length (blocks) for the ocean-embedded-river test. */
+    private static final int OCEAN_RIVER_RAY = 24;
+    /** Classification cell size as a bit shift (1<<2 = 4 blocks); verdicts are cached per cell. */
+    private static final int OCEAN_RIVER_CELL_BITS = 2;
+    /** Per-cell verdict cache: 0 = unknown, 1 = real river, 2 = ocean-embedded. Cleared each rebuild. */
+    private final Long2ByteOpenHashMap oceanRiverCache = new Long2ByteOpenHashMap();
+
     // Occupancy (block resolution) over the window.
     private int originX;
     private int originZ;
@@ -98,7 +106,31 @@ public final class RiverFlowField {
         return new RiverFlow.Flow(dx, dz);
     }
 
+    /**
+     * Cached test (per ~4-block cell, cleared on every rebuild) for whether river-biome water here is an
+     * ocean-embedded stripe - a worldgen artifact that should NOT spawn river waves. Delegates the actual
+     * 8-ray check to {@link RiverFlow#isOceanSurrounded}; this layer only memoises it so the per-tick
+     * candidate filter in the wave handler stays cheap.
+     *
+     * @param pos a position already confirmed to be river-biome water
+     * @return true if the spot is fenced in by ocean (suppress river waves there)
+     */
+    public boolean isOceanSurroundedRiver(ClientLevel level, BlockPos pos) {
+        long key = (((long) (pos.getX() >> OCEAN_RIVER_CELL_BITS)) & 0xFFFFFFFFL)
+                | (((long) (pos.getZ() >> OCEAN_RIVER_CELL_BITS)) << 32);
+        byte cached = this.oceanRiverCache.get(key);
+        if (cached != 0) return cached == 2;
+
+        boolean embedded = RiverFlow.isOceanSurrounded(level, pos, OCEAN_RIVER_RAY);
+        this.oceanRiverCache.put(key, (byte) (embedded ? 2 : 1));
+        return embedded;
+    }
+
     private void build(ClientLevel level, WaterHandler waterHandler, int cx, int cz, long tick) {
+        // Ocean-embedded-river verdicts depend on terrain, so drop them on every rebuild; movement to new
+        // areas and block edits are then picked up automatically.
+        this.oceanRiverCache.clear();
+
         // Snapshot the previous field so the new build can keep the same flow sense where they overlap.
         boolean hadPrev = this.built;
         int prevOriginX = this.originX;

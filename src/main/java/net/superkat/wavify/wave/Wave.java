@@ -126,6 +126,10 @@ public class Wave {
 
     public Set<BlockPos> getCoveredBlocks() {
         Set<BlockPos> set = Sets.newHashSet();
+        // Only wet the shore once the wave actually breaks on it. Before washing up the wave is still out
+        // over the water, so darkening here would run ahead of the visible crest - that's the desync this
+        // fixes. River waves never wash up, so they never wet a bank either.
+        if (!this.isWashingUp()) return set;
         BlockPos currentPos = this.getBlockPos();
 
         int extra = 0;

@@ -13,6 +13,8 @@ public class SitePos {
     public int centerZ = 0;
     public float yaw = 0f;
     public boolean yawCalculated = false;
+    // Cached shoreline classification for wave spawning: 0 = unknown, 1 = isolated object, 2 = normal shore.
+    public byte shoreClass = 0;
 
     // cache x's and z's - stored as ints for speed
     public IntArrayList xList = new IntArrayList();
@@ -39,6 +41,7 @@ public class SitePos {
         this.xList.clear();
         this.zList.clear();
         this.yawCalculated = false;
+        this.shoreClass = 0;
     }
 
     public void updateCenter() {
