@@ -32,6 +32,7 @@ public class WavifyConfig extends MidnightConfig {
     @Entry(category = APPEARANCE) public static ColorSource colorSource = ColorSource.BIOME;
     @Entry(category = APPEARANCE, isColor = true) public static int customColor = 0x3F76E4;
     @Entry(category = APPEARANCE) public static String biomeColorOverrides = "";
+    @Entry(category = APPEARANCE) public static boolean enableWetOverlay = true;
 
     @Entry(category = WAVES, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double lakeWaveMultiplier = 0.2;
     @Entry(category = RIVERS) public static boolean enableRiverWaves = true;

@@ -31,6 +31,8 @@
   "wavify.midnightconfig.enableWaveSounds.tooltip": "Plays a looping ambient ocean sound when ocean waves are nearby, and a river sound when river waves are nearby. Sounds fade in/out smoothly.",
   "wavify.midnightconfig.waveSoundVolume": "Wave Sound Volume",
   "wavify.midnightconfig.waveSoundVolume.tooltip": "Master volume multiplier for the ocean and river ambient loops.",
+  "wavify.midnightconfig.enableWetOverlay": "Enable Wet Sand Overlay",
+  "wavify.midnightconfig.enableWetOverlay.tooltip": "Darkens the ground where a wave washes up, as if the sand got wet. Turn off to disable the effect entirely.",
   "wavify.subtitle.ocean_wave": "Waves crashing",
   "wavify.subtitle.river_wave": "River flowing"
 }
