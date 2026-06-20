@@ -46,6 +46,8 @@
   "wavify.configuration.biome_color_overrides": "Biome Color Overrides",
   "wavify.configuration.wave_y_offset": "Wave Y Offset",
   "wavify.configuration.shader_wave_y_sink": "Shader Wave Y Sink",
+  "wavify.configuration.enable_wet_overlay": "Enable Wet Sand Overlay",
+  "wavify.configuration.enable_wet_overlay.tooltip": "Darkens the ground where a wave washes up, as if the sand got wet. Turn off to disable the effect entirely.",
 
   "wavify.configuration.enable_river_waves": "Enable River Waves",
   "wavify.configuration.enable_river_waves.tooltip": "Master toggle for river waves. Turn off if you don't want waves on rivers.",

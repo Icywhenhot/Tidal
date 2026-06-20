@@ -107,4 +107,44 @@ public final class RiverFlow {
         }
         return Integer.MIN_VALUE;
     }
+
+    // Ray directions for the ocean-surrounded test: 4 cardinals + 4 diagonals.
+    private static final int[] RAY_DX = {1, 1, 0, -1, -1, -1, 0, 1};
+    private static final int[] RAY_DZ = {0, 1, 1, 1, 0, -1, -1, -1};
+
+    private static final int RAY_RIVER = 0; // reached the cap still in river water (inconclusive)
+    private static final int RAY_OCEAN = 1; // hit ocean-biome surface water
+    private static final int RAY_LAND = 2;  // blocked by land, or by some non-ocean water (a real bank)
+
+    /**
+     * A real river always has at least one land bank; an ocean-embedded river stripe is fenced in by ocean
+     * water on every side. Casts 8 rays from a river-water block: ocean-surrounded if at least one ray reaches
+     * ocean water and none hits land within range.
+     */
+    public static boolean isOceanSurrounded(ClientLevel level, BlockPos pos, int maxRay) {
+        boolean hasOcean = false;
+        for (int d = 0; d < 8; d++) {
+            int outcome = castRay(level, pos, RAY_DX[d], RAY_DZ[d], maxRay);
+            if (outcome == RAY_LAND) return false;
+            if (outcome == RAY_OCEAN) hasOcean = true;
+        }
+        return hasOcean;
+    }
+
+    private static int castRay(ClientLevel level, BlockPos origin, int dx, int dz, int maxRay) {
+        int preferredY = origin.getY();
+        BlockPos.MutableBlockPos sample = new BlockPos.MutableBlockPos();
+        for (int s = 1; s <= maxRay; s++) {
+            double x = origin.getX() + 0.5 + (double) dx * s;
+            double z = origin.getZ() + 0.5 + (double) dz * s;
+            int y = surfaceWaterY(level, x, z, preferredY);   // existing helper in this class
+            if (y == Integer.MIN_VALUE) return RAY_LAND;
+            preferredY = y;
+            sample.set(Mth.floor(x), y, Mth.floor(z));
+            var biome = level.getBiome(sample);
+            if (biome.is(BiomeTags.IS_OCEAN)) return RAY_OCEAN;
+            if (!biome.is(BiomeTags.IS_RIVER)) return RAY_LAND;
+        }
+        return RAY_RIVER;
+    }
 }

@@ -26,6 +26,7 @@ public final class WavifyConfig {
     private static final ModConfigSpec.EnumValue<ColorSource> COLOR_SOURCE_VALUE;
     private static final ModConfigSpec.IntValue CUSTOM_COLOR_VALUE;
     private static final ModConfigSpec.ConfigValue<String> BIOME_COLOR_OVERRIDES_VALUE;
+    private static final ModConfigSpec.BooleanValue ENABLE_WET_OVERLAY_VALUE;
     private static final ModConfigSpec.DoubleValue LAKE_WAVE_MULTIPLIER_VALUE;
     private static final ModConfigSpec.BooleanValue ENABLE_RIVER_WAVES_VALUE;
     private static final ModConfigSpec.IntValue RIVER_WAVE_SPAWN_RADIUS_VALUE;
@@ -82,6 +83,9 @@ public final class WavifyConfig {
         SHADER_WAVE_Y_SINK_VALUE = BUILDER.comment("Extra downward offset applied to the wave body while shaders are active.")
                 .translation("wavify.configuration.shader_wave_y_sink")
                 .defineInRange("shaderWaveYSink", -0.30D, -0.5D, 0.5D);
+        ENABLE_WET_OVERLAY_VALUE = BUILDER.comment("Darkens the ground where a wave washes up, as if the sand got wet. Turn off to disable the effect entirely.")
+                .translation("wavify.configuration.enable_wet_overlay")
+                .define("enableWetOverlay", true);
         BUILDER.pop();
 
         BUILDER.translation("wavify.configuration." + RIVERS).push(RIVERS);
@@ -121,6 +125,7 @@ public final class WavifyConfig {
     public static ColorSource colorSource = ColorSource.BIOME;
     public static int customColor = 0x3F76E4;
     public static String biomeColorOverrides = "";
+    public static boolean enableWetOverlay = true;
     public static double lakeWaveMultiplier = 0.2;
     public static boolean enableRiverWaves = true;
     public static int riverWaveSpawnRadius = 56;
@@ -162,6 +167,7 @@ public final class WavifyConfig {
         colorSource = COLOR_SOURCE_VALUE.get();
         customColor = CUSTOM_COLOR_VALUE.get();
         biomeColorOverrides = BIOME_COLOR_OVERRIDES_VALUE.get();
+        enableWetOverlay = ENABLE_WET_OVERLAY_VALUE.get();
         lakeWaveMultiplier = LAKE_WAVE_MULTIPLIER_VALUE.get();
         enableRiverWaves = ENABLE_RIVER_WAVES_VALUE.get();
         riverWaveSpawnRadius = RIVER_WAVE_SPAWN_RADIUS_VALUE.get();

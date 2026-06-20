@@ -70,7 +70,7 @@ public class WaveRenderer {
             renderWave(buffer, camera, wave, tickDelta);
         }
 
-        renderOverlays(buffer, camera, handler.coveredBlocks);
+        if (WavifyConfig.enableWetOverlay) renderOverlays(buffer, camera, handler.coveredBlocks);
     }
 
     public void renderWave(VertexConsumer buffer, Camera camera, Wave wave, float delta) {
