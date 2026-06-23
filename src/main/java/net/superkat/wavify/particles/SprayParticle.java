@@ -27,6 +27,15 @@ public class SprayParticle extends TextureSheetParticle {
     public float intensity;
     private boolean stopped;
 
+    // Spray tilt, kept SEPARATE from the inherited Particle#roll field on purpose.
+    // On MC 1.21.1 the vanilla particle render() auto-applies a non-zero `roll` as
+    // quaternionf.rotateZ(lerp(oRoll, roll)) treating it as RADIANS. This class's roll
+    // is in the ~75+ "degrees" range, so rotateZ(75 rad) ≈ 12 full turns - that was the
+    // spray "spinning" on shore impact. We drive our own tilt through getFacingCameraMode
+    // and leave the inherited roll at 0 so the base renderer never adds that extra spin.
+    private float sprayRoll;
+    private float oSprayRoll;
+
     public SprayParticle(ClientLevel level, double x, double y, double z, double velX, double velY, double velZ, SprayParticleEffect params, SpriteSet spriteProvider) {
         super(level, x, y, z, velX, velY, velZ);
         this.spriteProvider = spriteProvider;
@@ -51,7 +60,7 @@ public class SprayParticle extends TextureSheetParticle {
             this.setColor(color.x, color.y, color.z);
         }
 
-        this.roll = 15 * intensity * 5f;
+        this.sprayRoll = 15 * intensity * 5f;
 
         this.setSpriteFromAge(this.spriteProvider);
     }
@@ -85,11 +94,11 @@ public class SprayParticle extends TextureSheetParticle {
             this.remove();
         }
 
-        this.oRoll = this.roll;
+        this.oSprayRoll = this.sprayRoll;
         if(this.yd != 0 && !onGround) {
-            this.roll = this.roll + (float) this.yd * 35f;
+            this.sprayRoll = this.sprayRoll + (float) this.yd * 35f;
         } else {
-            this.roll = 0f;
+            this.sprayRoll = 0f;
         }
 
         this.setSpriteFromAge(this.spriteProvider);
@@ -100,7 +109,7 @@ public class SprayParticle extends TextureSheetParticle {
         return (quaternionf, camera, tickDelta) -> {
             quaternionf.rotateX((float) Math.toRadians(-90f));
             quaternionf.rotateZ((float) Math.toRadians(-90f - this.yaw));
-            float angle = Mth.lerp(tickDelta, this.oRoll, this.roll);
+            float angle = Mth.lerp(tickDelta, this.oSprayRoll, this.sprayRoll);
             quaternionf.rotateX((float) Math.toRadians(angle));
         };
     }
