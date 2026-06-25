@@ -1,9 +1,15 @@
 pluginManagement {
     repositories {
         gradlePluginPortal()
+        maven { url = 'https://maven.minecraftforge.net/' }
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
     }
 }
 
 plugins {
-    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+    // Enables automatic download/provisioning of the JDK 17 toolchain that Forge 1.20.1
+    // (and ForgeGradle's MCP recompile step) requires, since no JDK 17 is installed locally.
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
 }
+
+rootProject.name = 'wavify'

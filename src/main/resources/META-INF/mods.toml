@@ -7,27 +7,29 @@ issueTrackerURL="https://github.com/Superkat32/Wavify/issues"
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
-modUrl="https://modrinth.com/mod/wavify-waves"
+displayURL="https://modrinth.com/mod/wavify-waves"
 logoFile="assets/wavify/icon.png"
+authors="${mod_authors}"
 description='''
-Dynamic ocean, shoreline, and river waves for Minecraft.
+${mod_description}
 
 Wavify adds ambient water motion to Minecraft with dedicated ocean and river wave systems, shader-aware rendering offsets, ambient shoreline audio, and off-thread scanning to keep wave generation smooth.
 '''
 
+# Mixin config is declared here so it loads in production; the dev runtime gets it from the MixinGradle plugin.
 [[mixins]]
-config="wavify.mixins.json"
+config="${mod_id}.mixins.json"
 
 [[dependencies.${mod_id}]]
-modId="neoforge"
-type="required"
-versionRange="${neo_version_range}"
-ordering="NONE"
-side="BOTH"
+    modId="forge"
+    mandatory=true
+    versionRange="${forge_version_range}"
+    ordering="NONE"
+    side="BOTH"
 
 [[dependencies.${mod_id}]]
-modId="minecraft"
-type="required"
-versionRange="${minecraft_version_range}"
-ordering="NONE"
-side="BOTH"
+    modId="minecraft"
+    mandatory=true
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"

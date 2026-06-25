@@ -1,17 +1,16 @@
 package net.superkat.wavify.particles.debug;
 
-import com.mojang.serialization.MapCodec;
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.core.particles.ScalableParticleOptionsBase;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleType;
-import net.minecraft.util.ExtraCodecs;
+import net.minecraft.network.FriendlyByteBuf;
 import net.superkat.wavify.WavifyParticles;
 import org.joml.Vector3f;
 
@@ -37,21 +36,33 @@ public class DebugShoreParticle extends DebugAbstractColoredParticle<DebugShoreP
         }
     }
 
-    public static class DebugShoreParticleEffect extends ScalableParticleOptionsBase {
-        public static final MapCodec<DebugShoreParticleEffect> CODEC = RecordCodecBuilder.mapCodec(
+    public static class DebugShoreParticleEffect extends AbstractDebugParticleEffect {
+        public static final Codec<DebugShoreParticleEffect> CODEC = RecordCodecBuilder.create(
                 instance -> instance.group(
-                                ExtraCodecs.VECTOR3F.fieldOf("color").forGetter(effect -> effect.color), SCALE.fieldOf("scale").forGetter(ScalableParticleOptionsBase::getScale)
-                        )
-                        .apply(instance, DebugShoreParticleEffect::new)
+                        Codec.FLOAT.fieldOf("r").forGetter(effect -> effect.color.x()),
+                        Codec.FLOAT.fieldOf("g").forGetter(effect -> effect.color.y()),
+                        Codec.FLOAT.fieldOf("b").forGetter(effect -> effect.color.z()),
+                        Codec.FLOAT.fieldOf("scale").forGetter(AbstractDebugParticleEffect::getScale)
+                ).apply(instance, (r, g, b, scale) -> new DebugShoreParticleEffect(new Vector3f(r, g, b), scale))
         );
-        public static final StreamCodec<RegistryFriendlyByteBuf, DebugShoreParticleEffect> PACKET_CODEC = StreamCodec.composite(
-                ByteBufCodecs.VECTOR3F, effect -> effect.color, ByteBufCodecs.FLOAT, ScalableParticleOptionsBase::getScale, DebugShoreParticleEffect::new
-        );
-        private final Vector3f color;
+
+        public static final ParticleOptions.Deserializer<DebugShoreParticleEffect> DESERIALIZER = new ParticleOptions.Deserializer<>() {
+            @Override
+            public DebugShoreParticleEffect fromCommand(ParticleType<DebugShoreParticleEffect> type, StringReader reader) throws CommandSyntaxException {
+                Vector3f color = readColor(reader);
+                reader.expect(' ');
+                float scale = reader.readFloat();
+                return new DebugShoreParticleEffect(color, scale);
+            }
+
+            @Override
+            public DebugShoreParticleEffect fromNetwork(ParticleType<DebugShoreParticleEffect> type, FriendlyByteBuf buf) {
+                return new DebugShoreParticleEffect(readColor(buf), buf.readFloat());
+            }
+        };
 
         public DebugShoreParticleEffect(Vector3f color, float scale) {
-            super(scale);
-            this.color = color;
+            super(color, scale);
         }
 
         @Override

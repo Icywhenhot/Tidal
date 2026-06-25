@@ -1,9 +1,12 @@
 package net.superkat.wavify;
 
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.sound.WavifySounds;
 import org.slf4j.Logger;
@@ -14,11 +17,18 @@ public class Wavify {
     public static final String MOD_ID = "wavify";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    public Wavify(IEventBus modEventBus, ModContainer modContainer) {
+    public Wavify() {
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+
+        // Game registries (particles, sounds) must register on both physical sides.
         WavifyParticles.register(modEventBus);
         WavifySounds.register(modEventBus);
+
         modEventBus.addListener(WavifyConfig::onLoad);
         modEventBus.addListener(WavifyConfig::onReload);
-        modContainer.registerConfig(ModConfig.Type.CLIENT, WavifyConfig.SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, WavifyConfig.SPEC);
+
+        // Everything else (rendering, particle factories, audio) is client-only.
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> WavifyClient.init(modEventBus));
     }
 }

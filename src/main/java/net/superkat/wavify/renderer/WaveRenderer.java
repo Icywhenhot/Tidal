@@ -52,12 +52,12 @@ public class WaveRenderer {
         this.level = level;
     }
 
-    public void render(MultiBufferSource bufferSource, RenderType layer) {
+    public void render(PoseStack poseStack, MultiBufferSource bufferSource, RenderType layer) {
         List<Wave> waves = this.handler.getWaves();
         if (waves == null || waves.isEmpty()) return;
 
         Minecraft mc = Minecraft.getInstance();
-        float tickDelta = mc.getTimer().getGameTimeDeltaPartialTick(false);
+        float tickDelta = mc.getFrameTime();
         Camera camera = mc.gameRenderer.getMainCamera();
         VertexConsumer buffer = bufferSource.getBuffer(layer);
 
@@ -67,17 +67,17 @@ public class WaveRenderer {
         this.frameBodyYOffset = baseOffset + shaderSink;
 
         for (Wave wave : waves) {
-            renderWave(buffer, camera, wave, tickDelta);
+            renderWave(poseStack, buffer, camera, wave, tickDelta);
         }
 
-        if (WavifyConfig.enableWetOverlay) renderOverlays(buffer, camera, handler.coveredBlocks);
+        if (WavifyConfig.enableWetOverlay) renderOverlays(poseStack, buffer, camera, handler.coveredBlocks);
     }
 
-    public void renderWave(VertexConsumer buffer, Camera camera, Wave wave, float delta) {
+    // matrices is the RenderLevelStageEvent pose stack: on 1.20.1 it carries the camera (view) rotation,
+    // which the ambient model-view does not at this stage - rendering off a fresh PoseStack leaves the
+    // waves unrotated and effectively invisible. push/pop is balanced so the shared stack stays clean.
+    public void renderWave(PoseStack matrices, VertexConsumer buffer, Camera camera, Wave wave, float delta) {
         if (wave == null) return;
-
-        PoseStack matrices = new PoseStack();
-        matrices.pushPose();
 
         Vec3 center = new Vec3(wave.getX(delta), wave.getY(delta), wave.getZ(delta));
         Vec3 cameraPos = camera.getPosition();
@@ -157,29 +157,28 @@ public class WaveRenderer {
         float v0 = WavifySprites.getMinV(sprite, frame);
         float v1 = WavifySprites.getMaxV(sprite, frame);
 
-        buffer.addVertex(matrix4f, x - halfWidth, y, z - halfLength)
-                .setColor(red, green, blue, alpha).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+        buffer.vertex(matrix4f, x - halfWidth, y, z - halfLength)
+                .color(red, green, blue, alpha).uv(u0, v1).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(0f, 1f, 0f).endVertex();
 
-        buffer.addVertex(matrix4f, x - halfWidth, y, z + halfLength)
-                .setColor(red, green, blue, alpha).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+        buffer.vertex(matrix4f, x - halfWidth, y, z + halfLength)
+                .color(red, green, blue, alpha).uv(u0, v0).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(0f, 1f, 0f).endVertex();
 
-        buffer.addVertex(matrix4f, x + halfWidth, y, z + halfLength)
-                .setColor(red, green, blue, alpha).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+        buffer.vertex(matrix4f, x + halfWidth, y, z + halfLength)
+                .color(red, green, blue, alpha).uv(u1, v0).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(0f, 1f, 0f).endVertex();
 
-        buffer.addVertex(matrix4f, x + halfWidth, y, z - halfLength)
-                .setColor(red, green, blue, alpha).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+        buffer.vertex(matrix4f, x + halfWidth, y, z - halfLength)
+                .color(red, green, blue, alpha).uv(u1, v1).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(0f, 1f, 0f).endVertex();
     }
 
-    public void renderOverlays(VertexConsumer buffer, Camera camera, Set<BlockPos> coveredBlocks) {
+    public void renderOverlays(PoseStack poseStack, VertexConsumer buffer, Camera camera, Set<BlockPos> coveredBlocks) {
         for (BlockPos covered : coveredBlocks) {
-            renderCoverOverlay(buffer, camera, covered);
+            renderCoverOverlay(poseStack, buffer, camera, covered);
         }
     }
 
-    public void renderCoverOverlay(VertexConsumer buffer, Camera camera, BlockPos pos) {
-        PoseStack matrices = new PoseStack();
+    public void renderCoverOverlay(PoseStack matrices, VertexConsumer buffer, Camera camera, BlockPos pos) {
         Vec3 cameraPos = camera.getPosition();
-        Vec3 transPos = pos.getBottomCenter().subtract(cameraPos);
+        Vec3 transPos = Vec3.atBottomCenterOf(pos).subtract(cameraPos);
 
         TextureAtlasSprite sprite = getWetOverlaySprite();
         float u0 = sprite.getU0();
@@ -193,17 +192,17 @@ public class WaveRenderer {
         matrices.translate(transPos.x - 0.5, transPos.y + 1.01, transPos.z - 0.5);
         Matrix4f matrix4f = matrices.last().pose();
 
-        buffer.addVertex(matrix4f, 0f, 0f, 0f)
-                .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+        buffer.vertex(matrix4f, 0f, 0f, 0f)
+                .color(0.1f, 0.1f, 0.25f, 0.25f).uv(u0, v0).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(0f, 1f, 0f).endVertex();
 
-        buffer.addVertex(matrix4f, 0f, 0f, 1f)
-                .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+        buffer.vertex(matrix4f, 0f, 0f, 1f)
+                .color(0.1f, 0.1f, 0.25f, 0.25f).uv(u0, v1).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(0f, 1f, 0f).endVertex();
 
-        buffer.addVertex(matrix4f, 1f, 0f, 1f)
-                .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+        buffer.vertex(matrix4f, 1f, 0f, 1f)
+                .color(0.1f, 0.1f, 0.25f, 0.25f).uv(u1, v1).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(0f, 1f, 0f).endVertex();
 
-        buffer.addVertex(matrix4f, 1f, 0f, 0f)
-                .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+        buffer.vertex(matrix4f, 1f, 0f, 0f)
+                .color(0.1f, 0.1f, 0.25f, 0.25f).uv(u1, v0).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(0f, 1f, 0f).endVertex();
 
         matrices.popPose();
     }

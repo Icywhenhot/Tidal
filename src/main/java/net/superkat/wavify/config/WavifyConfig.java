@@ -1,7 +1,7 @@
 package net.superkat.wavify.config;
 
-import net.neoforged.fml.event.config.ModConfigEvent;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.minecraftforge.common.ForgeConfigSpec;
 
 public final class WavifyConfig {
     public static final String WAVES = "waves";
@@ -9,35 +9,35 @@ public final class WavifyConfig {
     public static final String RIVERS = "rivers";
     public static final String SOUNDS = "sounds";
 
-    private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
+    private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
     public enum ColorSource {
         BIOME,
         CUSTOM
     }
 
-    private static final ModConfigSpec.BooleanValue ENABLE_OCEAN_WAVES_VALUE;
-    private static final ModConfigSpec.IntValue CHUNK_RADIUS_VALUE;
-    private static final ModConfigSpec.IntValue CHUNK_UPDATES_RESCAN_AMOUNT_VALUE;
-    private static final ModConfigSpec.IntValue SPAWN_DISTANCE_VALUE;
-    private static final ModConfigSpec.BooleanValue DEBUG_VALUE;
-    private static final ModConfigSpec.DoubleValue TRANSPARENCY_VALUE;
-    private static final ModConfigSpec.BooleanValue APPLY_TRANSPARENCY_TO_FOAM_VALUE;
-    private static final ModConfigSpec.EnumValue<ColorSource> COLOR_SOURCE_VALUE;
-    private static final ModConfigSpec.IntValue CUSTOM_COLOR_VALUE;
-    private static final ModConfigSpec.ConfigValue<String> BIOME_COLOR_OVERRIDES_VALUE;
-    private static final ModConfigSpec.BooleanValue ENABLE_WET_OVERLAY_VALUE;
-    private static final ModConfigSpec.DoubleValue LAKE_WAVE_MULTIPLIER_VALUE;
-    private static final ModConfigSpec.BooleanValue ENABLE_RIVER_WAVES_VALUE;
-    private static final ModConfigSpec.IntValue RIVER_WAVE_SPAWN_RADIUS_VALUE;
-    private static final ModConfigSpec.DoubleValue RIVER_WAVE_DENSITY_VALUE;
-    private static final ModConfigSpec.IntValue RIVER_WAVE_TRAVEL_BLOCKS_VALUE;
-    private static final ModConfigSpec.DoubleValue WAVE_Y_OFFSET_VALUE;
-    private static final ModConfigSpec.DoubleValue SHADER_WAVE_Y_SINK_VALUE;
-    private static final ModConfigSpec.BooleanValue ENABLE_WAVE_SOUNDS_VALUE;
-    private static final ModConfigSpec.DoubleValue WAVE_SOUND_VOLUME_VALUE;
+    private static final ForgeConfigSpec.BooleanValue ENABLE_OCEAN_WAVES_VALUE;
+    private static final ForgeConfigSpec.IntValue CHUNK_RADIUS_VALUE;
+    private static final ForgeConfigSpec.IntValue CHUNK_UPDATES_RESCAN_AMOUNT_VALUE;
+    private static final ForgeConfigSpec.IntValue SPAWN_DISTANCE_VALUE;
+    private static final ForgeConfigSpec.BooleanValue DEBUG_VALUE;
+    private static final ForgeConfigSpec.DoubleValue TRANSPARENCY_VALUE;
+    private static final ForgeConfigSpec.BooleanValue APPLY_TRANSPARENCY_TO_FOAM_VALUE;
+    private static final ForgeConfigSpec.EnumValue<ColorSource> COLOR_SOURCE_VALUE;
+    private static final ForgeConfigSpec.IntValue CUSTOM_COLOR_VALUE;
+    private static final ForgeConfigSpec.ConfigValue<String> BIOME_COLOR_OVERRIDES_VALUE;
+    private static final ForgeConfigSpec.BooleanValue ENABLE_WET_OVERLAY_VALUE;
+    private static final ForgeConfigSpec.DoubleValue LAKE_WAVE_MULTIPLIER_VALUE;
+    private static final ForgeConfigSpec.BooleanValue ENABLE_RIVER_WAVES_VALUE;
+    private static final ForgeConfigSpec.IntValue RIVER_WAVE_SPAWN_RADIUS_VALUE;
+    private static final ForgeConfigSpec.DoubleValue RIVER_WAVE_DENSITY_VALUE;
+    private static final ForgeConfigSpec.IntValue RIVER_WAVE_TRAVEL_BLOCKS_VALUE;
+    private static final ForgeConfigSpec.DoubleValue WAVE_Y_OFFSET_VALUE;
+    private static final ForgeConfigSpec.DoubleValue SHADER_WAVE_Y_SINK_VALUE;
+    private static final ForgeConfigSpec.BooleanValue ENABLE_WAVE_SOUNDS_VALUE;
+    private static final ForgeConfigSpec.DoubleValue WAVE_SOUND_VOLUME_VALUE;
 
-    public static final ModConfigSpec SPEC;
+    public static final ForgeConfigSpec SPEC;
 
     static {
         BUILDER.translation("wavify.configuration." + WAVES).push(WAVES);

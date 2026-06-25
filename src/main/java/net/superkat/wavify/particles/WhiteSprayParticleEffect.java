@@ -1,8 +1,7 @@
 package net.superkat.wavify.particles;
 
-import com.mojang.serialization.MapCodec;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
+import com.mojang.serialization.Codec;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleType;
 import net.superkat.wavify.WavifyParticles;
 
@@ -11,8 +10,8 @@ public class WhiteSprayParticleEffect extends SprayParticleEffect {
         super(yaw, intensity, scale);
     }
 
-    public static final MapCodec<WhiteSprayParticleEffect> CODEC = createCodec(WhiteSprayParticleEffect::new);
-    public static final StreamCodec<RegistryFriendlyByteBuf, WhiteSprayParticleEffect> PACKET_CODEC = createPacketCodec(WhiteSprayParticleEffect::new);
+    public static final Codec<WhiteSprayParticleEffect> CODEC = createCodec(WhiteSprayParticleEffect::new);
+    public static final ParticleOptions.Deserializer<WhiteSprayParticleEffect> DESERIALIZER = createDeserializer(WhiteSprayParticleEffect::new);
 
     @Override
     public ParticleType<?> getType() {

@@ -23,13 +23,13 @@ import java.util.Map;
 
 /**
  * Custom wave atlas loader. Reads per-sprite wave_animation metadata directly
- * from .mcmeta files since 1.21.1 doesn't expose a public sprite-metadata
+ * from .mcmeta files since Minecraft doesn't expose a public sprite-metadata
  * registration API.
  */
 public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySpriteHandler.AtlasPreparations> {
     public static final String MOD_ID = Wavify.MOD_ID;
-    public static final ResourceLocation WAVE_ATLAS_ID = ResourceLocation.fromNamespaceAndPath(MOD_ID, "textures/atlas/waves.png");
-    private static final ResourceLocation TEXTURE_SOURCE_PATH = ResourceLocation.fromNamespaceAndPath(MOD_ID, "wave");
+    public static final ResourceLocation WAVE_ATLAS_ID = new ResourceLocation(MOD_ID, "textures/atlas/waves.png");
+    private static final ResourceLocation TEXTURE_SOURCE_PATH = new ResourceLocation(MOD_ID, "wave");
     private static final String TEXTURE_FOLDER = "textures/wave";
 
     public TextureAtlas atlas;
@@ -75,7 +75,7 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
                 String path = mcmetaId.getPath();
                 // Strip "textures/wave/" prefix and ".png.mcmeta" suffix.
                 String stripped = path.substring(TEXTURE_FOLDER.length() + 1, path.length() - ".png.mcmeta".length());
-                ResourceLocation spriteId = ResourceLocation.fromNamespaceAndPath(MOD_ID, stripped);
+                ResourceLocation spriteId = new ResourceLocation(MOD_ID, stripped);
                 map.put(spriteId, new WaveResourceMetadata(frameTime, frameHeight));
             } catch (Exception ignored) {
             }

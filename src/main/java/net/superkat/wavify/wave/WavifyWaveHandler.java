@@ -104,15 +104,16 @@ public class WavifyWaveHandler {
 
     }
 
-    public void render(MultiBufferSource bufferSource, RenderType layer) {
-        this.renderer.render(bufferSource, layer);
+    public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, MultiBufferSource bufferSource, RenderType layer) {
+        this.renderer.render(poseStack, bufferSource, layer);
     }
 
     /**
      * Tick method for waves
      */
     public void wavifyTick() {
-        if (!this.level.tickRateManager().runsNormally()) return;
+        // 1.20.1 has no per-level tick-rate manager; just skip while the client is paused.
+        if (Minecraft.getInstance().isPaused()) return;
         double time = this.level.getGameTime();
         if (WavifyConfig.enableOceanWaves && time % 80 == 0) {
             spawnAllWaves();

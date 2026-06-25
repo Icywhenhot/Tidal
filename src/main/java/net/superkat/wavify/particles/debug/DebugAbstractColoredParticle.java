@@ -1,21 +1,30 @@
 package net.superkat.wavify.particles.debug;
 
-import net.minecraft.client.particle.DustParticleBase;
+import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.client.particle.TextureSheetParticle;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.ScalableParticleOptionsBase;
 
-public abstract class DebugAbstractColoredParticle<T extends ScalableParticleOptionsBase> extends DustParticleBase<T> {
+/**
+ * Base for the colored debug particles. On 1.20.1 there is no scale-only particle base, so this extends
+ * {@link TextureSheetParticle} directly and reproduces the small bit of behavior the old
+ * {@code DustParticleBase} provided (sprite from age, fixed quad size, a color multiplier hook).
+ */
+public abstract class DebugAbstractColoredParticle<T extends AbstractDebugParticleEffect> extends TextureSheetParticle {
+    protected final SpriteSet spriteProvider;
+
     protected DebugAbstractColoredParticle(ClientLevel level, double x, double y, double z, double xd, double yd, double zd, T parameters, SpriteSet spriteProvider) {
-        super(level, x, y, z, xd, yd, zd, parameters, spriteProvider);
+        super(level, x, y, z, xd, yd, zd);
+        this.spriteProvider = spriteProvider;
+        this.pickSprite(spriteProvider);
         this.xd = 0f;
         this.yd = 0f;
         this.zd = 0f;
         this.quadSize = this.quadSize * 0.95F * parameters.getScale();
         this.lifetime = 11;
+        this.setSpriteFromAge(spriteProvider);
     }
 
-    @Override
     protected float randomizeColor(float colorComponent, float multiplier) {
         return colorComponent * multiplier;
     }
@@ -23,5 +32,10 @@ public abstract class DebugAbstractColoredParticle<T extends ScalableParticleOpt
     @Override
     public float getQuadSize(float tickDelta) {
         return this.quadSize;
+    }
+
+    @Override
+    public ParticleRenderType getRenderType() {
+        return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
     }
 }

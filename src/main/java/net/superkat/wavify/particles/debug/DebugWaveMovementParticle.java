@@ -1,18 +1,16 @@
 package net.superkat.wavify.particles.debug;
 
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.core.particles.ScalableParticleOptionsBase;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleType;
-import net.minecraft.util.ExtraCodecs;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.util.Mth;
 import net.superkat.wavify.WavifyParticles;
 import org.joml.Vector3f;
@@ -104,33 +102,49 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
         }
     }
 
-    public static class DebugWaveMovementParticleEffect extends ScalableParticleOptionsBase {
-        public static final MapCodec<DebugWaveMovementParticleEffect> CODEC = RecordCodecBuilder.mapCodec(
+    public static class DebugWaveMovementParticleEffect extends AbstractDebugParticleEffect {
+        public static final Codec<DebugWaveMovementParticleEffect> CODEC = RecordCodecBuilder.create(
                 instance -> instance.group(
-                        ExtraCodecs.VECTOR3F.fieldOf("color").forGetter(effect -> effect.color),
-                                SCALE.fieldOf("scale").forGetter(ScalableParticleOptionsBase::getScale),
+                                Codec.FLOAT.fieldOf("r").forGetter(effect -> effect.color.x()),
+                                Codec.FLOAT.fieldOf("g").forGetter(effect -> effect.color.y()),
+                                Codec.FLOAT.fieldOf("b").forGetter(effect -> effect.color.z()),
+                                Codec.FLOAT.fieldOf("scale").forGetter(AbstractDebugParticleEffect::getScale),
                                 Codec.FLOAT.fieldOf("yaw").forGetter(DebugWaveMovementParticleEffect::getYaw),
                                 Codec.FLOAT.fieldOf("speed").forGetter(DebugWaveMovementParticleEffect::getSpeed),
                                 Codec.INT.fieldOf("lifetime").forGetter(DebugWaveMovementParticleEffect::getLifetime)
                         )
-                        .apply(instance, DebugWaveMovementParticleEffect::new)
+                        .apply(instance, (r, g, b, scale, yaw, speed, lifetime) ->
+                                new DebugWaveMovementParticleEffect(new Vector3f(r, g, b), scale, yaw, speed, lifetime))
         );
-        public static final StreamCodec<RegistryFriendlyByteBuf, DebugWaveMovementParticleEffect> PACKET_CODEC = StreamCodec.composite(
-                ByteBufCodecs.VECTOR3F, effect -> effect.color,
-                ByteBufCodecs.FLOAT, ScalableParticleOptionsBase::getScale,
-                ByteBufCodecs.FLOAT, DebugWaveMovementParticleEffect::getYaw,
-                ByteBufCodecs.FLOAT, DebugWaveMovementParticleEffect::getSpeed,
-                ByteBufCodecs.INT, DebugWaveMovementParticleEffect::getLifetime,
-                DebugWaveMovementParticleEffect::new
-        );
-        private final Vector3f color;
+
+        public static final ParticleOptions.Deserializer<DebugWaveMovementParticleEffect> DESERIALIZER = new ParticleOptions.Deserializer<>() {
+            @Override
+            public DebugWaveMovementParticleEffect fromCommand(ParticleType<DebugWaveMovementParticleEffect> type, StringReader reader) throws CommandSyntaxException {
+                Vector3f color = readColor(reader);
+                reader.expect(' ');
+                float scale = reader.readFloat();
+                reader.expect(' ');
+                float yaw = reader.readFloat();
+                reader.expect(' ');
+                float speed = reader.readFloat();
+                reader.expect(' ');
+                int lifetime = reader.readInt();
+                return new DebugWaveMovementParticleEffect(color, scale, yaw, speed, lifetime);
+            }
+
+            @Override
+            public DebugWaveMovementParticleEffect fromNetwork(ParticleType<DebugWaveMovementParticleEffect> type, FriendlyByteBuf buf) {
+                Vector3f color = readColor(buf);
+                return new DebugWaveMovementParticleEffect(color, buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readInt());
+            }
+        };
+
         private final float yaw;
         private final float speed;
         private final int lifetime;
 
         public DebugWaveMovementParticleEffect(Vector3f color, float scale, float yaw, float speed, int lifetime) {
-            super(scale);
-            this.color = color;
+            super(color, scale);
             this.yaw = yaw;
             this.speed = speed;
             this.lifetime = lifetime;
@@ -139,6 +153,14 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
         @Override
         public ParticleType<DebugWaveMovementParticleEffect> getType() {
             return WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE.get();
+        }
+
+        @Override
+        public void writeToNetwork(FriendlyByteBuf buf) {
+            super.writeToNetwork(buf);
+            buf.writeFloat(this.yaw);
+            buf.writeFloat(this.speed);
+            buf.writeInt(this.lifetime);
         }
 
         public float getYaw() {

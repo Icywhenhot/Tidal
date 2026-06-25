@@ -371,7 +371,9 @@ public class WaterHandler {
         Iterator<ChunkPos> iterator = this.unscannedChunks.iterator();
         while (iterator.hasNext()) {
             ChunkPos chunk = iterator.next();
-            double distance = cameraChunk.distanceSquared(chunk);
+            double dxChunk = cameraChunk.x - (double) chunk.x;
+            double dzChunk = cameraChunk.z - (double) chunk.z;
+            double distance = dxChunk * dxChunk + dzChunk * dzChunk;
             if (distance > radius) continue;
 
             if (this.unscannedChunkQueue.offer(chunk)) {

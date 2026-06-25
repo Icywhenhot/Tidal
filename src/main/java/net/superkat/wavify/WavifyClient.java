@@ -1,26 +1,18 @@
 package net.superkat.wavify;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
-import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.level.ChunkEvent;
-import net.neoforged.neoforge.event.level.LevelEvent;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
+import net.minecraftforge.client.event.RegisterParticleProvidersEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.level.ChunkEvent;
+import net.minecraftforge.event.level.LevelEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
 import net.superkat.wavify.duck.WavifyWorld;
 import net.superkat.wavify.particles.BigSplashParticle;
 import net.superkat.wavify.particles.SplashParticle;
@@ -32,7 +24,9 @@ import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
 import net.superkat.wavify.sound.WaveAmbientSoundManager;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 
-@Mod(value = Wavify.MOD_ID, dist = Dist.CLIENT)
+/**
+ * Client-only setup. Invoked from {@link Wavify} via DistExecutor so it never classloads on a server.
+ */
 public class WavifyClient {
 
     public static WavifySpriteHandler WAVIFY_SPRITE_HANDLER = new WavifySpriteHandler();
@@ -47,23 +41,22 @@ public class WavifyClient {
         return waveRenderLayer;
     }
 
-    public WavifyClient(IEventBus modEventBus, ModContainer container) {
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+    public static void init(IEventBus modEventBus) {
+        modEventBus.addListener(WavifyClient::registerParticleProviders);
+        modEventBus.addListener(WavifyClient::registerReloadListeners);
 
-        modEventBus.addListener(this::registerParticleProviders);
-        modEventBus.addListener(this::registerReloadListeners);
-
-        NeoForge.EVENT_BUS.addListener(this::onClientTick);
-        NeoForge.EVENT_BUS.addListener(this::onLevelTick);
-        NeoForge.EVENT_BUS.addListener(this::onLevelLoad);
-        NeoForge.EVENT_BUS.addListener(this::onLevelUnload);
-        NeoForge.EVENT_BUS.addListener(this::onChunkLoad);
-        NeoForge.EVENT_BUS.addListener(this::onChunkUnload);
-        NeoForge.EVENT_BUS.addListener(this::onRenderLevelStage);
-        NeoForge.EVENT_BUS.addListener(this::onPlayerLoggingOut);
+        IEventBus forgeBus = MinecraftForge.EVENT_BUS;
+        forgeBus.addListener(WavifyClient::onClientTick);
+        forgeBus.addListener(WavifyClient::onLevelTick);
+        forgeBus.addListener(WavifyClient::onLevelLoad);
+        forgeBus.addListener(WavifyClient::onLevelUnload);
+        forgeBus.addListener(WavifyClient::onChunkLoad);
+        forgeBus.addListener(WavifyClient::onChunkUnload);
+        forgeBus.addListener(WavifyClient::onRenderLevelStage);
+        forgeBus.addListener(WavifyClient::onPlayerLoggingOut);
     }
 
-    private void registerParticleProviders(RegisterParticleProvidersEvent event) {
+    private static void registerParticleProviders(RegisterParticleProvidersEvent event) {
         event.registerSpriteSet(WavifyParticles.SPRAY_PARTICLE.get(), SprayParticle.Factory::new);
         event.registerSpriteSet(WavifyParticles.WHITE_SPRAY_PARTICLE.get(), WhiteSprayParticle.Factory::new);
         event.registerSpriteSet(WavifyParticles.SPLASH_PARTICLE.get(), SplashParticle.Factory::new);
@@ -74,11 +67,12 @@ public class WavifyClient {
         event.registerSpriteSet(WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE.get(), DebugWaveMovementParticle.Factory::new);
     }
 
-    private void registerReloadListeners(RegisterClientReloadListenersEvent event) {
+    private static void registerReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener(WAVIFY_SPRITE_HANDLER);
     }
 
-    private void onClientTick(ClientTickEvent.Post event) {
+    private static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.player == null) {
             SOUND_MANAGER.hardReset();
@@ -87,38 +81,39 @@ public class WavifyClient {
         SOUND_MANAGER.tick();
     }
 
-    private void onLevelTick(LevelTickEvent.Post event) {
-        if (event.getLevel() instanceof ClientLevel level) {
+    private static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        if (event.level instanceof ClientLevel level) {
             ((WavifyWorld) level).wavify$wavifyWaveHandler().tick();
         }
     }
 
-    private void onLevelLoad(LevelEvent.Load event) {
+    private static void onLevelLoad(LevelEvent.Load event) {
         if (event.getLevel() instanceof ClientLevel level) {
             ((WavifyWorld) level).wavify$wavifyWaveHandler().reloadNearbyChunks();
             SOUND_MANAGER.hardReset();
         }
     }
 
-    private void onLevelUnload(LevelEvent.Unload event) {
+    private static void onLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel() instanceof ClientLevel) {
             SOUND_MANAGER.hardReset();
         }
     }
 
-    private void onChunkLoad(ChunkEvent.Load event) {
+    private static void onChunkLoad(ChunkEvent.Load event) {
         if (event.getLevel() instanceof ClientLevel level) {
             ((WavifyWorld) level).wavify$wavifyWaveHandler().waterHandler.loadChunk(event.getChunk());
         }
     }
 
-    private void onChunkUnload(ChunkEvent.Unload event) {
+    private static void onChunkUnload(ChunkEvent.Unload event) {
         if (event.getLevel() instanceof ClientLevel level) {
             ((WavifyWorld) level).wavify$wavifyWaveHandler().waterHandler.unloadChunk(event.getChunk());
         }
     }
 
-    private void onRenderLevelStage(RenderLevelStageEvent event) {
+    private static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
@@ -127,12 +122,12 @@ public class WavifyClient {
         RenderType layer = getWaveRenderLayer();
         MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
 
-        wavifyWorld.wavify$wavifyWaveHandler().render(bufferSource, layer);
+        wavifyWorld.wavify$wavifyWaveHandler().render(event.getPoseStack(), bufferSource, layer);
 
         bufferSource.endBatch(layer);
     }
 
-    private void onPlayerLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+    private static void onPlayerLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         SOUND_MANAGER.hardReset();
     }
 }
