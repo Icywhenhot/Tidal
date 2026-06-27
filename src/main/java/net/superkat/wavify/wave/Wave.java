@@ -12,6 +12,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.LightLayer;
 import net.superkat.wavify.WavifyParticles;
+import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.particles.SprayParticleEffect;
 import net.superkat.wavify.util.WavifyColors;
 import org.joml.Vector3f;
@@ -104,6 +105,14 @@ public class Wave {
         this.box = (new AABB(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f)).inflate(this.scale / 4f, 0, this.scale / 4f);
         float speed = 0.115f;
 
+        // A wave spawns spawnDistance blocks out and crawls toward shore at `speed` blocks/tick, so it needs
+        // spawnDistance/speed ticks just to get there. Both lifetimes below were fixed constants tuned for a
+        // small spawnDistance: maxWaterAge (drown-away timeout) and maxAge (absolute lifetime). With a larger
+        // configured distance the wave gave up and faded out mid-water before it could ever reach the beach.
+        // Scale both with the actual distance to travel, keeping the originals as a floor.
+        int ticksToShore = Mth.ceil(WavifyConfig.spawnDistance / speed);
+        this.maxWaterAge = Math.max(this.maxWaterAge, ticksToShore + 40);
+        this.maxAge = Math.max(this.maxAge, ticksToShore + this.maxWashingAge + 40);
 
         this.velX = (float) (Math.cos(Math.toRadians(yaw)) * speed);
         this.velZ = (float) (Math.sin(Math.toRadians(yaw)) * speed);
