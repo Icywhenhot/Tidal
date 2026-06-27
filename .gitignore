@@ -32,6 +32,10 @@ bin/
 
 run/
 
+# local-only dev test mods (e.g. Dynamic Waters jar remapped via fg.deobf for runtime testing)
+
+libs/
+
 # java
 
 hs_err_*.log

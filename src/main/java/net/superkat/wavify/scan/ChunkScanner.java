@@ -15,10 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Scans a chunk for water blocks and shoreline blocks.
- * @see WaterHandler
- */
 public class ChunkScanner {
     public final WaterHandler handler;
     public final ClientLevel level;
@@ -66,20 +62,11 @@ public class ChunkScanner {
         return this.level.getHeight(Heightmap.Types.WORLD_SURFACE, pos.getX(), pos.getZ());
     }
 
-    /**
-     * @return An iterator which represents the next blocks in line to be scanned
-     */
     public Iterator<BlockPos> stack(BlockPos startPos, BlockPos endPos) {
         cachedIterator = BlockPos.betweenClosed(startPos, endPos).iterator();
         return cachedIterator;
     }
 
-    /**
-     * Scan a block to be water or not water.
-     * <br><br>If not already visited, the immediately surrounding neighbors are also checked for water and cached in a "+" shape. The corners for a square are NOT scanned.
-     *
-     * @param pos Block pos to scan
-     */
     public void scanPos(BlockPos pos) {
         // if already visited or is air -> return
         if(visitedBlocks.contains(pos)) return;
@@ -104,8 +91,6 @@ public class ChunkScanner {
             if(direction == Direction.EAST && (pos.getX() + 1) % 16 == 0) continue;
 
             boolean neighborIsWater = cacheAndIsWater(checkPos);
-            // that is super cursed but okay - no that's actually incredibly cursed(wow I spelt that right first try)
-            // if init scan pos is water OR if the check pos is the top of water
             if(neighborIsWater) waterBlocks.add(checkPos);
             else nonWaterBlocks.add(checkPos);
         }
@@ -127,12 +112,6 @@ public class ChunkScanner {
         this.waters.addAll(waterBlocks);
     }
 
-    /**
-     * Cache a block and return if it is water, all in the same method!
-     *
-     * @param pos BlockPos to cache and check if its water
-     * @return Returns if the BlockPos is water or not - NOT if the block was cached successfully(!!!), as you'd normally expect from a method like this
-     */
     public boolean cacheAndIsWater(BlockPos pos) {
         return cachedBlocks.computeIfAbsent(pos, pos1 -> WavifyWaveHandler.posIsWater(this.level, pos1));
     }

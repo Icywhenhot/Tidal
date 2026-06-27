@@ -20,17 +20,8 @@ import org.jetbrains.annotations.Range;
 import java.util.List;
 import java.util.Set;
 
-/**
- * A total mess of a class which handles wave position/movement, scale, color, and lifecycle of waves.<br><br>
- * <p>
- * i actually dislike this class a lot it is very incomprehensible
- */
 public class Wave {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = Mth.square(100.0);
-
-    //TODO - wave scales
-    //TODO - spary particle width
-    //TODO - fix fall washing up
 
     public ClientLevel level;
     public BlockPos spawnPos;
@@ -103,7 +94,6 @@ public class Wave {
         float g = 0.2f;
         this.box = (new AABB(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f)).inflate(this.scale / 4f, 0, this.scale / 4f);
         float speed = 0.115f;
-
 
         this.velX = (float) (Math.cos(Math.toRadians(yaw)) * speed);
         this.velZ = (float) (Math.sin(Math.toRadians(yaw)) * speed);
@@ -236,14 +226,12 @@ public class Wave {
                 }
             }
 
-
             this.level.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;
             this.velZ = 0;
         }
-
 
         this.hitBlockAge = this.age;
         this.hitBlock = true;
@@ -334,11 +322,6 @@ public class Wave {
         this.setColor(color.x, color.y, color.z);
     }
 
-    /**
-     * @param red   Float 0f through 1f
-     * @param green Float 0f through 1f
-     * @param blue  Float 0f through 255f - nah I'm just kidding its 0f through 1f
-     */
     public void setColor(@Range(from = 0, to = 1) float red, @Range(from = 0, to = 1) float green, @Range(from = 0, to = 1) float blue) {
         this.red = red;
         this.green = green;

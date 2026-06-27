@@ -138,7 +138,6 @@ public final class WavifyConfig {
 
     public static int waveTicks = 80; // dummy value
 
-    /** Legacy field kept for any external callers; the live value is {@link #spawnDistance}. */
     public static int waveDistFromShore = 8;
 
     public static boolean modEnabled = true;

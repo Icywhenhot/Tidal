@@ -33,3 +33,13 @@ config="${mod_id}.mixins.json"
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
+
+# Optional: when Dynamic Waters is installed, river waves follow the flow it carves. Wavify reads that
+# mod purely reflectively (see DynamicWatersCompat), so it is never required - mandatory=false keeps
+# Wavify fully functional on its own. Ordering=AFTER just lets Dynamic Waters load first when present.
+[[dependencies.${mod_id}]]
+    modId="dynamicwaters"
+    mandatory=false
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"

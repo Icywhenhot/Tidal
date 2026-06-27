@@ -3,10 +3,6 @@ package net.superkat.wavify.scan;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import net.minecraft.core.BlockPos;
 
-/**
- * Holds a BlockPos as the main position, along with a list of all x/z coordinates of BlockPos' which were calculated to have this SitePos as the closest.<br>
- * The yaw is the direction from the center of all those blocks towards the SitePos' main position.
- */
 public class SitePos {
     public BlockPos pos;
     public int centerX = 0;
@@ -66,9 +62,6 @@ public class SitePos {
         return this.yaw;
     }
 
-    /**
-     * @return The yaw of this site's yaw, formatted the same way as the F3 debug screen's yaw(-180 through 180 degrees)
-     */
     public float getYawAsF3Angle() {
         float angle = this.getYaw() - 90;
         if(angle < 0) angle += 360;

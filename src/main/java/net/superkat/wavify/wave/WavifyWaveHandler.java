@@ -16,6 +16,8 @@ import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -24,6 +26,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.superkat.wavify.DebugHelper;
 import net.superkat.wavify.Wavify;
+import net.superkat.wavify.compat.DynamicWatersCompat;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.mixin.OptionsAccessor;
 import net.superkat.wavify.particles.debug.DebugWaterParticle;
@@ -44,9 +47,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 
-/**
- * The main handler, used for spawning and handling waves, as well as ticking the world's {@link WaterHandler}
- */
 public class WavifyWaveHandler {
     public final ClientLevel level;
     public WaterHandler waterHandler;
@@ -58,17 +58,10 @@ public class WavifyWaveHandler {
     private List<RiverFlow.DebugMarker> riverDebugMarkers = List.of();
     private final RiverFlowField riverFlow = new RiverFlowField();
 
-    // Near-player blue-noise scatter parameters for river waves. River waves are small and only read up
-    // close, so we only ever consider water within a configurable radius of the player - cost is
-    // independent of how large the river actually is. The radius itself comes from
-    // WavifyConfig.riverWaveSpawnRadius; the chunk radius is derived from it.
     private static final double RIVER_MIN_SPACING_SQ = 5.0 * 5.0;
-    /** Water blocks required to the nearest bank on each side before a river wave may spawn there. Keeps
-     *  waves off the very edge, where the flow direction is least reliable and they jitter. */
+
     private static final int SPAWN_BANK_MARGIN = 1;
 
-    // Isolated-object suppression: classify a shoreline site by flooding the connected solid blocks at the
-    // waterline. At/under the cap => small isolated object (shipwreck/ruin/debris) => spawn no waves.
     private static final int LANDMASS_CAP = 768; // footprint flood cap; at/under this => "small object"
 
     public boolean nearbyChunksLoaded = false;
@@ -83,9 +76,6 @@ public class WavifyWaveHandler {
         this.nearbyChunksLoaded = false;
     }
 
-    /**
-     * General tick method for all tick-related things EXCEPT the actual waves.
-     */
     public void tick() {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
@@ -108,10 +98,11 @@ public class WavifyWaveHandler {
         this.renderer.render(poseStack, bufferSource, layer);
     }
 
-    /**
-     * Tick method for waves
-     */
     public void wavifyTick() {
+        if (DynamicWatersCompat.isLoaded() && this.level.getGameTime() % 60 == 0) {
+            Wavify.LOGGER.info("[wavify-dw] handler ticking: enableRiverWaves={} paused={}",
+                    WavifyConfig.enableRiverWaves, Minecraft.getInstance().isPaused());
+        }
         // 1.20.1 has no per-level tick-rate manager; just skip while the client is paused.
         if (Minecraft.getInstance().isPaused()) return;
         double time = this.level.getGameTime();
@@ -354,6 +345,12 @@ public class WavifyWaveHandler {
         return (x & 0xFFFFFFFFL) | ((long) z << 32);
     }
 
+    private boolean isDynamicRiverWater(BlockPos pos) {
+        if (!DynamicWatersCompat.isLoaded()) return false;
+        Vec3 flow = this.level.getFluidState(pos).getFlow(this.level, pos);
+        return flow.x * flow.x + flow.z * flow.z > 1.0e-6;
+    }
+
     private boolean isRiverBiomeWater(BlockPos pos) {
         if (this.level.getBiome(pos).is(BiomeTags.IS_RIVER)) return true;
 
@@ -364,12 +361,6 @@ public class WavifyWaveHandler {
         return false;
     }
 
-    /**
-     * Blue-noise scatter of river waves across river water near the player. No flood-fill, no reach
-     * building, no accept/reject gate: every chosen spot becomes a visible wave, so coverage is uniform
-     * and nothing is ever silently discarded. Cost depends only on nearby water and the density config,
-     * never on the size of the river.
-     */
     private void spawnRiverWavesNearPlayer() {
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) return;
@@ -383,6 +374,11 @@ public class WavifyWaveHandler {
         int spawnChunkRadius = Mth.ceil(spawnRadius / 16.0);
 
         List<BlockPos> candidates = new ArrayList<>();
+        // --- TEMP DW DIAGNOSTIC (remove once DW river-wave compat is confirmed) ---
+        boolean dwDiag = DynamicWatersCompat.isLoaded();
+        int diagNearbyWaters = 0, diagDwRiver = 0, diagBiomeRiver = 0;
+        Set<String> diagFluidIds = Sets.newHashSet();
+        BlockPos diagSample = null;
         for (int cdx = -spawnChunkRadius; cdx <= spawnChunkRadius; cdx++) {
             for (int cdz = -spawnChunkRadius; cdz <= spawnChunkRadius; cdz++) {
                 long chunkPosL = new ChunkPos(playerChunk.x + cdx, playerChunk.z + cdz).toLong();
@@ -393,14 +389,40 @@ public class WavifyWaveHandler {
                     double dx = water.getX() + 0.5 - px;
                     double dz = water.getZ() + 0.5 - pz;
                     if (dx * dx + dz * dz > spawnRadiusSq) continue;
-                    if (!isRiverBiomeWater(water)) continue;
-                    if (this.riverFlow.isOceanSurroundedRiver(this.level, water)) continue;
+                    if (dwDiag) {
+                        diagNearbyWaters++;
+                        if (diagFluidIds.size() < 8) {
+                            ResourceLocation fid = BuiltInRegistries.FLUID.getKey(this.level.getFluidState(water).getType());
+                            if (fid != null) diagFluidIds.add(fid.toString());
+                        }
+                    }
+                    boolean dwRiver = isDynamicRiverWater(water);
+                    if (dwRiver && diagSample == null) diagSample = water;
+                    if (!dwRiver) {
+                        if (!isRiverBiomeWater(water)) continue;
+                        if (this.riverFlow.isOceanSurroundedRiver(this.level, water)) continue;
+                        if (dwDiag) diagBiomeRiver++;
+                    } else if (dwDiag) {
+                        diagDwRiver++;
+                    }
                     if (!posIsWater(this.level, water)) continue;
                     if (!this.level.getBlockState(water.above()).isAir()) continue;
                     candidates.add(water);
                 }
             }
         }
+
+        if (dwDiag) {
+            String sample = "none";
+            if (diagSample != null) {
+                Vec3 v = DynamicWatersCompat.getRiverFlow(diagSample.getX() + 0.5, diagSample.getY(), diagSample.getZ() + 0.5, this.level);
+                sample = diagSample.toShortString() + " airAbove=" + this.level.getBlockState(diagSample.above()).isAir()
+                        + String.format(" flow=(%.3f,%.3f)", v.x, v.z);
+            }
+            Wavify.LOGGER.info("[wavify-dw] enableRiver={} nearbyWaters={} fluids={} dwRiver={} biomeRiver={} candidates={} | sample {}",
+                    WavifyConfig.enableRiverWaves, diagNearbyWaters, diagFluidIds, diagDwRiver, diagBiomeRiver, candidates.size(), sample);
+        }
+        // --- END TEMP DW DIAGNOSTIC ---
 
         if (candidates.isEmpty()) {
             this.riverDebugMarkers = List.of();
@@ -433,12 +455,16 @@ public class WavifyWaveHandler {
             double cz = water.getZ() + 0.5;
             if (tooCloseToExistingRiverWave(taken, cx, cz)) continue;
 
-            RiverFlow.Flow flow = this.riverFlow.flowAt(cx, cz);
-            if (flow == null) continue;
-            // Don't spawn against a bank - that's where the flow is least reliable and waves jitter.
-            if (RiverFlow.bankClearance(this.level, cx, cz, water.getY(), flow.dirX(), flow.dirZ(), 4) < SPAWN_BANK_MARGIN) continue;
+            RiverFlow.Flow flow = RiverFlow.dynamicFlowAt(this.level, cx, water.getY(), cz);
+            boolean dynamic = flow != null;
+            if (!dynamic) {
+                flow = this.riverFlow.flowAt(cx, cz);
+                if (flow == null) continue;
+                // Don't spawn against a bank - that's where the flow is least reliable and waves jitter.
+                if (RiverFlow.bankClearance(this.level, cx, cz, water.getY(), flow.dirX(), flow.dirZ(), 4) < SPAWN_BANK_MARGIN) continue;
+            }
 
-            this.waves.add(new RiverWave(this.level, water, this.riverFlow, flow.dirX(), flow.dirZ(), (float) WavifyConfig.riverWaveTravelBlocks));
+            this.waves.add(new RiverWave(this.level, water, this.riverFlow, flow.dirX(), flow.dirZ(), (float) WavifyConfig.riverWaveTravelBlocks, dynamic));
             taken.add(new double[]{cx, cz});
             spawned++;
         }
@@ -515,8 +541,6 @@ public class WavifyWaveHandler {
         if (nearbyChunksLoaded) return true;
         int chunkRadius = getChunkRadius();
 
-        // using LevelChunk instead of chunk because it has "isEmpty" method
-        // could use chunk instanceof EmptyChunk instead, but this felt better
         int chunkX = player.chunkPosition().x;
         int chunkZ = player.chunkPosition().z;
         int chunkRadiusReduced = chunkRadius - (chunkRadius / 3);
@@ -532,12 +556,8 @@ public class WavifyWaveHandler {
                 this.level.getChunk(chunkX + (chunkRadiusReduced), chunkZ - (chunkRadiusReduced))
         );
         return checkChunks.stream().noneMatch(LevelChunk::isEmpty);
-        // alternative way - takes slightly longer
-//        return Minecraft.getInstance().worldRenderer.isTerrainRenderComplete();
     }
 
-    // Gets all loaded nearby chunks - created using ClientChunkManager & ClientChunkManager.ClientChunkMap
-    // Unused right now, but could be helpful for making the WaterBodyHandler's scanners empty out when a scanner is done
     public Set<ChunkPos> getNearbyChunkPos() {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
@@ -559,9 +579,6 @@ public class WavifyWaveHandler {
         return loadedChunks;
     }
 
-    /**
-     * @return The wave chunk radius - pulls from either the Wavify config or the server's render distance(whichever one is smaller).
-     */
     public int getChunkRadius() {
         Minecraft client = Minecraft.getInstance();
         int configRadius = WavifyConfig.chunkRadius;
@@ -570,9 +587,6 @@ public class WavifyWaveHandler {
         return Math.min(configRadius, serverRadius);
     }
 
-    /**
-     * @return The loaded chunk radius - used for figuring out all loaded chunks on the client.
-     */
     public int getLoadedChunkRadius() {
         Minecraft client = Minecraft.getInstance();
         int loadRadius = ((OptionsAccessor) client.options).wavify$getServerRenderDistance();
@@ -662,29 +676,16 @@ public class WavifyWaveHandler {
         }
     }
 
-    /**
-     * @return A random RandomSource with a randomly generated random RandomSeed seed.
-     */
     public static RandomSource getRandom() {
         return RandomSource.create();
     }
 
-    /**
-     * @return A random with a seed that will, most likely, be synced between clients despite being client side. Lag may cause a small issue, but should be rare.
-     */
     public static RandomSource getSyncedRandom() {
         long time = Minecraft.getInstance().level.getGameTime();
         long random = 5L * Math.round(time / 5f); // math.ceil instead?
         return RandomSource.create(random);
     }
 
-    /**
-     * Check if a BlockPos is water or is waterlogged
-     *
-     * @param world World to check in
-     * @param pos   BlockPos to check
-     * @return If the BlockPos is water or waterlogged
-     */
     public static boolean posIsWater(ClientLevel level, BlockPos pos) {
         FluidState state = level.getFluidState(pos);
         return state.is(FluidTags.WATER);

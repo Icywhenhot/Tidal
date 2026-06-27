@@ -21,11 +21,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Custom wave atlas loader. Reads per-sprite wave_animation metadata directly
- * from .mcmeta files since Minecraft doesn't expose a public sprite-metadata
- * registration API.
- */
 public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySpriteHandler.AtlasPreparations> {
     public static final String MOD_ID = Wavify.MOD_ID;
     public static final ResourceLocation WAVE_ATLAS_ID = new ResourceLocation(MOD_ID, "textures/atlas/waves.png");

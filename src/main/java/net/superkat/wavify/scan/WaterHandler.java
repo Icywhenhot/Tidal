@@ -40,7 +40,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
-
 public class WaterHandler {
     public final WavifyWaveHandler wavifyWaveHandler;
     public final ClientLevel level;
@@ -80,10 +79,7 @@ public class WaterHandler {
     // Set of all chunks ready to be scanned(e.g. within wave spawning distance)
     public Queue<ChunkPos> unscannedChunkQueue = Queues.newArrayDeque();
 
-    // List of all known water blocks, split by chunk. Concurrent because the scan pipeline fills these on
-    // background threads while the main thread reads them (e.g. WavifyWaveHandler#spawnRiverWavesNearPlayer).
     public Map<Long, Set<BlockPos>> waters = new ConcurrentHashMap<>();
-
 
     public WaterHandler(WavifyWaveHandler wavifyWaveHandler, ClientLevel level) {
         this.wavifyWaveHandler = wavifyWaveHandler;
@@ -234,14 +230,12 @@ public class WaterHandler {
         return IntObjectPair.of(intDistance, closest);
     }
 
-
     @Nullable
     public Set<BlockPos> getWaterCacheAtDistance(ChunkPos chunkPos, int distance) {
         long chunkPosL = chunkPos.toLong();
         if (this.waterDistCache.containsKey(chunkPosL)) return this.waterDistCache.get(chunkPosL).get(distance);
         return null;
     }
-
 
     public SitePos getSiteForPos(BlockPos pos) {
         long chunkPosL = ChunkPos.asLong(pos);
@@ -283,8 +277,6 @@ public class WaterHandler {
         if (this.level.getGameTime() % 10 != 0) return;
         boolean farParticles = false;
 
-        // display all shoreline blocks
-        // display all sitePos'
         List<SitePos> allSites = this.sites.values().stream().flatMap(Collection::stream).toList();
         for (SitePos site : allSites) {
             this.level.addParticle(ParticleTypes.EGG_CRACK, true, site.getX() + 0.5, site.getY() + 2, site.getZ() + 0.5, 0, 0, 0);
@@ -319,7 +311,6 @@ public class WaterHandler {
         }
     }
 
-
     public void onBlockUpdate(BlockPos pos, BlockState state) {
         long chunkPosL = ChunkPos.asLong(pos);
         int currentUpdates = this.chunkUpdates.getOrDefault(chunkPosL, 0) + 1;
@@ -351,18 +342,15 @@ public class WaterHandler {
         this.cachedSiteSet = new ObjectOpenHashSet<>(this.sites.values().stream().flatMap(Collection::stream).collect(Collectors.toSet()));
     }
 
-
     public void loadChunk(ChunkAccess chunk) {
         addChunkPos(chunk.getPos());
     }
-
 
     public void addChunkPos(ChunkPos chunkPos) {
         this.loadedChunks.add(chunkPos);
         this.unscannedChunks.add(chunkPos);
         checkUnscannedChunks();
     }
-
 
     public void checkUnscannedChunks() {
         net.minecraft.world.phys.Vec3 camPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
@@ -381,7 +369,6 @@ public class WaterHandler {
             }
         }
     }
-
 
     public boolean rescanChunkPos(ChunkPos chunkPos) {
         long chunkPosL = chunkPos.toLong();

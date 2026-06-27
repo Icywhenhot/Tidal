@@ -9,12 +9,6 @@ import org.joml.Vector3f;
 
 import java.util.Locale;
 
-/**
- * Shared base for the debug particle options. Replaces 1.20.5+'s {@code ScalableParticleOptionsBase};
- * holds an RGB color and a scale, and provides the {@link ParticleOptions} plumbing the 1.20.1 particle
- * system needs (network/string serialization). The color is encoded as three floats so no Vector3f codec
- * or {@code ByteBufCodecs} (1.20.5+) is required.
- */
 public abstract class AbstractDebugParticleEffect implements ParticleOptions {
     public final Vector3f color;
     protected final float scale;

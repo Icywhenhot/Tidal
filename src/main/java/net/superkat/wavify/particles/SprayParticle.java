@@ -29,12 +29,6 @@ public class SprayParticle extends TextureSheetParticle {
     public float intensity;
     private boolean stopped;
 
-    // Spray tilt, kept SEPARATE from the inherited Particle#roll field on purpose.
-    // On MC 1.21.1 the vanilla particle render() auto-applies a non-zero `roll` as
-    // quaternionf.rotateZ(lerp(oRoll, roll)) treating it as RADIANS. This class's roll
-    // is in the ~75+ "degrees" range, so rotateZ(75 rad) ≈ 12 full turns - that was the
-    // spray "spinning" on shore impact. We drive our own tilt through getFacingCameraMode
-    // and leave the inherited roll at 0 so the base renderer never adds that extra spin.
     private float sprayRoll;
     private float oSprayRoll;
 
@@ -106,10 +100,6 @@ public class SprayParticle extends TextureSheetParticle {
         this.setSpriteFromAge(this.spriteProvider);
     }
 
-    // 1.20.1 has no SingleQuadParticle.FacingCameraMode, so we override render() directly and build the
-    // same world-oriented billboard quaternion the 1.21 facing-camera-mode produced (lie flat + face yaw +
-    // spray tilt), then hand it to the inherited renderRotatedQuad. Inherited roll stays 0 so the base
-    // renderer never adds the extra spin this class was designed to avoid.
     @Override
     public void render(VertexConsumer buffer, Camera camera, float tickDelta) {
         Vec3 cameraPos = camera.getPosition();

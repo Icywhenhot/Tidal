@@ -5,11 +5,6 @@ import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.particle.TextureSheetParticle;
 import net.minecraft.client.multiplayer.ClientLevel;
 
-/**
- * Base for the colored debug particles. On 1.20.1 there is no scale-only particle base, so this extends
- * {@link TextureSheetParticle} directly and reproduces the small bit of behavior the old
- * {@code DustParticleBase} provided (sprite from age, fixed quad size, a color multiplier hook).
- */
 public abstract class DebugAbstractColoredParticle<T extends AbstractDebugParticleEffect> extends TextureSheetParticle {
     protected final SpriteSet spriteProvider;
 

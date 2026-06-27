@@ -27,16 +27,8 @@ import org.joml.Matrix4f;
 import java.util.List;
 import java.util.Set;
 
-/**
- * THE WAVES AREN'T ENTITIES!!!!!!!!!!!!!!!!!!!!!!!!!!!
- */
 public class WaveRenderer {
     private static final float WAVE_FOAM_Y_OFFSET = 0.08f;
-    // Render-only Y sink for ocean waves so the visible body sits flush with
-    // the water surface. Does NOT touch collision Y — the wave's actual
-    // position stays high so it transitions into the washing-up phase and
-    // bounces instead of crashing sideways into the shore block. River waves
-    // are unaffected.
     private static final float OCEAN_RENDER_Y_SINK = -0.5f;
 
     private float frameBodyYOffset = 0f;
@@ -73,9 +65,6 @@ public class WaveRenderer {
         if (WavifyConfig.enableWetOverlay) renderOverlays(poseStack, buffer, camera, handler.coveredBlocks);
     }
 
-    // matrices is the RenderLevelStageEvent pose stack: on 1.20.1 it carries the camera (view) rotation,
-    // which the ambient model-view does not at this stage - rendering off a fresh PoseStack leaves the
-    // waves unrotated and effectively invisible. push/pop is balanced so the shared stack stays clean.
     public void renderWave(PoseStack matrices, VertexConsumer buffer, Camera camera, Wave wave, float delta) {
         if (wave == null) return;
 

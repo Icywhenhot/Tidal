@@ -24,9 +24,6 @@ import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
 import net.superkat.wavify.sound.WaveAmbientSoundManager;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 
-/**
- * Client-only setup. Invoked from {@link Wavify} via DistExecutor so it never classloads on a server.
- */
 public class WavifyClient {
 
     public static WavifySpriteHandler WAVIFY_SPRITE_HANDLER = new WavifySpriteHandler();

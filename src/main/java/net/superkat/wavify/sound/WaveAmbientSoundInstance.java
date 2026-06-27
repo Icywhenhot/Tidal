@@ -7,12 +7,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.Mth;
 
-/**
- * Looping ambient sound attached to the player. {@link WaveAmbientSoundManager}
- * sets {@link #targetVolume} each tick; this instance lerps {@code volume}
- * toward it for smooth fades, and self-discards once volume reaches 0 with a
- * zero target (true fade-out).
- */
 public class WaveAmbientSoundInstance extends AbstractTickableSoundInstance {
     private static final float FADE_PER_TICK = 1f / 70f; // ~3.5 seconds 0 -> 1 at 20 tps
 
