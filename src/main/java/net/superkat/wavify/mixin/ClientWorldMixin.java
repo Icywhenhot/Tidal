@@ -2,7 +2,7 @@ package net.superkat.wavify.mixin;
 
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.multiplayer.ClientPacketListener;
-import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.extract.LevelExtractor;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.core.Holder;
@@ -23,7 +23,7 @@ public class ClientWorldMixin implements WavifyWorld {
     public WavifyWaveHandler wavifyWaveHandler;
 
     @Inject(method = "<init>", at = @At("TAIL"))
-    public void wavify$createWavifyWaveHandler(ClientPacketListener networkHandler, ClientLevel.ClientLevelData properties, ResourceKey registryRef, Holder dimensionTypeEntry, int loadDistance, int simulationDistance, LevelRenderer worldRenderer, boolean debugWorld, long seed, int seaLevel, CallbackInfo ci) {
+    public void wavify$createWavifyWaveHandler(ClientPacketListener networkHandler, ClientLevel.ClientLevelData properties, ResourceKey registryRef, Holder dimensionTypeEntry, int loadDistance, int simulationDistance, LevelExtractor levelExtractor, boolean debugWorld, long seed, int seaLevel, CallbackInfo ci) {
         this.wavifyWaveHandler = new WavifyWaveHandler((ClientLevel) (Object) this);
     }
 

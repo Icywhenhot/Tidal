@@ -10,11 +10,13 @@ import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.client.Minecraft;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.StagedVertexBuffer;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import org.joml.Matrix4fStack;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
-import com.mojang.blaze3d.vertex.Tesselator;
 import net.minecraft.server.packs.PackType;
 import net.superkat.wavify.duck.WavifyWorld;
 import net.superkat.wavify.event.ClientBlockUpdateEvent;
@@ -45,11 +47,27 @@ public class WavifyClient implements ClientModInitializer {
     // of the surface. See WaveRenderer#shaderYOffset.
     private static RenderType waveRenderLayer;
 
+    // 26.2 removed immediate-mode Tesselator/RenderType.draw, and the submit-node
+    // pipeline (submitCustomGeometry) only ever draws BEFORE translucent water — so
+    // waves submitted that way get hidden by / punch holes in the water. Instead we
+    // draw the waves immediately at AFTER_TRANSLUCENT_TERRAIN via a StagedVertexBuffer
+    // + RenderType.prepare().drawFromBuffer(), which is the direct replacement for the
+    // old RenderType.draw(MeshData) and reproduces the proven "depth-write entity
+    // translucent, drawn after water" behaviour: waves sit on top of the water.
+    private static StagedVertexBuffer waveBuffer;
+
     private static RenderType getWaveRenderLayer() {
         if (waveRenderLayer == null) {
             waveRenderLayer = RenderTypes.entityTranslucent(WavifySpriteHandler.WAVE_ATLAS_ID, false);
         }
         return waveRenderLayer;
+    }
+
+    private static StagedVertexBuffer getWaveBuffer() {
+        if (waveBuffer == null) {
+            waveBuffer = new StagedVertexBuffer(() -> "wavify_waves", RenderType.TRANSIENT_BUFFER_SIZE);
+        }
+        return waveBuffer;
     }
 
     @Override
@@ -107,29 +125,55 @@ public class WavifyClient implements ClientModInitializer {
         });
 
         // Render at AFTER_TRANSLUCENT_TERRAIN (after the main world pass, including
-        // translucent water) so waves overlay water properly. The new
-        // entityTranslucent layer writes depth, and rendering before water caused
-        // fade-in quads to punch a hole through the water surface.
+        // translucent water) so waves overlay water properly. entityTranslucent
+        // writes depth; drawing after water keeps the wave on top of the surface.
+        //
+        // Immediate draw via StagedVertexBuffer is the 26.2 replacement for the old
+        // RenderType.draw(MeshData): build a draw, fill it through a VertexConsumer,
+        // upload, then prepare().drawFromBuffer(). endFrame() recycles the GPU buffer
+        // pools each frame.
+        //
+        // prepare() snapshots RenderSystem's modelview, but by AFTER_TRANSLUCENT_TERRAIN
+        // the camera matrix LevelRenderer pushed onto the modelview stack has already
+        // been popped, so it reads as (effectively) identity and the camera-relative
+        // wave vertices project to nowhere — completely invisible. We restore the exact
+        // matrix terrain/water was drawn with — CameraRenderState.viewRotationMatrix —
+        // onto the modelview stack for our draw, then pop it back.
         LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register(context -> {
             Minecraft mc = Minecraft.getInstance();
             if(mc.level == null) return;
             WavifyWorld wavifyWorld = (WavifyWorld) mc.level;
             RenderType layer = getWaveRenderLayer();
-            Tesselator tessellator = Tesselator.getInstance();
-            BufferBuilder buffer = tessellator.begin(layer.mode(), layer.format());
+            StagedVertexBuffer buffer = getWaveBuffer();
 
-            wavifyWorld.wavify$wavifyWaveHandler().render(buffer, context);
+            StagedVertexBuffer.Draw draw = buffer.appendDraw(layer.format(), layer.primitiveTopology());
+            VertexConsumer consumer = buffer.getVertexBuilder(draw);
 
-            MeshData builtBuffer = buffer.build();
-            if(builtBuffer == null) return;
+            wavifyWorld.wavify$wavifyWaveHandler().render(consumer, context);
 
-            layer.draw(builtBuffer);
+            // upload() finalizes the vertex builder and sets the draw's vertex count.
+            // It MUST run before draw.isEmpty(), which reads that count — otherwise the
+            // count is still 0, the draw looks empty, and nothing ever renders.
+            buffer.upload();
+            if(!draw.isEmpty()) {
+                CameraRenderState camera = context.levelState().cameraRenderState;
+                Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+                mvStack.pushMatrix();
+                mvStack.set(camera.viewRotationMatrix);
+                layer.prepare().drawFromBuffer(buffer.getExecuteInfo(draw));
+                mvStack.popMatrix();
+            }
+            buffer.endFrame();
         });
 
         ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(WAVIFY_SPRITE_HANDLER);
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             WAVIFY_SPRITE_HANDLER.clearAtlas();
+            if (waveBuffer != null) {
+                waveBuffer.close();
+                waveBuffer = null;
+            }
         });
 
     }

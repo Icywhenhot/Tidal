@@ -115,7 +115,7 @@ public class SprayParticle extends SingleQuadParticle {
             double e = dy;
             if (this.hasPhysics && (dx != 0.0 || dy != 0.0 || dz != 0.0) && dx * dx + dy * dy + dz * dz < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
                 //expanding bounding box to specifically account for mud and I guess soul sand too?
-                Vec3 vec3d = Entity.collideBoundingBox(null, new Vec3(dx, dy, dz), this.getBoundingBox().inflate(0, 0.15, 0), this.level, List.of());
+                Vec3 vec3d = Entity.collideBoundingBox((Entity) null, new Vec3(dx, dy, dz), this.getBoundingBox().inflate(0, 0.15, 0), this.level, List.of());
                 dx = vec3d.x;
                 dy = vec3d.y;
                 dz = vec3d.z;

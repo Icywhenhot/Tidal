@@ -2,7 +2,7 @@ package net.superkat.wavify.renderer;
 
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.Minecraft;
-import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -65,13 +65,13 @@ public class WaveRenderer {
         this.level = level;
     }
 
-    public void render(BufferBuilder buffer, LevelRenderContext context) {
+    public void render(VertexConsumer buffer, LevelRenderContext context) {
         List<Wave> waves = this.handler.getWaves();
         if (waves == null || waves.isEmpty()) return;
 
         Minecraft mc = Minecraft.getInstance();
         float tickDelta = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
-        Camera camera = mc.gameRenderer.getMainCamera();
+        Camera camera = mc.gameRenderer.mainCamera();
 
         float shaderSink = IrisCompat.isShaderPackActive() ? (float) WavifyConfig.shaderWaveYSink : 0f;
         float baseOffset = (float) WavifyConfig.waveYOffset;
@@ -85,7 +85,7 @@ public class WaveRenderer {
         if (WavifyConfig.enableWetOverlay) renderOverlays(buffer, camera, handler.coveredBlocks);
     }
 
-    public void renderWave(BufferBuilder buffer, Camera camera, Wave wave, float delta) {
+    public void renderWave(VertexConsumer buffer, Camera camera, Wave wave, float delta) {
         if (wave == null) return;
 
         PoseStack matrices = new PoseStack();
@@ -147,7 +147,7 @@ public class WaveRenderer {
         matrices.popPose();
     }
 
-    private void renderWaveColumns(Matrix4f posMatrix, BufferBuilder buffer, Wave wave, TextureAtlasSprite colorableSprite, TextureAtlasSprite whiteSprite, int age, int maxAge, float red, float green, float blue, float alpha, float foamAlpha, int light, float bodyYOffset, float foamYOffset) {
+    private void renderWaveColumns(Matrix4f posMatrix, VertexConsumer buffer, Wave wave, TextureAtlasSprite colorableSprite, TextureAtlasSprite whiteSprite, int age, int maxAge, float red, float green, float blue, float alpha, float foamAlpha, int light, float bodyYOffset, float foamYOffset) {
         int columnCount = wave.getRenderColumnCount();
 
         for (int i = 0; i < columnCount; i++) {
@@ -161,7 +161,7 @@ public class WaveRenderer {
         }
     }
 
-    private void waveQuad(Matrix4f matrix4f, BufferBuilder buffer, TextureAtlasSprite sprite, int waveAge, int waveMaxAge, float x, float y, float z, float width, float length, float red, float green, float blue, float alpha, int light) {
+    private void waveQuad(Matrix4f matrix4f, VertexConsumer buffer, TextureAtlasSprite sprite, int waveAge, int waveMaxAge, float x, float y, float z, float width, float length, float red, float green, float blue, float alpha, int light) {
         float halfWidth = width / 2f;
         float halfLength = length / 2f;
 
@@ -184,16 +184,16 @@ public class WaveRenderer {
                 .setColor(red, green, blue, alpha).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
     }
 
-    public void renderOverlays(BufferBuilder buffer, Camera camera, Set<BlockPos> coveredBlocks) {
+    public void renderOverlays(VertexConsumer buffer, Camera camera, Set<BlockPos> coveredBlocks) {
         for (BlockPos covered : coveredBlocks) {
             renderCoverOverlay(buffer, camera, covered);
         }
     }
 
-    public void renderCoverOverlay(BufferBuilder buffer, Camera camera, BlockPos pos) {
+    public void renderCoverOverlay(VertexConsumer buffer, Camera camera, BlockPos pos) {
         PoseStack matrices = new PoseStack();
         Vec3 cameraPos = camera.position();
-        Vec3 transPos = pos.getBottomCenter().subtract(cameraPos);
+        Vec3 transPos = Vec3.atBottomCenterOf(pos).subtract(cameraPos);
 
         TextureAtlasSprite sprite = getWetOverlaySprite();
         float u0 = sprite.getU0();

@@ -7,7 +7,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.level.material.FluidState;
@@ -106,7 +106,7 @@ public class WavifyWaveHandler {
 
     }
 
-    public void render(BufferBuilder buffer, LevelRenderContext context) {
+    public void render(VertexConsumer buffer, LevelRenderContext context) {
         this.renderer.render(buffer, context);
     }
 
@@ -170,7 +170,7 @@ public class WavifyWaveHandler {
             if (DebugHelper.holdingSpyglass()) debugWaveParticles(waterBlocks);
             if (DebugHelper.offhandClock()) {
                 for (BlockPos water : waterBlocks) {
-                    Vec3 pos = water.getCenter();
+                    Vec3 pos = Vec3.atCenterOf(water);
                     this.level.addParticle(ParticleTypes.END_ROD, pos.x(), pos.y() + 2.5, pos.z(), 0, 0, 0);
                 }
             }

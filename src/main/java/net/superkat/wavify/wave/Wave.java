@@ -203,7 +203,7 @@ public class Wave {
         float initVelY = velY;
         float initVelZ = velZ;
         if ((velX != 0.0 || velY != 0.0 || velZ != 0.0) && velX * velX + velY * velY + velZ * velZ < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
-            Vec3 vec3d = Entity.collideBoundingBox(null, new Vec3(velX, velY, velZ), this.getHitBox(), this.level, List.of());
+            Vec3 vec3d = Entity.collideBoundingBox((Entity) null, new Vec3(velX, velY, velZ), this.getHitBox(), this.level, List.of());
             velX = (float) vec3d.x;
             velY = (float) vec3d.y;
             velZ = (float) vec3d.z;

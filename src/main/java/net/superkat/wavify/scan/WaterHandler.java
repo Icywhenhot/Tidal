@@ -370,7 +370,7 @@ public class WaterHandler {
         List<BlockPos> allShoreBLocks = this.shoreBlocks.values().stream().flatMap(Collection::stream).toList();
         ParticleOptions shoreEffect = new DebugShoreParticle.DebugShoreParticleEffect(new Vector3f(1f, 1f, 1f), 1f);
         for (BlockPos shore : allShoreBLocks) {
-            Vec3 pos = shore.getCenter();
+            Vec3 pos = Vec3.atCenterOf(shore);
             this.level.addParticle(shoreEffect, pos.x(), pos.y() + 1, pos.z(), 0, 0, 0);
         }
 
@@ -385,7 +385,7 @@ public class WaterHandler {
                 int siteIndex = allSites.indexOf(site);
                 Vector3f color = DebugHelper.debugColor(siteIndex, totalSites);
 
-                Vec3 pos = blockPos.getCenter();
+                Vec3 pos = Vec3.atCenterOf(blockPos);
                 ParticleOptions particleEffect = new DebugWaterParticle.DebugWaterParticleEffect(color, 1f);
                 this.level.addParticle(particleEffect, farParticles, false, pos.x(), pos.y() + 1, pos.z(), 0, 0, 0);
             }
@@ -458,7 +458,7 @@ public class WaterHandler {
      * Searches through all loaded, unscanned chunks, and queues unscanned chunks which are within scanning distance to {@link WaterHandler#unscannedChunkQueue}
      */
     public void checkUnscannedChunks() {
-        ChunkPos cameraChunk = new ChunkPos(Minecraft.getInstance().gameRenderer.getMainCamera().blockPosition().getX() >> 4, Minecraft.getInstance().gameRenderer.getMainCamera().blockPosition().getZ() >> 4);
+        ChunkPos cameraChunk = new ChunkPos(Minecraft.getInstance().gameRenderer.mainCamera().blockPosition().getX() >> 4, Minecraft.getInstance().gameRenderer.mainCamera().blockPosition().getZ() >> 4);
         double radius = WavifyConfig.chunkRadius * WavifyConfig.chunkRadius;
         Iterator<ChunkPos> iterator = this.unscannedChunks.iterator();
         while (iterator.hasNext()) {
