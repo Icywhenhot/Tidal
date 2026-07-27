@@ -145,7 +145,10 @@ public class WaterHandler {
             if (this.chunkScanFuture == null) { // I don't know if there's a better way to do this or not but okay
                 long start = Util.getMeasuringTimeMs();
                 this.chunkScanFuture = scheduleChunkScans();
-                this.chunkScanFuture.thenCompose(chunks -> {
+                // All continuations that touch shared maps (waters, sites, shoreBlocks, caches) must run on
+                // the client thread - non-async continuations run on the worker thread that completed the
+                // scan, racing against wavifyTick iterating these maps (ConcurrentModificationException).
+                this.chunkScanFuture.thenComposeAsync(chunks -> {
                     for (ScannedChunk chunk : chunks) {
                         long chunkPosL = chunk.chunkPos;
                         if (chunk.waters != null && !chunk.waters.isEmpty()) {
@@ -164,7 +167,7 @@ public class WaterHandler {
                     this.cacheSiteSet();
 
                     return this.scheduleWaterCache();
-                }).thenAccept(waterCacheResult -> {
+                }, client).thenAcceptAsync(waterCacheResult -> {
                     this.waterCache = waterCacheResult.waterCache;
 
                     this.sites.values().forEach(siteSet -> siteSet.forEach(SitePos::clearPositions));
@@ -178,15 +181,15 @@ public class WaterHandler {
                     }
 
                     this.waterDistCache = waterCacheResult.distCache;
-                }).thenRun(() -> {
+                }, client).thenRunAsync(() -> {
                     calcAllSiteCenters();
                     this.built = true;
-                });
+                }, client);
 
-                this.chunkScanFuture.whenComplete((chunks, throwable) -> {
+                this.chunkScanFuture.whenCompleteAsync((chunks, throwable) -> {
                     if(DebugHelper.debug()) Wavify.LOGGER.info("Scan time: {} ms", Util.getMeasuringTimeMs() - start);
                     this.chunkScanFuture = null;
-                });
+                }, client);
             }
         }
 
