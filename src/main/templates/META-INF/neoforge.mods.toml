@@ -31,3 +31,13 @@ type="required"
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
+
+# Optional: when Dynamic Waters is installed, river waves follow the flow it carves. Wavify reads it only
+# through the vanilla FluidState.getFlow API (see DynamicWatersCompat), so it is never required - type=optional
+# keeps Wavify fully functional on its own. ordering=AFTER just lets Dynamic Waters load first when present.
+[[dependencies.${mod_id}]]
+modId="dynamicwaters"
+type="optional"
+versionRange="[0,)"
+ordering="AFTER"
+side="BOTH"

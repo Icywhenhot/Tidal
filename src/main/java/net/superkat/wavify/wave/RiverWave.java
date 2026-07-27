@@ -23,6 +23,9 @@ public class RiverWave extends Wave {
     private static final double STEER_BLEND = 0.18;
 
     protected final RiverFlowField field;
+    /** When true, the wave follows the Dynamic Waters carved flow at its live position each tick (with the
+     *  flow field as fallback), instead of the flow field alone. Only set for waves spawned on DW rivers. */
+    protected final boolean followDynamic;
     protected double dirX;
     protected double dirZ;
     protected final float travelSpeed;
@@ -39,8 +42,13 @@ public class RiverWave extends Wave {
     protected final float lateralFactor;
 
     public RiverWave(ClientLevel world, BlockPos spawnWater, RiverFlowField field, double dirX, double dirZ, float travelBlocks) {
+        this(world, spawnWater, field, dirX, dirZ, travelBlocks, false);
+    }
+
+    public RiverWave(ClientLevel world, BlockPos spawnWater, RiverFlowField field, double dirX, double dirZ, float travelBlocks, boolean followDynamic) {
         super(world, spawnWater.above(), (float) Math.toDegrees(Math.atan2(dirZ, dirX)), 0.4f, false);
         this.field = field;
+        this.followDynamic = followDynamic;
         this.dirX = dirX;
         this.dirZ = dirZ;
         this.waterY = spawnWater.getY();
@@ -143,8 +151,11 @@ public class RiverWave extends Wave {
     }
 
     protected void steerAndAdvance() {
-        // Steer gently toward the flow field so the wave curves down the channel.
-        RiverFlow.Flow flow = this.field.flowAt(this.x, this.z);
+        // Steer gently toward the flow so the wave curves down the channel. On a Dynamic Waters river,
+        // re-sample its carved flow at the live position each tick so the wave tracks the channel as it
+        // bends; fall back to Wavify's own flow field when that yields nothing.
+        RiverFlow.Flow flow = this.followDynamic ? RiverFlow.dynamicFlowAt(this.level, this.x, this.waterY, this.z) : null;
+        if (flow == null) flow = this.field.flowAt(this.x, this.z);
         if (flow != null) {
             double tx = flow.dirX();
             double tz = flow.dirZ();

@@ -5,6 +5,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import net.superkat.wavify.compat.DynamicWatersCompat;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.joml.Vector3f;
 
@@ -19,6 +22,19 @@ public final class RiverFlow {
 
     /** A unit flow direction in the XZ plane. */
     public record Flow(double dirX, double dirZ) {
+    }
+
+    /**
+     * The Dynamic Waters carved-flow direction at a point, normalized to a unit {@link Flow}, or {@code null}
+     * when Dynamic Waters is absent or the water there has no meaningful flow. A {@code null} return tells the
+     * caller to fall back to Wavify's own {@link RiverFlowField}.
+     */
+    public static Flow dynamicFlowAt(Level level, double x, int y, double z) {
+        if (!DynamicWatersCompat.isLoaded()) return null;
+        Vec3 flow = DynamicWatersCompat.getRiverFlow(x, y, z, level);
+        double horiz = Math.sqrt(flow.x * flow.x + flow.z * flow.z);
+        if (horiz < 1.0e-6) return null;
+        return new Flow(flow.x / horiz, flow.z / horiz);
     }
 
     /** Debug visual marker. */

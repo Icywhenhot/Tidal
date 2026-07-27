@@ -24,6 +24,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.superkat.wavify.DebugHelper;
 import net.superkat.wavify.Wavify;
+import net.superkat.wavify.compat.DynamicWatersCompat;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.mixin.OptionsAccessor;
 import net.superkat.wavify.particles.debug.DebugWaterParticle;
@@ -364,6 +365,17 @@ public class WavifyWaveHandler {
     }
 
     /**
+     * True if a water block is a Dynamic Waters river, detected purely by its carved flow. DW rivers run
+     * through ordinary (non-river) biomes, so they fail {@link #isRiverBiomeWater}; a nonzero carved flow is
+     * the reliable, dependency-free signal that this water belongs to a DW river.
+     */
+    private boolean isDynamicRiverWater(BlockPos pos) {
+        if (!DynamicWatersCompat.isLoaded()) return false;
+        Vec3 flow = this.level.getFluidState(pos).getFlow(this.level, pos);
+        return flow.x * flow.x + flow.z * flow.z > 1.0e-6;
+    }
+
+    /**
      * Blue-noise scatter of river waves across river water near the player. No flood-fill, no reach
      * building, no accept/reject gate: every chosen spot becomes a visible wave, so coverage is uniform
      * and nothing is ever silently discarded. Cost depends only on nearby water and the density config,
@@ -392,8 +404,13 @@ public class WavifyWaveHandler {
                     double dx = water.getX() + 0.5 - px;
                     double dz = water.getZ() + 0.5 - pz;
                     if (dx * dx + dz * dz > spawnRadiusSq) continue;
-                    if (!isRiverBiomeWater(water)) continue;
-                    if (this.riverFlow.isOceanSurroundedRiver(this.level, water)) continue;
+                    // Dynamic Waters rivers carve through ordinary biomes and would fail the biome/ocean
+                    // gates below, so accept them directly on their carved flow. Vanilla river water still
+                    // goes through Wavify's own biome + ocean-embedded checks.
+                    if (!isDynamicRiverWater(water)) {
+                        if (!isRiverBiomeWater(water)) continue;
+                        if (this.riverFlow.isOceanSurroundedRiver(this.level, water)) continue;
+                    }
                     if (!posIsWater(this.level, water)) continue;
                     if (!this.level.getBlockState(water.above()).isAir()) continue;
                     candidates.add(water);
@@ -432,12 +449,18 @@ public class WavifyWaveHandler {
             double cz = water.getZ() + 0.5;
             if (tooCloseToExistingRiverWave(taken, cx, cz)) continue;
 
-            RiverFlow.Flow flow = this.riverFlow.flowAt(cx, cz);
-            if (flow == null) continue;
-            // Don't spawn against a bank - that's where the flow is least reliable and waves jitter.
-            if (RiverFlow.bankClearance(this.level, cx, cz, water.getY(), flow.dirX(), flow.dirZ(), 4) < SPAWN_BANK_MARGIN) continue;
+            // Prefer the Dynamic Waters carved flow when present; the wave then follows it for its whole
+            // life. Otherwise use Wavify's own flow field, with the bank-clearance guard it relies on.
+            RiverFlow.Flow flow = RiverFlow.dynamicFlowAt(this.level, cx, water.getY(), cz);
+            boolean dynamic = flow != null;
+            if (!dynamic) {
+                flow = this.riverFlow.flowAt(cx, cz);
+                if (flow == null) continue;
+                // Don't spawn against a bank - that's where the flow is least reliable and waves jitter.
+                if (RiverFlow.bankClearance(this.level, cx, cz, water.getY(), flow.dirX(), flow.dirZ(), 4) < SPAWN_BANK_MARGIN) continue;
+            }
 
-            this.waves.add(new RiverWave(this.level, water, this.riverFlow, flow.dirX(), flow.dirZ(), (float) WavifyConfig.riverWaveTravelBlocks));
+            this.waves.add(new RiverWave(this.level, water, this.riverFlow, flow.dirX(), flow.dirZ(), (float) WavifyConfig.riverWaveTravelBlocks, dynamic));
             taken.add(new double[]{cx, cz});
             spawned++;
         }
