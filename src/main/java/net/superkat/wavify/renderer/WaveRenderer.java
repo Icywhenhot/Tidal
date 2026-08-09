@@ -5,6 +5,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
@@ -25,32 +26,18 @@ import org.joml.Matrix4f;
 import java.util.List;
 import java.util.Set;
 
-/**
- * THE WAVES AREN'T ENTITIES!!!!!!!!!!!!!!!!!!!!!!!!!!!
- */
+// the waves aren't entities!!!!!!!!!!!!!!!!!!!!!!!!!!!
 public class WaveRenderer {
     private static final float WAVE_FOAM_Y_OFFSET = 0.08f;
-    // Render-only Y sink for ocean waves so the visible body sits flush with
-    // the water surface. Does NOT touch collision Y — the wave's actual
-    // position stays high so it transitions into the washing-up phase and
-    // bounces instead of crashing sideways into the shore block. River waves
-    // are unaffected.
+    // visual only sink so ocean waves sit flush with the water
+    // collision y is untouched, the wave stays high so it still washes up and bounces
+    // instead of crashing sideways into the shore block, river waves don't get this
     private static final float OCEAN_RENDER_Y_SINK = -0.5f;
 
-    // When an Iris/Oculus shaderpack is active, sink the colored wave body so
-    // vanilla water still covers the wave footprint. The shaderpack then
-    // renders its water reflections/refractions on top of (and tinted by) the
-    // wave color, giving the wave the same shader-water look as the rest of
-    // the surface. The foam quad stays at WAVE_FOAM_Y_OFFSET above the body so
-    // the white crest still pokes through the water surface.
-    //
-    // Sink amount is user-tunable via WavifyConfig.shaderWaveYSink. Cached per
-    // frame: isShaderPackActive() reflects into Iris, cheap but not free.
-    //
-    // frameBodyYOffset = waveYOffset + (shaderWaveYSink if shaders else 0)
-    // frameFoamYOffset = waveYOffset
-    // Foam never gets the shader sink; under shaders we WANT it at the water
-    // surface so the shaderpack's water shading covers it.
+    // with a shaderpack on we drop the colored body so vanilla water still covers it
+    // the pack then paints its reflections over the wave color and it matches the rest of the surface
+    // foam stays above the body so the white crest still pokes out
+    // amount comes from the config, cached per frame since the iris check reflects and isn't free
     private float frameBodyYOffset = 0f;
     private float frameFoamYOffset = 0f;
 
@@ -94,8 +81,8 @@ public class WaveRenderer {
         Vec3d transPos = center.subtract(cameraPos);
 
         matrices.push();
-        matrices.translate(transPos.x, transPos.y, transPos.z); // offsets to the wave's position
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-wave.getYaw(delta) + 90)); // rotate wave left/right
+        matrices.translate(transPos.x, transPos.y, transPos.z); // move over to the wave
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-wave.getYaw(delta) + 90)); // swing it left or right
         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(wave.pitch));
         float scale = wave.scale;
         matrices.scale(scale, 1, scale);
@@ -125,7 +112,7 @@ public class WaveRenderer {
 
         renderWaveColumns(posMatrix, buffer, wave, colorableSprite, whiteSprite, age, maxAge, red, green, blue, alpha, foamAlpha, light, bodyYOffset, foamYOffset);
 
-        // beneath wave texture after hitting shore
+        // the bit that spreads out underneath once it hits the shore
         if (washingUp && wave.bigWave) {
             Sprite washingColorableSprite = getBottomWashingSprite();
             Sprite washingWhiteSprite = getBottomWashingWhiteSprite();
@@ -174,17 +161,19 @@ public class WaveRenderer {
 //        float v0 = 0f;
 //        float v1 = 1f;
 
+        int overlay = OverlayTexture.DEFAULT_UV;
+
         buffer.vertex(matrix4f, x - halfWidth, y, z - halfLength)
-                .color(red, green, blue, alpha).texture(u0, v1).light(light);
+                .color(red, green, blue, alpha).texture(u0, v1).overlay(overlay).light(light).normal(0f, 1f, 0f);
 
         buffer.vertex(matrix4f, x - halfWidth, y, z + halfLength)
-                .color(red, green, blue, alpha).texture(u0, v0).light(light);
+                .color(red, green, blue, alpha).texture(u0, v0).overlay(overlay).light(light).normal(0f, 1f, 0f);
 
         buffer.vertex(matrix4f, x + halfWidth, y, z + halfLength)
-                .color(red, green, blue, alpha).texture(u1, v0).light(light);
+                .color(red, green, blue, alpha).texture(u1, v0).overlay(overlay).light(light).normal(0f, 1f, 0f);
 
         buffer.vertex(matrix4f, x + halfWidth, y, z - halfLength)
-                .color(red, green, blue, alpha).texture(u1, v1).light(light);
+                .color(red, green, blue, alpha).texture(u1, v1).overlay(overlay).light(light).normal(0f, 1f, 0f);
     }
 
     public void renderOverlays(BufferBuilder buffer, Camera camera, Set<BlockPos> coveredBlocks) {
@@ -210,17 +199,19 @@ public class WaveRenderer {
         matrices.translate(transPos.x - 0.5, transPos.y + 1.01, transPos.z - 0.5); // offsets to the wave's position
         Matrix4f matrix4f = matrices.peek().getPositionMatrix();
 
+        int overlay = OverlayTexture.DEFAULT_UV;
+
         buffer.vertex(matrix4f, 0, 0, 0)
-                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u0, v0).light(light);
+                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u0, v0).overlay(overlay).light(light).normal(0f, 1f, 0f);
 
         buffer.vertex(matrix4f, 0, 0, 1)
-                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u0, v1).light(light);
+                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u0, v1).overlay(overlay).light(light).normal(0f, 1f, 0f);
 
         buffer.vertex(matrix4f, 1, 0, 1)
-                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u1, v1).light(light);
+                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u1, v1).overlay(overlay).light(light).normal(0f, 1f, 0f);
 
         buffer.vertex(matrix4f, 1, 0, 0)
-                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u1, v0).light(light);
+                .color(0.1f, 0.1f, 0.25f, 0.25f).texture(u1, v0).overlay(overlay).light(light).normal(0f, 1f, 0f);
 
         matrices.pop();
     }

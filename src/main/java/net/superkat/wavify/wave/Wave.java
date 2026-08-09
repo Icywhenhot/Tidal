@@ -20,21 +20,18 @@ import org.jetbrains.annotations.Range;
 import java.util.List;
 import java.util.Set;
 
-/**
- * A total mess of a class which handles wave position/movement, scale, color, and lifecycle of waves.<br><br>
- * <p>
- * i actually dislike this class a lot it is very incomprehensible
- */
+// total mess of a class, does wave position, movement, scale, color and lifecycle
+// i actually dislike this class a lot it is very incomprehensible
 public class Wave {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = MathHelper.square(100.0);
 
-    //TODO - wave scales
-    //TODO - spary particle width
-    //TODO - fix fall washing up
+    // todo: wave scales
+    // todo: spary particle width
+    // todo: fix fall washing up
 
     public ClientWorld world;
     public BlockPos spawnPos;
-    public float yaw; //wave's yaw in degrees (in theory)
+    public float yaw; // yaw in degrees, in theory
     public boolean bigWave;
 
     public Box box;
@@ -147,15 +144,15 @@ public class Wave {
             return;
         }
 
-        if (updateWashingUp()) { // wave has hit shore
-            if (this.getWashingAge() <= 10) { // just hit shore - immediate slowdown
+        if (updateWashingUp()) { // hit the shore
+            if (this.getWashingAge() <= 10) { // just landed, slow down hard
                 this.velX *= 0.875f;
                 this.velY = -0.0005f;
                 this.velZ *= 0.875f;
-            } else if (washBounce()) { // sometime after shore - slight bounce
+            } else if (washBounce()) { // little bounce a bit later
                 this.velX *= 1.2f;
                 this.velZ *= 1.2f;
-            } else { // remaining time in shore - continue slowing down until despawn
+            } else { // rest of its time onshore, keep slowing until it dies
                 this.velX *= 0.9f;
                 this.velZ *= 0.9f;
             }
@@ -169,13 +166,13 @@ public class Wave {
             }
         } else {
             this.updateWaterColor();
-            if (drowningAway) { // wave is despawning in water because it didn't hit shore within reasonable time
+            if (drowningAway) { // never found a shore in time so it just dies out in the water
                 this.length -= 0.1f;
                 this.velY -= 0.005f;
                 if (this.length <= 0f) this.markDead();
             }
 
-            if (this.alpha < 1f) this.alpha += 0.05f; //fade in
+            if (this.alpha < 1f) this.alpha += 0.05f; // fade in
         }
 
         if (this.hitBlock && this.age - this.hitBlockAge >= 2) {
@@ -212,7 +209,7 @@ public class Wave {
         }
     }
 
-    // wave hit block and should spray - intensity depends on current speed & and if it was washing up
+    // hit a block so it sprays, how much depends on speed and whether it was washing up
     public void spray() {
         if (this.hitBlock) return;
 
@@ -334,11 +331,7 @@ public class Wave {
         this.setColor(color.x, color.y, color.z);
     }
 
-    /**
-     * @param red   Float 0f through 1f
-     * @param green Float 0f through 1f
-     * @param blue  Float 0f through 255f - nah I'm just kidding its 0f through 1f
-     */
+    // all three are 0f through 1f, blue is 0f through 255f, nah i'm kidding it's 0f through 1f
     public void setColor(@Range(from = 0, to = 1) float red, @Range(from = 0, to = 1) float green, @Range(from = 0, to = 1) float blue) {
         this.red = red;
         this.green = green;
@@ -370,7 +363,7 @@ public class Wave {
     }
 
     public int getLight() {
-        //emissive during full moon :)
+        // emissive during a full moon :)
         if (canFullMoonGlow() && (int)(this.world.getTimeOfDay() / 24000L % 8L) == 0 && this.world.getTimeOfDay() >= 12000)
             return LightmapTextureManager.pack(15, 15);
         BlockPos pos = this.getBlockPos().add(0, 1, 0);

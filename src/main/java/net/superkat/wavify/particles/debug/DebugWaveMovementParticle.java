@@ -89,7 +89,7 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
         this.green = vector3f.y();
         this.blue = vector3f.z();
 
-        //i don't think this works but okay
+        // don't think this works but okay
         this.setAlpha(MathHelper.lerp((float) this.age / this.maxAge, 1f, 0f));
     }
 

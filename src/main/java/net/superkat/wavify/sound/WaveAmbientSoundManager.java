@@ -14,24 +14,16 @@ import net.superkat.wavify.wave.WavifyWaveHandler;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-/**
- * Drives the ambient ocean / river loops. Called every client tick.
- *
- * Each tick we scan the wave handler's active waves, find the closest ocean
- * and river instances within {@link #DETECTION_RADIUS}, and set the target
- * volume on the corresponding looping sound. {@link WaveAmbientSoundInstance}
- * handles the actual lerp.
- *
- * Ocean variant: picked once per "session" (each time the ocean loop starts
- * from cold), randomly chosen between OCEAN_WAVE_1 / OCEAN_WAVE_2.
- */
+// runs the ambient ocean and river loops, ticked client side
+// every tick we look through the active waves, find the closest ocean and river ones in range,
+// and set a target volume on the matching loop, the sound instance does the actual lerp
+// the ocean variant gets picked once each time the loop starts from cold, either wave 1 or wave 2
 public final class WaveAmbientSoundManager {
     private static final double DETECTION_RADIUS = 48.0;
     private static final double DETECTION_RADIUS_SQ = DETECTION_RADIUS * DETECTION_RADIUS;
 
-    // Max volume the loop ramps up to. The actual ramp speed lives in the
-    // sound instance (FADE_PER_TICK). Volume curve: distance 0 = full, edge
-    // of detection radius = 0.
+    // loudest the loop gets, ramp speed lives in the sound instance
+    // full volume right on top of a wave, silent at the edge of the radius
     private static final float OCEAN_MAX_VOLUME = 0.6f;
     private static final float RIVER_MAX_VOLUME = 0.5f;
 
@@ -84,7 +76,7 @@ public final class WaveAmbientSoundManager {
         boolean present = closestSq < Double.MAX_VALUE;
         float target = 0f;
         if (present) {
-            // Linear falloff: 1.0 at distance 0, 0.0 at DETECTION_RADIUS.
+            // straight linear falloff from 1 down to 0 across the radius
             double dist = Math.sqrt(closestSq);
             float falloff = (float) Math.max(0.0, 1.0 - dist / DETECTION_RADIUS);
             target = maxVolume * falloff;
@@ -120,7 +112,7 @@ public final class WaveAmbientSoundManager {
         }
     }
 
-    /** Called when leaving a world / changing dimensions: nuke loops immediately. */
+    // leaving a world or swapping dimensions, kill the loops right away
     public void hardReset() {
         SoundManager sm = MinecraftClient.getInstance().getSoundManager();
         if (oceanLoop != null) {

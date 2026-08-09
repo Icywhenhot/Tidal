@@ -11,19 +11,11 @@ import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.joml.Vector3f;
 
-/**
- * General utils class for helping show data. For example, colors for a list to use with the debug particles.
- * <br><br>
- * Current debug stuff:
- * <ul>
- * <li>Spyglass in hotbar for all scanned water blocks, color coded per closest SitePos</li>
- * <li>Compass to see wave direction of all blocks in your chunk</li>
- * <li>Compass in offhand to see wave direction of all blocks within nearby chunks</li>
- * <li>Spyglass in hotbar to see debug wave particles in your chunk</li>
- * <li>Clock in hotbar to see debug wave particles in nearby chunks</li>
- * <li>Use spyglass in scanned water block to print direction in console</li>
- * </ul>
- */
+// bits and pieces for showing debug data, like the colors the debug particles use
+// spyglass in hotbar shows every scanned water block, colored by its closest site
+// compass shows wave direction in your chunk, offhand compass does nearby chunks too
+// clock in hotbar shows wave particles in nearby chunks
+// and using a spyglass while stood in scanned water prints the direction to console
 public class DebugHelper {
 
     public static boolean debug() {
@@ -63,7 +55,7 @@ public class DebugHelper {
         return player.getOffHandStack().isOf(Items.SPYGLASS);
     }
 
-    // stop making fun of my choices of debug items - it's because i watch bdubs
+    // stop making fun of my debug items, it's because i watch bdubs
     public static boolean clockInHotbar() {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
@@ -100,7 +92,7 @@ public class DebugHelper {
     }
 
     // sick
-    // This method was redone an embarrassing amount of times to get nice looking colors
+    // redid this an embarrassing number of times to get colors that look nice
     public static Vector3f debugColor(int i, int size) {
         if(i == 0) return new Vector3f(1f, 1f, 1f); // white
         if(i == 1) return new Vector3f(1f, 0f, 0f); // red
@@ -109,8 +101,8 @@ public class DebugHelper {
 
         i -= 3; // buy any get first 4 free
 
-        // super ultra cursed debug colors - wait actually I'm a bit of a genuius
-        // confusing, mind confusing confused, don't understand no snese uh - confusing
+        // super ultra cursed debug colors, wait actually i'm a bit of a genuius
+        // confusing, mind confusing confused, don't understand no snese uh, confusing
         int i1 = 255 -  ((((i / 3) + 1) * 30) % 255);
         int i2 = 255 -  ((((i / 3) + 30) * 30) % 255);
         int i3 = 255 -  ((((i / 3) - 90) * 30) % 255);
@@ -143,7 +135,7 @@ public class DebugHelper {
     }
 
     private static float checkColor(float color) {
-        // confirm rgb int is within 255 because that debugColor method is pretty cursed
+        // keep the rgb int under 255 because that debugColor method is pretty cursed
         if(color > 1f) return 1f;
         return Math.max(color, 0f); // wow intellij really smart
     }

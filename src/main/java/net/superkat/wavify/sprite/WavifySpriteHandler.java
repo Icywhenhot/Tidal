@@ -16,12 +16,11 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-/**
- * This is an alternative to Minecraft's particle texture system.<br><br>
- * Because SpriteIdentifier's Sprites are always ticking their animation, I can't have different timed animations for different waves.<br><br>
- * Particle's fix for this is splitting each frame into its own texture, and using their own ResourceReloader.<br><br>
- * My fix for this is using my own metadata (given via .mcmeta) which says the frame height/width/time, and using my own resource loader. The normal sprite metadata is ignored completely, disallowing the animation to be setup in my atlas.
- */
+// our own take on minecraft's particle texture system
+// sprites from a SpriteIdentifier always tick their animation, so waves can't have their own timings
+// vanilla particles get around it by splitting every frame into its own texture with a custom reloader
+// we instead put frame width, height and time in our own mcmeta and load it ourselves
+// the normal sprite metadata gets ignored completely so the atlas never sets up an animation
 public class WavifySpriteHandler implements SimpleResourceReloadListener<SpriteLoader.StitchResult> {
     public static final String MOD_ID = Wavify.MOD_ID;
     public static final Identifier WAVE_ATLAS_ID = Identifier.of(MOD_ID, "textures/atlas/waves.png");

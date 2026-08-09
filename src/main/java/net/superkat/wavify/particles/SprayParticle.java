@@ -50,7 +50,7 @@ public class SprayParticle extends SpriteBillboardParticle {
 
         if(spawnWhite()) {
             this.world.addParticle(new WhiteSprayParticleEffect(yaw, intensity, this.scale), x, y, z, velX, velY, velZ);
-            this.updateWaterColor(); //only need to update on spawn because it lasts for so little time
+            this.updateWaterColor(); // only on spawn, these live for barely any time
         }
 
         this.angle = 15 * intensity * 5f;
@@ -147,7 +147,7 @@ public class SprayParticle extends SpriteBillboardParticle {
             double e = dy;
             double f = dz;
             if (this.collidesWithWorld && (dx != 0.0 || dy != 0.0 || dz != 0.0) && dx * dx + dy * dy + dz * dz < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
-                //expanding bounding box to specifically account for mud and I guess soul sand too?
+                // bigger bounding box for mud, and soul sand i guess?
                 Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(dx, dy, dz), this.getBoundingBox().expand(0, 0.15, 0), this.world, List.of());
                 dx = vec3d.x;
                 dy = vec3d.y;

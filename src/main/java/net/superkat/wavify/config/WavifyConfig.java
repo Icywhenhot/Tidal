@@ -48,7 +48,7 @@ public class WavifyConfig extends MidnightConfig {
 
     public static int waveTicks = 80; // dummy value
 
-    /** Legacy field kept for any external callers; the live value is {@link #spawnDistance}. */
+    // old field other mods might read, the real one is spawnDistance
     public static int waveDistFromShore = 8;
 
     public static boolean modEnabled = true;

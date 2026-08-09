@@ -13,12 +13,9 @@ import org.joml.Vector3f;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Central source for wave / splash water colour. Honours the config:
- *   - BIOME: vanilla {@link BiomeColors#getWaterColor}
- *   - CUSTOM: a single global hex color
- * Per-biome overrides (when non-empty) always win, regardless of mode.
- */
+// one place for wave and splash water color, follows the config
+// biome mode uses vanilla's water color, custom mode uses one global hex
+// per biome overrides beat both of those whenever they're set
 public class WavifyColors {
 
     private static Map<Identifier, Integer> parsedOverrides = null;
@@ -53,11 +50,7 @@ public class WavifyColors {
                 .orElse(Integer.MIN_VALUE);
     }
 
-    /**
-     * Parses {@link WavifyConfig#biomeColorOverrides} from a simple
-     * "namespace:biome=RRGGBB,..." string into a cached map. Re-parses when the
-     * raw string changes.
-     */
+    // turns the namespace:biome=RRGGBB list from the config into a cached map, redone when the string changes
     private static Map<Identifier, Integer> getParsedOverrides() {
         String raw = WavifyConfig.biomeColorOverrides;
         if (raw == null) raw = "";

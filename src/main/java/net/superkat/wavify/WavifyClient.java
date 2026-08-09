@@ -10,15 +10,10 @@ import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.client.MinecraftClient;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.resource.ResourceType;
 import net.superkat.wavify.duck.WavifyWorld;
 import net.superkat.wavify.event.ClientBlockUpdateEvent;
@@ -38,16 +33,26 @@ public class WavifyClient implements ClientModInitializer {
     public static WavifySpriteHandler WAVIFY_SPRITE_HANDLER = new WavifySpriteHandler();
     public static final WaveAmbientSoundManager SOUND_MANAGER = new WaveAmbientSoundManager();
 
-    // Using entityTranslucent: maps to gbuffers_entities_translucent under
-    // shaderpacks, gives consistent blending + depth-test-on/write-off. Picked
-    // over weather (gbuffers_weather) because several packs (Continuum, Helian,
-    // Photon) treat weather very differently from translucent geometry.
-    //
-    // Shader-mode behavior is handled at vertex level in WaveRenderer:
-    // IrisCompat.isShaderPackActive() lowers wave Y slightly so vanilla water
-    // (which the shaderpack reflects/refracts) renders on top of the wave,
-    // giving the wave color/foam the same shader-water treatment as the rest
-    // of the surface. See WaveRenderer#shaderYOffset.
+    // entityTranslucent maps to gbuffers_entities_translucent under shaderpacks and blends consistently
+    // picked over weather because packs like Continuum, Helian and Photon treat weather really differently
+    // don't swap this for a terrain program like tripwire, those are chunk layers
+    // their vertex shader does pos = Position + ChunkOffset and wants the full block vertex format
+    // we hand over camera relative positions, which only works while ChunkOffset is zero
+    // vanilla zeroes it after the terrain pass so you get away with it, shaderpacks don't
+    // iris gives back the pack's real terrain program, which reads mc_Entity and at_midBlock and friends
+    // our buffer never binds those, and complementary waves blocks around based on them
+    // that's what threw the wave quads into the sky
+    private static RenderLayer waveRenderLayer;
+
+    private static RenderLayer getWaveRenderLayer() {
+        if (waveRenderLayer == null) {
+            waveRenderLayer = RenderLayer.getEntityTranslucent(WavifySpriteHandler.WAVE_ATLAS_ID);
+        }
+        return waveRenderLayer;
+    }
+
+    // the shader specific bit happens per vertex over in WaveRenderer
+    // it drops the wave a little when a pack is on so vanilla water covers it and gets shaded normally
     @Override
     public void onInitializeClient() {
         ParticleFactoryRegistry.getInstance().register(WavifyParticles.SPRAY_PARTICLE, SprayParticle.Factory::new);
@@ -59,7 +64,7 @@ public class WavifyClient implements ClientModInitializer {
         ParticleFactoryRegistry.getInstance().register(WavifyParticles.DEBUG_SHORELINE_PARTICLE, DebugShoreParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE, DebugWaveMovementParticle.Factory::new);
 
-        //Called after joining a world, or changing dimensions
+        // joined a world or swapped dimensions
         ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> {
             WavifyWorld wavifyWorld = (WavifyWorld) world;
             wavifyWorld.wavify$wavifyWaveHandler().reloadNearbyChunks();
@@ -84,7 +89,7 @@ public class WavifyClient implements ClientModInitializer {
             wavifyWorld.wavify$wavifyWaveHandler().waterHandler.unloadChunk(chunk);
         });
 
-        //Called when an individual block is updated(placed, broken, state changed, etc.)
+        // some block got placed, broken or otherwise changed
         ClientBlockUpdateEvent.BLOCK_UPDATE.register((pos, state) -> {
             MinecraftClient client = MinecraftClient.getInstance();
             if(client.world == null || client.player == null) return;
@@ -92,9 +97,9 @@ public class WavifyClient implements ClientModInitializer {
             wavifyWorld.wavify$wavifyWaveHandler().waterHandler.onBlockUpdate(pos, state);
         });
 
-        //Called when the chunks are reloaded(f3+a, resource pack change, etc.)
+        // chunks got reloaded, f3+a or a resource pack swap
         InvalidateRenderStateCallback.EVENT.register(() -> {
-            //actually have to check for null stuff here because this could be in the title screen I think
+            // need the null checks here, this can fire on the title screen i think
             MinecraftClient client = MinecraftClient.getInstance();
             if(client.world == null || client.player == null) return;
             WavifyWorld wavifyWorld = (WavifyWorld) client.world;
@@ -102,36 +107,23 @@ public class WavifyClient implements ClientModInitializer {
             wavifyWorld.wavify$wavifyWaveHandler().waterHandler.rebuild();
         });
 
-        // Render at END_MAIN (after the main world pass, including translucent
-        // water) so waves overlay water properly. The new entityTranslucent
-        // layer writes depth, and rendering before water caused fade-in quads
-        // to punch a hole through the water surface.
+        // render after the main world pass including translucent water so waves sit on top properly
+        // entityTranslucent writes depth, and going before water made fade in quads punch a hole through it
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> {
             if(context.world() == null) return;
             WavifyWorld wavifyWorld = (WavifyWorld) context.world();
+            RenderLayer layer = getWaveRenderLayer();
             Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
+            // pull draw mode and format off the layer so the buffer can't drift from the program it binds
+            BufferBuilder buffer = tessellator.begin(layer.getDrawMode(), layer.getVertexFormat());
 
             wavifyWorld.wavify$wavifyWaveHandler().render(buffer, context);
 
             BuiltBuffer builtBuffer = buffer.endNullable();
             if(builtBuffer == null) return;
 
-            LightmapTextureManager lightmapTextureManager = MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager();
-            lightmapTextureManager.enable();
-
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-            RenderSystem.setShader(GameRenderer::getRenderTypeTripwireProgram);
-            RenderSystem.setShaderTexture(0, WavifySpriteHandler.WAVE_ATLAS_ID);
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-
-            BufferRenderer.drawWithGlobalProgram(builtBuffer);
-
-            RenderSystem.depthMask(true);
-            RenderSystem.disableBlend();
-            lightmapTextureManager.disable();
+            // does shader, texture, blending, depth, lightmap and overlay setup for us
+            layer.draw(builtBuffer);
         });
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(WAVIFY_SPRITE_HANDLER);

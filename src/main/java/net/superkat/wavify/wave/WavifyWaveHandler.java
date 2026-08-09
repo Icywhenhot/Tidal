@@ -43,32 +43,26 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 
-/**
- * The main handler, used for spawning and handling waves, as well as ticking the world's {@link WaterHandler}
- */
+// main handler, spawns and ticks waves and drives the world's WaterHandler
 public class WavifyWaveHandler {
     public final ClientWorld world;
     public WaterHandler waterHandler;
     public WaveRenderer renderer;
 
     public List<Wave> waves = new ObjectArrayList<>();
-    // Set of BlockPos's currently being covered by waves - used for rendering wet overlay
+    // blocks currently under a wave, this is what the wet overlay draws on
     public Set<BlockPos> coveredBlocks = new ObjectArraySet<>();
     private List<RiverFlow.DebugMarker> riverDebugMarkers = List.of();
     private final RiverFlowField riverFlow = new RiverFlowField();
 
-    // Near-player blue-noise scatter parameters for river waves. River waves are small and only read up
-    // close, so we only ever consider water within a configurable radius of the player - cost is
-    // independent of how large the river actually is. The radius itself comes from
-    // WavifyConfig.riverWaveSpawnRadius; the chunk radius is derived from it.
+    // river waves are tiny and only read up close so we only look at water near the player
+    // cost stays flat no matter how big the river is, radius comes from the config
     private static final double RIVER_MIN_SPACING_SQ = 5.0 * 5.0;
-    /** Water blocks required to the nearest bank on each side before a river wave may spawn there. Keeps
-     *  waves off the very edge, where the flow direction is least reliable and they jitter. */
+    // how much water we need on each side before spawning, keeps waves off the edge where flow gets jittery
     private static final int SPAWN_BANK_MARGIN = 1;
 
-    // Isolated-object suppression: classify a shoreline site by flooding the connected solid blocks at the
-    // waterline. At/under the cap => small isolated object (shipwreck/ruin/debris) => spawn no waves.
-    private static final int LANDMASS_CAP = 768; // footprint flood cap; at/under this => "small object"
+    // flood the solid blocks at the waterline, small enough and it's a shipwreck or some debris, not a shore
+    private static final int LANDMASS_CAP = 768; // at or under this counts as a small object
 
     public boolean nearbyChunksLoaded = false;
 
@@ -82,9 +76,7 @@ public class WavifyWaveHandler {
         this.nearbyChunksLoaded = false;
     }
 
-    /**
-     * General tick method for all tick-related things EXCEPT the actual waves.
-     */
+    // ticks everything except the waves themselves
     public void tick() {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
@@ -107,9 +99,7 @@ public class WavifyWaveHandler {
         this.renderer.render(buffer, context);
     }
 
-    /**
-     * Tick method for waves
-     */
+    // and this one ticks the waves
     public void wavifyTick() {
         if (!this.world.getTickManager().shouldTick()) return;
         double time = this.world.getTime();
@@ -143,13 +133,13 @@ public class WavifyWaveHandler {
         if (updateCoveredBlocks) {
             this.coveredBlocks = updatedCovered;
         } else if (!WavifyConfig.enableWetOverlay && !this.coveredBlocks.isEmpty()) {
-            this.coveredBlocks = updatedCovered; // empty: drop any lingering wet when the feature is off
+            this.coveredBlocks = updatedCovered; // empty, drops leftover wet when the feature gets turned off
         }
     }
 
     public void spawnAllWaves() {
         int distFromShore = WavifyConfig.spawnDistance;
-        WavifyConfig.waveDistFromShore = distFromShore; // keep legacy field in sync
+        WavifyConfig.waveDistFromShore = distFromShore; // keeps the old field in sync
         int chunkRadius = WavifyConfig.chunkRadius - 2;
 
         ChunkPos playerChunk = MinecraftClient.getInstance().player.getChunkPos();
@@ -362,12 +352,8 @@ public class WavifyWaveHandler {
         return false;
     }
 
-    /**
-     * Blue-noise scatter of river waves across river water near the player. No flood-fill, no reach
-     * building, no accept/reject gate: every chosen spot becomes a visible wave, so coverage is uniform
-     * and nothing is ever silently discarded. Cost depends only on nearby water and the density config,
-     * never on the size of the river.
-     */
+    // scatters river waves over nearby river water, no flood fill and no reject gate
+    // every spot we pick becomes a real wave so coverage stays even and nothing gets thrown away
     private void spawnRiverWavesNearPlayer() {
         ClientPlayerEntity player = MinecraftClient.getInstance().player;
         if (player == null) return;
@@ -433,7 +419,7 @@ public class WavifyWaveHandler {
 
             RiverFlow.Flow flow = this.riverFlow.flowAt(cx, cz);
             if (flow == null) continue;
-            // Don't spawn against a bank - that's where the flow is least reliable and waves jitter.
+            // not against a bank, flow is least reliable there and the waves jitter
             if (RiverFlow.bankClearance(this.world, cx, cz, water.getY(), flow.dirX(), flow.dirZ(), 4) < SPAWN_BANK_MARGIN) continue;
 
             this.waves.add(new RiverWave(this.world, water, this.riverFlow, flow.dirX(), flow.dirZ(), (float) WavifyConfig.riverWaveTravelBlocks));
@@ -485,8 +471,8 @@ public class WavifyWaveHandler {
     }
 
     public void debugWaveParticles(Set<BlockPos> waterBlocks) {
-        Vector3f color = new Vector3f(1f, 1f, 1f); //activates the movement particle's custom colors
-//        Vector3f color = new Vector3f(0.75f, 0.75f, 0.75f); //deactivates the custom colors
+        Vector3f color = new Vector3f(1f, 1f, 1f); // turns on the movement particle's custom colors
+//        Vector3f color = new Vector3f(0.75f, 0.75f, 0.75f); // and this turns them off
         boolean farParticles = false;
 
         for (BlockPos water : waterBlocks) {
@@ -508,13 +494,12 @@ public class WavifyWaveHandler {
         return this.waves;
     }
 
-    // This isn't perfect, but its close enough I suppose
+    // not perfect but close enough i suppose
     public boolean nearbyChunksLoaded(ClientPlayerEntity player) {
         if (nearbyChunksLoaded) return true;
         int chunkRadius = getChunkRadius();
 
-        // using WorldChunk instead of chunk because it has "isEmpty" method
-        // could use chunk instanceof EmptyChunk instead, but this felt better
+        // using WorldChunk over Chunk because it has isEmpty, could do instanceof EmptyChunk but this felt nicer
         int chunkX = player.getChunkPos().x;
         int chunkZ = player.getChunkPos().z;
         int chunkRadiusReduced = chunkRadius - (chunkRadius / 3);
@@ -530,12 +515,12 @@ public class WavifyWaveHandler {
                 world.getChunk(chunkX + (chunkRadiusReduced), chunkZ - (chunkRadiusReduced))
         );
         return checkChunks.stream().noneMatch(WorldChunk::isEmpty);
-        // alternative way - takes slightly longer
+        // other way of doing it, bit slower
 //        return MinecraftClient.getInstance().worldRenderer.isTerrainRenderComplete();
     }
 
-    // Gets all loaded nearby chunks - created using ClientChunkManager & ClientChunkManager.ClientChunkMap
-    // Unused right now, but could be helpful for making the WaterBodyHandler's scanners empty out when a scanner is done
+    // every loaded chunk near the player, unused right now
+    // might help later for emptying out scanners once they finish
     public Set<ChunkPos> getNearbyChunkPos() {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
@@ -557,9 +542,7 @@ public class WavifyWaveHandler {
         return loadedChunks;
     }
 
-    /**
-     * @return The wave chunk radius - pulls from either the Wavify config or the server's render distance(whichever one is smaller).
-     */
+    // wave chunk radius, whichever is smaller out of the config and the server's render distance
     public int getChunkRadius() {
         MinecraftClient client = MinecraftClient.getInstance();
         int configRadius = WavifyConfig.chunkRadius;
@@ -568,9 +551,7 @@ public class WavifyWaveHandler {
         return Math.min(configRadius, serverRadius);
     }
 
-    /**
-     * @return The loaded chunk radius - used for figuring out all loaded chunks on the client.
-     */
+    // how far out chunks are actually loaded on the client
     public int getLoadedChunkRadius() {
         MinecraftClient client = MinecraftClient.getInstance();
         int loadRadius = client.options.serverViewDistance;
@@ -582,7 +563,7 @@ public class WavifyWaveHandler {
             renderRiverDebugMarkers(player);
         }
 
-        // show water direction of water blocks
+        // draw which way each water block flows
         if (DebugHelper.holdingCompass() || DebugHelper.offhandCompass()) {
             if (!this.waterHandler.built) return;
 
@@ -601,7 +582,7 @@ public class WavifyWaveHandler {
 
         }
 
-        // print water direction's yaw
+        // print the yaw we worked out
         if (DebugHelper.usingSpyglass()) {
             if (client.world.getTime() % 20 != 0) return;
 
@@ -640,8 +621,8 @@ public class WavifyWaveHandler {
     }
 
     public void debugChunkDirectionParticles(long chunkPosL, boolean farParticles) {
-        Vector3f color = new Vector3f(1f, 1f, 1f); //activates the movement particle's custom colors
-//        Vector3f color = new Vector3f(0.75f, 0.75f, 0.75f); //deactivates the custom colors
+        Vector3f color = new Vector3f(1f, 1f, 1f); // turns on the movement particle's custom colors
+//        Vector3f color = new Vector3f(0.75f, 0.75f, 0.75f); // and this turns them off
 
         Map<BlockPos, SitePos> map = this.waterHandler.waterCache.get(chunkPosL);
         if (map == null) return;
@@ -660,29 +641,20 @@ public class WavifyWaveHandler {
         }
     }
 
-    /**
-     * @return A random Random with a randomly generated random RandomSeed seed.
-     */
+    // a random random with a randomly random seed
     public static Random getRandom() {
         return Random.create();
     }
 
-    /**
-     * @return A random with a seed that will, most likely, be synced between clients despite being client side. Lag may cause a small issue, but should be rare.
-     */
+    // seeded off world time so clients mostly line up even though this is all client side
+    // lag can throw it off but that should be rare
     public static Random getSyncedRandom() {
         long time = MinecraftClient.getInstance().world.getTime();
         long random = 5L * Math.round(time / 5f); // math.ceil instead?
         return Random.create(random);
     }
 
-    /**
-     * Check if a BlockPos is water or is waterlogged
-     *
-     * @param world World to check in
-     * @param pos   BlockPos to check
-     * @return If the BlockPos is water or waterlogged
-     */
+    // is this pos water or waterlogged
     public static boolean posIsWater(ClientWorld world, BlockPos pos) {
         FluidState state = world.getFluidState(pos);
         return state.isIn(FluidTags.WATER);
