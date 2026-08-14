@@ -57,7 +57,7 @@ public class RiverWave extends Wave {
         this.baseLength = this.length;
         this.maxAlpha = 0.78f;
         this.motionPhase = world.getRandom().nextFloat() * 24f;
-        // Always > 0 so no wave is a straight line; upper end produces deep crescents.
+
         this.curvatureFactor = 0.65f + world.getRandom().nextFloat() * 0.95f;
         this.lateralFactor = 0.85f + world.getRandom().nextFloat() * 0.35f;
 
@@ -145,7 +145,7 @@ public class RiverWave extends Wave {
         if (flow != null) {
             double tx = flow.dirX();
             double tz = flow.dirZ();
-            // Keep moving forward: never let an orientation flip reverse a wave mid-channel.
+
             if (tx * this.dirX + tz * this.dirZ < 0.0) {
                 tx = -tx;
                 tz = -tz;

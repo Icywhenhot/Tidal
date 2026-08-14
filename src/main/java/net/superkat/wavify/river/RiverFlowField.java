@@ -31,17 +31,15 @@ public final class RiverFlowField {
     private static final double SQRT2 = Math.sqrt(2.0);
 
     private static final int OCEAN_RIVER_RAY = 24;
-    private static final int OCEAN_RIVER_CELL_BITS = 2; // 4-block classification cells
+    private static final int OCEAN_RIVER_CELL_BITS = 2;
     private final Long2ByteOpenHashMap oceanRiverCache = new Long2ByteOpenHashMap();
 
-    // Occupancy (block resolution) over the window.
     private int originX;
     private int originZ;
     private int blockW;
     private int blockH;
     private boolean[] water = new boolean[0];
 
-    // Coarse oriented flow grid. (0, 0) marks an invalid cell.
     private int gridW;
     private int gridH;
     private float[] dirX = new float[0];
@@ -83,16 +81,16 @@ public final class RiverFlowField {
     public boolean isOceanSurroundedRiver(ClientLevel level, BlockPos pos) {
         long key = (((long) (pos.getX() >> OCEAN_RIVER_CELL_BITS)) & 0xFFFFFFFFL)
                 | (((long) (pos.getZ() >> OCEAN_RIVER_CELL_BITS)) << 32);
-        byte cached = this.oceanRiverCache.get(key);   // default return 0 = unknown
+        byte cached = this.oceanRiverCache.get(key);
         if (cached != 0) return cached == 2;
         boolean embedded = RiverFlow.isOceanSurrounded(level, pos, OCEAN_RIVER_RAY);
-        this.oceanRiverCache.put(key, (byte) (embedded ? 2 : 1)); // 1 real, 2 embedded
+        this.oceanRiverCache.put(key, (byte) (embedded ? 2 : 1));
         return embedded;
     }
 
     private void build(ClientLevel level, WaterHandler waterHandler, int cx, int cz, long tick) {
         this.oceanRiverCache.clear();
-        // Snapshot the previous field so the new build can keep the same flow sense where they overlap.
+
         boolean hadPrev = this.built;
         int prevOriginX = this.originX;
         int prevOriginZ = this.originZ;
@@ -223,7 +221,6 @@ public final class RiverFlowField {
             axisZ = Math.sin(theta);
         }
 
-        // Canonical sign: dominant component positive. Stable except on the exact 45-degree tie line.
         if (Math.abs(axisX) >= Math.abs(axisZ)) {
             if (axisX < 0) {
                 axisX = -axisX;

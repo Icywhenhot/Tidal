@@ -92,13 +92,12 @@ public final class RiverFlow {
         return Integer.MIN_VALUE;
     }
 
-    // Ray directions for the ocean-surrounded test: 4 cardinals + 4 diagonals.
     private static final int[] RAY_DX = {1, 1, 0, -1, -1, -1, 0, 1};
     private static final int[] RAY_DZ = {0, 1, 1, 1, 0, -1, -1, -1};
 
-    private static final int RAY_RIVER = 0; // reached the cap still in river water (inconclusive)
-    private static final int RAY_OCEAN = 1; // hit ocean-biome surface water
-    private static final int RAY_LAND = 2;  // blocked by land, or by some non-ocean water (a real bank)
+    private static final int RAY_RIVER = 0;
+    private static final int RAY_OCEAN = 1;
+    private static final int RAY_LAND = 2;
 
     public static boolean isOceanSurrounded(ClientLevel level, BlockPos pos, int maxRay) {
         boolean hasOcean = false;
@@ -116,7 +115,7 @@ public final class RiverFlow {
         for (int s = 1; s <= maxRay; s++) {
             double x = origin.getX() + 0.5 + (double) dx * s;
             double z = origin.getZ() + 0.5 + (double) dz * s;
-            int y = surfaceWaterY(level, x, z, preferredY);   // existing helper in this class
+            int y = surfaceWaterY(level, x, z, preferredY);
             if (y == Integer.MIN_VALUE) return RAY_LAND;
             preferredY = y;
             sample.set(Mth.floor(x), y, Mth.floor(z));

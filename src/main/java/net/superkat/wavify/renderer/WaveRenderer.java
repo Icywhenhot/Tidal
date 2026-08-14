@@ -1,9 +1,8 @@
 package net.superkat.wavify.renderer;
 
 import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -44,14 +43,13 @@ public class WaveRenderer {
         this.level = level;
     }
 
-    public void render(PoseStack poseStack, MultiBufferSource bufferSource, RenderType layer) {
+    public void render(PoseStack poseStack, BufferBuilder buffer) {
         List<Wave> waves = this.handler.getWaves();
         if (waves == null || waves.isEmpty()) return;
 
         Minecraft mc = Minecraft.getInstance();
         float tickDelta = mc.getFrameTime();
         Camera camera = mc.gameRenderer.getMainCamera();
-        VertexConsumer buffer = bufferSource.getBuffer(layer);
 
         float shaderSink = IrisCompat.isShaderPackActive() ? (float) WavifyConfig.shaderWaveYSink : 0f;
         float baseOffset = (float) WavifyConfig.waveYOffset;

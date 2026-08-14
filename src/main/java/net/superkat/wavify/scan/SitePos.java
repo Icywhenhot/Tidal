@@ -10,10 +10,8 @@ public class SitePos {
     public float yaw = 0f;
     public boolean yawCalculated = false;
 
-    // Cached shoreline classification for wave spawning: 0 = unknown, 1 = isolated object, 2 = normal shore.
     public byte shoreClass = 0;
 
-    // cache x's and z's - stored as ints for speed
     public IntArrayList xList = new IntArrayList();
     public IntArrayList zList = new IntArrayList();
 

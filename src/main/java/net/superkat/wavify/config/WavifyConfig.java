@@ -136,7 +136,7 @@ public final class WavifyConfig {
     public static boolean enableWaveSounds = true;
     public static double waveSoundVolume = 1.0;
 
-    public static int waveTicks = 80; // dummy value
+    public static int waveTicks = 80;
 
     public static int waveDistFromShore = 8;
 

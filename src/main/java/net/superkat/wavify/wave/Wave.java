@@ -25,7 +25,7 @@ public class Wave {
 
     public ClientLevel level;
     public BlockPos spawnPos;
-    public float yaw; //wave's yaw in degrees (in theory)
+    public float yaw;
     public boolean bigWave;
 
     public AABB box;
@@ -137,15 +137,15 @@ public class Wave {
             return;
         }
 
-        if (updateWashingUp()) { // wave has hit shore
-            if (this.getWashingAge() <= 10) { // just hit shore - immediate slowdown
+        if (updateWashingUp()) {
+            if (this.getWashingAge() <= 10) {
                 this.velX *= 0.875f;
                 this.velY = -0.0005f;
                 this.velZ *= 0.875f;
-            } else if (washBounce()) { // sometime after shore - slight bounce
+            } else if (washBounce()) {
                 this.velX *= 1.2f;
                 this.velZ *= 1.2f;
-            } else { // remaining time in shore - continue slowing down until despawn
+            } else {
                 this.velX *= 0.9f;
                 this.velZ *= 0.9f;
             }
@@ -159,13 +159,13 @@ public class Wave {
             }
         } else {
             this.updateWaterColor();
-            if (drowningAway) { // wave is despawning in water because it didn't hit shore within reasonable time
+            if (drowningAway) {
                 this.length -= 0.1f;
                 this.velY -= 0.005f;
                 if (this.length <= 0f) this.markDead();
             }
 
-            if (this.alpha < 1f) this.alpha += 0.05f; //fade in
+            if (this.alpha < 1f) this.alpha += 0.05f;
         }
 
         if (this.hitBlock && this.age - this.hitBlockAge >= 2) {
@@ -202,7 +202,6 @@ public class Wave {
         }
     }
 
-    // wave hit block and should spray - intensity depends on current speed & and if it was washing up
     public void spray() {
         if (this.hitBlock) return;
 
@@ -300,7 +299,7 @@ public class Wave {
 
     public AABB getHitBox() {
         if (this.isWashingUp()) {
-            float yawRadians = (float) Math.toRadians(this.yaw); // this took way to long to figure out ( ͡ಠ ʖ̯ ͡ಠ)
+            float yawRadians = (float) Math.toRadians(this.yaw);
             float usedLength = this.bigWave ? this.length * 1.5f : this.length / 16f;
             return this.getBoundingBox().expandTowards(usedLength * Math.cos(yawRadians), 0, usedLength * Math.sin(yawRadians));
         }
@@ -353,7 +352,7 @@ public class Wave {
     }
 
     public int getLight() {
-        //emissive during full moon :)
+
         long dayTime = this.level.getGameTime();
         if (canFullMoonGlow() && (int)(dayTime / 24000L % 8L) == 0 && dayTime % 24000L >= 12000)
             return LightTexture.pack(15, 15);

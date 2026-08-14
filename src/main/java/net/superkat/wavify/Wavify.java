@@ -20,7 +20,6 @@ public class Wavify {
     public Wavify() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // Game registries (particles, sounds) must register on both physical sides.
         WavifyParticles.register(modEventBus);
         WavifySounds.register(modEventBus);
 
@@ -28,7 +27,6 @@ public class Wavify {
         modEventBus.addListener(WavifyConfig::onReload);
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, WavifyConfig.SPEC);
 
-        // Everything else (rendering, particle factories, audio) is client-only.
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> WavifyClient.init(modEventBus));
     }
 }

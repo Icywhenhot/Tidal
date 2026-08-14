@@ -7,8 +7,6 @@ import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.core.particles.ParticleTypes;
@@ -53,7 +51,7 @@ public class WavifyWaveHandler {
     public WaveRenderer renderer;
 
     public List<Wave> waves = new ObjectArrayList<>();
-    // Set of BlockPos's currently being covered by waves - used for rendering wet overlay
+
     public Set<BlockPos> coveredBlocks = new ObjectArraySet<>();
     private List<RiverFlow.DebugMarker> riverDebugMarkers = List.of();
     private final RiverFlowField riverFlow = new RiverFlowField();
@@ -62,7 +60,7 @@ public class WavifyWaveHandler {
 
     private static final int SPAWN_BANK_MARGIN = 1;
 
-    private static final int LANDMASS_CAP = 768; // footprint flood cap; at/under this => "small object"
+    private static final int LANDMASS_CAP = 768;
 
     public boolean nearbyChunksLoaded = false;
 
@@ -94,8 +92,8 @@ public class WavifyWaveHandler {
 
     }
 
-    public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, MultiBufferSource bufferSource, RenderType layer) {
-        this.renderer.render(poseStack, bufferSource, layer);
+    public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, com.mojang.blaze3d.vertex.BufferBuilder buffer) {
+        this.renderer.render(poseStack, buffer);
     }
 
     public void wavifyTick() {
@@ -103,7 +101,7 @@ public class WavifyWaveHandler {
             Wavify.LOGGER.info("[wavify-dw] handler ticking: enableRiverWaves={} paused={}",
                     WavifyConfig.enableRiverWaves, Minecraft.getInstance().isPaused());
         }
-        // 1.20.1 has no per-level tick-rate manager; just skip while the client is paused.
+
         if (Minecraft.getInstance().isPaused()) return;
         double time = this.level.getGameTime();
         if (WavifyConfig.enableOceanWaves && time % 80 == 0) {
@@ -136,13 +134,13 @@ public class WavifyWaveHandler {
         if (updateCoveredBlocks) {
             this.coveredBlocks = updatedCovered;
         } else if (!WavifyConfig.enableWetOverlay && !this.coveredBlocks.isEmpty()) {
-            this.coveredBlocks = updatedCovered; // empty: drop any lingering wet when the feature is off
+            this.coveredBlocks = updatedCovered;
         }
     }
 
     public void spawnAllWaves() {
         int distFromShore = WavifyConfig.spawnDistance;
-        WavifyConfig.waveDistFromShore = distFromShore; // keep legacy field in sync
+        WavifyConfig.waveDistFromShore = distFromShore;
         int chunkRadius = WavifyConfig.chunkRadius - 2;
 
         ChunkPos playerChunk = Minecraft.getInstance().player.chunkPosition();
@@ -374,7 +372,7 @@ public class WavifyWaveHandler {
         int spawnChunkRadius = Mth.ceil(spawnRadius / 16.0);
 
         List<BlockPos> candidates = new ArrayList<>();
-        // --- TEMP DW DIAGNOSTIC (remove once DW river-wave compat is confirmed) ---
+
         boolean dwDiag = DynamicWatersCompat.isLoaded();
         int diagNearbyWaters = 0, diagDwRiver = 0, diagBiomeRiver = 0;
         Set<String> diagFluidIds = Sets.newHashSet();
@@ -422,7 +420,6 @@ public class WavifyWaveHandler {
             Wavify.LOGGER.info("[wavify-dw] enableRiver={} nearbyWaters={} fluids={} dwRiver={} biomeRiver={} candidates={} | sample {}",
                     WavifyConfig.enableRiverWaves, diagNearbyWaters, diagFluidIds, diagDwRiver, diagBiomeRiver, candidates.size(), sample);
         }
-        // --- END TEMP DW DIAGNOSTIC ---
 
         if (candidates.isEmpty()) {
             this.riverDebugMarkers = List.of();
@@ -460,7 +457,7 @@ public class WavifyWaveHandler {
             if (!dynamic) {
                 flow = this.riverFlow.flowAt(cx, cz);
                 if (flow == null) continue;
-                // Don't spawn against a bank - that's where the flow is least reliable and waves jitter.
+
                 if (RiverFlow.bankClearance(this.level, cx, cz, water.getY(), flow.dirX(), flow.dirZ(), 4) < SPAWN_BANK_MARGIN) continue;
             }
 
@@ -513,14 +510,13 @@ public class WavifyWaveHandler {
     }
 
     public void debugWaveParticles(Set<BlockPos> waterBlocks) {
-        Vector3f color = new Vector3f(1f, 1f, 1f); //activates the movement particle's custom colors
-//        Vector3f color = new Vector3f(0.75f, 0.75f, 0.75f); //deactivates the custom colors
+        Vector3f color = new Vector3f(1f, 1f, 1f);
+
         boolean farParticles = false;
 
         for (BlockPos water : waterBlocks) {
             SitePos site = this.waterHandler.getSiteForPos(water);
             if (site == null || !site.yawCalculated) continue;
-//            if(site.xList.size() < 50) continue;
 
             DebugWaveMovementParticle.DebugWaveMovementParticleEffect particleEffect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
                     color,
@@ -536,7 +532,6 @@ public class WavifyWaveHandler {
         return this.waves;
     }
 
-    // This isn't perfect, but its close enough I suppose
     public boolean nearbyChunksLoaded(LocalPlayer player) {
         if (nearbyChunksLoaded) return true;
         int chunkRadius = getChunkRadius();
@@ -598,7 +593,6 @@ public class WavifyWaveHandler {
             renderRiverDebugMarkers(player);
         }
 
-        // show water direction of water blocks
         if (DebugHelper.holdingCompass() || DebugHelper.offhandCompass()) {
             if (!this.waterHandler.built) return;
 
@@ -617,7 +611,6 @@ public class WavifyWaveHandler {
 
         }
 
-        // print water direction's yaw
         if (DebugHelper.usingSpyglass()) {
             if (client.level.getGameTime() % 20 != 0) return;
 
@@ -627,7 +620,7 @@ public class WavifyWaveHandler {
             if (scannedBlocks.contains(playerPos)) {
                 long chunkPosL = ChunkPos.asLong(playerPos);
                 SitePos site = this.waterHandler.waterCache.get(chunkPosL).get(playerPos);
-//                System.out.println(this.level.getBiome(site.getPos()).is(BiomeTags.IS_RIVER));
+
                 System.out.println(site.xList.size());
             }
         }
@@ -656,8 +649,7 @@ public class WavifyWaveHandler {
     }
 
     public void debugChunkDirectionParticles(long chunkPosL, boolean farParticles) {
-        Vector3f color = new Vector3f(1f, 1f, 1f); //activates the movement particle's custom colors
-//        Vector3f color = new Vector3f(0.75f, 0.75f, 0.75f); //deactivates the custom colors
+        Vector3f color = new Vector3f(1f, 1f, 1f);
 
         Map<BlockPos, SitePos> map = this.waterHandler.waterCache.get(chunkPosL);
         if (map == null) return;
@@ -682,7 +674,7 @@ public class WavifyWaveHandler {
 
     public static RandomSource getSyncedRandom() {
         long time = Minecraft.getInstance().level.getGameTime();
-        long random = 5L * Math.round(time / 5f); // math.ceil instead?
+        long random = 5L * Math.round(time / 5f);
         return RandomSource.create(random);
     }
 

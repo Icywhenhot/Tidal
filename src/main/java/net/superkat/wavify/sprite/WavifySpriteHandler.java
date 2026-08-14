@@ -68,7 +68,7 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
                 int frameHeight = GsonHelper.getAsInt(section, "frame_height", 16);
 
                 String path = mcmetaId.getPath();
-                // Strip "textures/wave/" prefix and ".png.mcmeta" suffix.
+
                 String stripped = path.substring(TEXTURE_FOLDER.length() + 1, path.length() - ".png.mcmeta".length());
                 ResourceLocation spriteId = new ResourceLocation(MOD_ID, stripped);
                 map.put(spriteId, new WaveResourceMetadata(frameTime, frameHeight));

@@ -1,8 +1,10 @@
 package net.superkat.wavify;
 
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.Tesselator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
@@ -117,11 +119,20 @@ public class WavifyClient {
 
         WavifyWorld wavifyWorld = (WavifyWorld) mc.level;
         RenderType layer = getWaveRenderLayer();
-        MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
 
-        wavifyWorld.wavify$wavifyWaveHandler().render(event.getPoseStack(), bufferSource, layer);
+        Tesselator tesselator = Tesselator.getInstance();
+        BufferBuilder buffer = tesselator.getBuilder();
 
-        bufferSource.endBatch(layer);
+        buffer.begin(layer.mode(), layer.format());
+
+        wavifyWorld.wavify$wavifyWaveHandler().render(event.getPoseStack(), buffer);
+
+        BufferBuilder.RenderedBuffer builtBuffer = buffer.endOrDiscardIfEmpty();
+        if (builtBuffer == null) return;
+
+        layer.setupRenderState();
+        BufferUploader.drawWithShader(builtBuffer);
+        layer.clearRenderState();
     }
 
     private static void onPlayerLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {

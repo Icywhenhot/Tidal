@@ -70,7 +70,7 @@ public final class WaveAmbientSoundManager {
         boolean present = closestSq < Double.MAX_VALUE;
         float target = 0f;
         if (present) {
-            // Linear falloff: 1.0 at distance 0, 0.0 at DETECTION_RADIUS.
+
             double dist = Math.sqrt(closestSq);
             float falloff = (float) Math.max(0.0, 1.0 - dist / DETECTION_RADIUS);
             target = maxVolume * falloff;

@@ -17,7 +17,6 @@ public class DebugHelper {
         return WavifyConfig.debug;
     }
 
-    // aha!
     public static boolean usingSpyglass() {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
@@ -30,7 +29,6 @@ public class DebugHelper {
         return false;
     }
 
-    // yes this is importa-ha-nt
     public static boolean spyglassInHotbar() {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
@@ -50,7 +48,6 @@ public class DebugHelper {
         return player.getOffhandItem().is(Items.SPYGLASS);
     }
 
-    // stop making fun of my choices of debug items - it's because i watch bdubs
     public static boolean clockInHotbar() {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
@@ -87,12 +84,12 @@ public class DebugHelper {
     }
 
     public static Vector3f debugColor(int i, int size) {
-        if(i == 0) return new Vector3f(1f, 1f, 1f); // white
-        if(i == 1) return new Vector3f(1f, 0f, 0f); // red
-        if(i == 2) return new Vector3f(0f, 1f, 0f); // green
-        if(i == 3) return new Vector3f(0f, 0f, 1f); // blue
+        if(i == 0) return new Vector3f(1f, 1f, 1f);
+        if(i == 1) return new Vector3f(1f, 0f, 0f);
+        if(i == 2) return new Vector3f(0f, 1f, 0f);
+        if(i == 3) return new Vector3f(0f, 0f, 1f);
 
-        i -= 3; // buy any get first 4 free
+        i -= 3;
 
         int i1 = 255 -  ((((i / 3) + 1) * 30) % 255);
         int i2 = 255 -  ((((i / 3) + 30) * 30) % 255);
@@ -126,9 +123,9 @@ public class DebugHelper {
     }
 
     private static float checkColor(float color) {
-        // confirm rgb int is within 255 because that debugColor method is pretty cursed
+
         if(color > 1f) return 1f;
-        return Math.max(color, 0f); // wow intellij really smart
+        return Math.max(color, 0f);
     }
 
 }

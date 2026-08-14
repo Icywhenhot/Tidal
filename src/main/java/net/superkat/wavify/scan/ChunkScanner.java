@@ -19,16 +19,12 @@ public class ChunkScanner {
     public final WaterHandler handler;
     public final ClientLevel level;
 
-    // blocks which have been checked to be water or not water
     public Map<BlockPos, Boolean> cachedBlocks = new Object2ObjectOpenHashMap<>();
 
-    // blocks which have had their neighbours checked(scanned) as water or not water, and added to water body/shoreline
     public Set<BlockPos> visitedBlocks = new ObjectOpenHashSet<>();
 
-    // cached iterator idk
     public Iterator<BlockPos> cachedIterator = null;
 
-    // amount of shoreline blocks since the last created SitePos
     public int shorelinesSinceSite = 0;
 
     public ChunkPos chunkPos;
@@ -37,7 +33,6 @@ public class ChunkScanner {
     public ObjectOpenHashSet<BlockPos> shorelines = new ObjectOpenHashSet<>();
     public ObjectOpenHashSet<SitePos> sites = new ObjectOpenHashSet<>();
 
-    // TODO(unimportant for now) - scan above and below for water to jumps in the water
     public ChunkScanner(WaterHandler handler, ClientLevel level, ChunkPos chunkPos) {
         this.handler = handler;
         this.level = level;
@@ -68,20 +63,17 @@ public class ChunkScanner {
     }
 
     public void scanPos(BlockPos pos) {
-        // if already visited or is air -> return
+
         if(visitedBlocks.contains(pos)) return;
         if(this.level.isEmptyBlock(pos)) return;
 
-        // mark visited
         boolean posIsWater = cacheAndIsWater(pos);
         visitedBlocks.add(pos);
 
-        // shorelines need to be checked for still
         List<BlockPos> nonWaterBlocks = Lists.newArrayList();
         List<BlockPos> waterBlocks = Lists.newArrayList();
-        if (posIsWater) waterBlocks.add(pos); else nonWaterBlocks.add(pos); // they keep getting more cursed
+        if (posIsWater) waterBlocks.add(pos); else nonWaterBlocks.add(pos);
 
-        // check and cache neighbours
         for (Direction direction : Direction.Plane.HORIZONTAL) {
             BlockPos checkPos = pos.relative(direction);
             if(this.level.isEmptyBlock(checkPos)) continue;
@@ -95,10 +87,8 @@ public class ChunkScanner {
             else nonWaterBlocks.add(checkPos);
         }
 
-        // no water blocks should be queued from scanned non-water blocks
         if(waterBlocks.isEmpty() || !posIsWater) return;
 
-        // shoreline creation - neighbouring water blocks scan shoreline blocks and add them
         if(!nonWaterBlocks.isEmpty()) {
             this.shorelines.addAll(nonWaterBlocks);
 

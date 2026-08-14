@@ -49,7 +49,6 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
 
         }
 
-//        this.hasPhysics = false;
         this.gravity = 0;
         this.yd = -0.01f;
 
@@ -82,7 +81,6 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
         this.gCol = vector3f.y();
         this.bCol = vector3f.z();
 
-        //i don't think this works but okay
         this.setAlpha(Mth.lerp((float) this.age / this.lifetime, 1f, 0f));
     }
 
