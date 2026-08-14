@@ -1,154 +1,76 @@
-buildscript {
-    repositories {
-        maven { url = 'https://maven.minecraftforge.net/' }
-        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '6.0.16'
-        classpath 'org.spongepowered:mixingradle:0.7.+'
-    }
+plugins {
+    id 'fabric-loom' version '1.6-SNAPSHOT'
+    id 'maven-publish'
 }
 
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'org.spongepowered.mixin'
-apply plugin: 'eclipse'
-apply plugin: 'idea'
-apply plugin: 'maven-publish'
+version = project.mod_version
+group = project.maven_group
 
-version = mod_version
-group = mod_group_id
 base {
-    archivesName = mod_id
-}
-
-java {
-    // JDK 17 is auto-provisioned by the foojay toolchain resolver (see settings.gradle),
-    // matching what ForgeGradle's MCP recompile step and Forge 1.20.1 require.
-    toolchain.languageVersion = JavaLanguageVersion.of(17)
-}
-
-minecraft {
-    // 'official' Mojang mappings for 1.20.1 - no extra plugin required.
-    mappings channel: 'official', version: minecraft_version
-
-    copyIdeResources = true
-
-    // Forge needs to know which mixin configs to load in dev.
-    runs {
-        configureEach {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-            property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
-
-            mods {
-                "${mod_id}" {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        client {
-            property 'forge.enabledGameTestNamespaces', mod_id
-        }
-
-        server {
-            property 'forge.enabledGameTestNamespaces', mod_id
-            args '--nogui'
-        }
-
-        data {
-            workingDirectory project.file('run-data')
-            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
-        }
-    }
-}
-
-sourceSets.main.resources { srcDir 'src/generated/resources' }
-
-mixin {
-    add sourceSets.main, "${mod_id}.refmap.json"
-    config "${mod_id}.mixins.json"
+    archivesName = project.archives_base_name
 }
 
 repositories {
-    // Iris/Oculus are detected reflectively at runtime, so no compile dependency is needed.
-    // Local, dev-only: lets fg.deobf resolve the Dynamic Waters jar from libs/ by coordinate so it can
-    // be remapped for runtime testing (see dependencies). flatDir ignores the group, matches name-version.jar.
-    flatDir { dirs 'libs' }
+    maven {
+        url = "https://api.modrinth.com/maven"
+    }
+
+    maven {
+        name = "Terraformers"
+        url = "https://maven.terraformersmc.com/"
+    }
 }
 
 dependencies {
-    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-    // DEV TESTING ONLY - not required to build or ship Wavify.
-    // The published Dynamic Waters jar is SRG-mapped (production names); the dev runtime uses official
-    // names, so dropping it straight into run/mods crashes with NoSuchFieldError. fg.deobf remaps it to
-    // dev mappings so it can load here and we can verify the river-wave flow compat. runtimeOnly keeps
-    // it OFF the compile classpath (DynamicWatersCompat stays reflection-only) and out of the built jar.
-    // The jar lives in libs/ (gitignored, resolved via the flatDir repo above); group is arbitrary.
-    if (file('libs/dynamicwaters-10.0.0.jar').exists()) {
-        runtimeOnly fg.deobf("blank:dynamicwaters:10.0.0")
-    }
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    modImplementation include("maven.modrinth:midnightlib:${project.midnightlib_version}")
+
+    modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
-tasks.named('processResources', ProcessResources).configure {
-    var replaceProperties = [
-            minecraft_version      : minecraft_version,
-            minecraft_version_range: minecraft_version_range,
-            forge_version          : forge_version,
-            forge_version_range    : forge_version_range,
-            loader_version_range   : loader_version_range,
-            mod_id                 : mod_id,
-            mod_name               : mod_name,
-            mod_license            : mod_license,
-            mod_version            : mod_version,
-            mod_authors            : mod_authors,
-            mod_description        : mod_description,
-    ]
-    inputs.properties replaceProperties
-    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
-        expand replaceProperties
-    }
-}
+processResources {
+    inputs.property "version", project.version
 
-tasks.named('jar', Jar).configure {
-    manifest {
-        attributes([
-                'Specification-Title'     : mod_id,
-                'Specification-Vendor'    : mod_authors,
-                'Specification-Version'   : '1',
-                'Implementation-Title'    : project.name,
-                'Implementation-Version'  : project.jar.archiveVersion,
-                'Implementation-Vendor'   : mod_authors
-        ])
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
     }
-    finalizedBy 'reobfJar'
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
+    it.options.release = 17
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    withSourcesJar()
+
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
 }
 
 publishing {
     publications {
-        register('mavenJava', MavenPublication) {
-            artifact jar
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
         }
     }
+
     repositories {
         maven {
             url "file://${project.projectDir}/repo"
         }
-    }
-}
-
-idea {
-    module {
-        downloadSources = true
-        downloadJavadoc = true
     }
 }

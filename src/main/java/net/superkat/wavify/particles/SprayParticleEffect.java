@@ -72,7 +72,7 @@ public class SprayParticleEffect implements ParticleOptions {
 
     @Override
     public ParticleType<?> getType() {
-        return WavifyParticles.SPRAY_PARTICLE.get();
+        return WavifyParticles.SPRAY_PARTICLE;
     }
 
     @Override

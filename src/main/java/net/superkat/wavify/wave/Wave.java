@@ -219,9 +219,9 @@ public class Wave {
             double splashZ = this.z + this.velZ * 10;
 
             for (int i = 0; i < sprayAmount; i++) {
-            this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(), splashX, this.y, splashZ, this.level.getRandom().nextGaussian() * 0.1f, Math.abs(this.level.getRandom().nextGaussian()) * 0.1f + 0.1f, this.level.getRandom().nextGaussian() * 0.1f);
+            this.level.addParticle(WavifyParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.level.getRandom().nextGaussian() * 0.1f, Math.abs(this.level.getRandom().nextGaussian()) * 0.1f + 0.1f, this.level.getRandom().nextGaussian() * 0.1f);
                 if (this.bigWave) {
-            this.level.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE.get(), splashX + this.level.getRandom().nextGaussian() / 2f, this.y, splashZ + this.level.getRandom().nextGaussian() / 2f, 0, 0.01, 0);
+            this.level.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE, splashX + this.level.getRandom().nextGaussian() / 2f, this.y, splashZ + this.level.getRandom().nextGaussian() / 2f, 0, 0.01, 0);
                 }
             }
 
@@ -259,7 +259,7 @@ public class Wave {
 
             for (int i = 0; i < this.width; i++) {
                 for (int j = 0; j < splashAmount; j++) {
-            this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(),
+            this.level.addParticle(WavifyParticles.SPLASH_PARTICLE,
                             splashX + this.level.getRandom().nextGaussian(),
                             this.y,
                             splashZ + this.level.getRandom().nextGaussian(),

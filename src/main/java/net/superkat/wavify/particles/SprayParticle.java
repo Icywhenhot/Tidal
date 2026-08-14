@@ -73,7 +73,7 @@ public class SprayParticle extends TextureSheetParticle {
             this.x -= this.xd * 8;
             this.z -= this.zd * 8f;
             for (int i = 0; i < 5; i++) {
-                this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(),
+                this.level.addParticle(WavifyParticles.SPLASH_PARTICLE,
                         this.x + this.random.nextGaussian(), this.y + 1,
                         this.z + this.random.nextGaussian(),
                         this.random.nextGaussian() * 0.05f,

@@ -67,7 +67,7 @@ public class DebugWaterParticle extends DebugAbstractColoredParticle<DebugWaterP
 
         @Override
         public ParticleType<DebugWaterParticleEffect> getType() {
-            return WavifyParticles.DEBUG_WATERBODY_PARTICLE.get();
+            return WavifyParticles.DEBUG_WATERBODY_PARTICLE;
         }
     }
 

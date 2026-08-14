@@ -147,7 +147,7 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
 
         @Override
         public ParticleType<DebugWaveMovementParticleEffect> getType() {
-            return WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE.get();
+            return WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE;
         }
 
         @Override

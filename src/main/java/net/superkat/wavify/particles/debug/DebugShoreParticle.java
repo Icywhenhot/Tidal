@@ -67,7 +67,7 @@ public class DebugShoreParticle extends DebugAbstractColoredParticle<DebugShoreP
 
         @Override
         public ParticleType<DebugShoreParticleEffect> getType() {
-            return WavifyParticles.DEBUG_SHORELINE_PARTICLE.get();
+            return WavifyParticles.DEBUG_SHORELINE_PARTICLE;
         }
     }
 

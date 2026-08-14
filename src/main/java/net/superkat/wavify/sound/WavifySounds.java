@@ -1,26 +1,28 @@
 package net.superkat.wavify.sound;
 
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegistryObject;
 import net.superkat.wavify.Wavify;
 
 public class WavifySounds {
-    public static final DeferredRegister<SoundEvent> SOUND_EVENTS = DeferredRegister.create(ForgeRegistries.SOUND_EVENTS, Wavify.MOD_ID);
+    public static final SoundEvent OCEAN_WAVE_1 = create("ocean_wave_1");
+    public static final SoundEvent OCEAN_WAVE_2 = create("ocean_wave_2");
+    public static final SoundEvent RIVER_WAVE = create("river_wave");
 
-    public static final RegistryObject<SoundEvent> OCEAN_WAVE_1 = register("ocean_wave_1");
-    public static final RegistryObject<SoundEvent> OCEAN_WAVE_2 = register("ocean_wave_2");
-    public static final RegistryObject<SoundEvent> RIVER_WAVE = register("river_wave");
-
-    private static RegistryObject<SoundEvent> register(String name) {
+    private static SoundEvent create(String name) {
         ResourceLocation id = new ResourceLocation(Wavify.MOD_ID, name);
-        return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));
+        return SoundEvent.createVariableRangeEvent(id);
     }
 
-    public static void register(IEventBus modEventBus) {
-        SOUND_EVENTS.register(modEventBus);
+    public static void register() {
+        register("ocean_wave_1", OCEAN_WAVE_1);
+        register("ocean_wave_2", OCEAN_WAVE_2);
+        register("river_wave", RIVER_WAVE);
+    }
+
+    private static void register(String name, SoundEvent soundEvent) {
+        Registry.register(BuiltInRegistries.SOUND_EVENT, new ResourceLocation(Wavify.MOD_ID, name), soundEvent);
     }
 }

@@ -1,13 +1,13 @@
 package net.superkat.wavify.compat;
 
-import net.minecraftforge.fml.ModList;
+import net.fabricmc.loader.api.FabricLoader;
 
 import java.lang.reflect.Method;
 
 public final class IrisCompat {
     private static final boolean IRIS_LOADED =
-            ModList.get().isLoaded("iris")
-            || ModList.get().isLoaded("oculus");
+            FabricLoader.getInstance().isModLoaded("iris")
+            || FabricLoader.getInstance().isModLoaded("oculus");
 
     private static Method isShaderPackInUseMethod;
     private static Object irisApiInstance;

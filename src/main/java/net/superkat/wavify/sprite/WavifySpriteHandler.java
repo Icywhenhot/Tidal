@@ -1,6 +1,7 @@
 package net.superkat.wavify.sprite;
 
 import com.google.gson.JsonObject;
+import net.fabricmc.fabric.api.resource.IdentifiableResourceReloadListener;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.SpriteLoader;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -21,9 +22,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySpriteHandler.AtlasPreparations> {
+public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySpriteHandler.AtlasPreparations>
+        implements IdentifiableResourceReloadListener {
     public static final String MOD_ID = Wavify.MOD_ID;
     public static final ResourceLocation WAVE_ATLAS_ID = new ResourceLocation(MOD_ID, "textures/atlas/waves.png");
+    private static final ResourceLocation RELOAD_LISTENER_ID = new ResourceLocation(MOD_ID, "wave_sprites");
+
+    @Override
+    public ResourceLocation getFabricId() {
+        return RELOAD_LISTENER_ID;
+    }
     private static final ResourceLocation TEXTURE_SOURCE_PATH = new ResourceLocation(MOD_ID, "wave");
     private static final String TEXTURE_FOLDER = "textures/wave";
 

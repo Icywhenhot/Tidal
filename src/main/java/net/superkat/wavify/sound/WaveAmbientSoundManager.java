@@ -77,7 +77,7 @@ public final class WaveAmbientSoundManager {
         }
 
         if (present && (loop == null || loop.isStopped())) {
-            SoundEvent event = ocean ? pickOceanVariant() : WavifySounds.RIVER_WAVE.get();
+            SoundEvent event = ocean ? pickOceanVariant() : WavifySounds.RIVER_WAVE;
             loop = new WaveAmbientSoundInstance(event, maxVolume);
             Minecraft.getInstance().getSoundManager().play(loop);
             if (ocean) oceanLoop = loop;
@@ -94,7 +94,7 @@ public final class WaveAmbientSoundManager {
     }
 
     private SoundEvent pickOceanVariant() {
-        return ThreadLocalRandom.current().nextBoolean() ? WavifySounds.OCEAN_WAVE_1.get() : WavifySounds.OCEAN_WAVE_2.get();
+        return ThreadLocalRandom.current().nextBoolean() ? WavifySounds.OCEAN_WAVE_1 : WavifySounds.OCEAN_WAVE_2;
     }
 
     public void stopAll() {

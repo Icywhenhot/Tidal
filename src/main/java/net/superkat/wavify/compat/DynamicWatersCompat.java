@@ -5,13 +5,13 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.fml.ModList;
+import net.fabricmc.loader.api.FabricLoader;
 
 public final class DynamicWatersCompat {
 
     public static final String MOD_ID = "dynamicwaters";
 
-    private static final boolean LOADED = ModList.get().isLoaded(MOD_ID);
+    private static final boolean LOADED = FabricLoader.getInstance().isModLoaded(MOD_ID);
 
     private DynamicWatersCompat() {}
 
