@@ -2,8 +2,6 @@ package net.superkat.wavify.particles.debug;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.SpriteSet;
@@ -20,7 +18,6 @@ import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
 public class DebugShoreParticle extends DebugAbstractColoredParticle<DebugShoreParticle.DebugShoreParticleEffect> {
-
     public DebugShoreParticle(ClientLevel level, double x, double y, double z, double xd, double yd, double zd, DebugShoreParticleEffect parameters, SpriteSet spriteProvider) {
         super(level, x, y, z, xd, yd, zd, parameters, spriteProvider);
         this.rCol = this.randomizeColor(parameters.color.x(), 0.8f);
@@ -28,7 +25,6 @@ public class DebugShoreParticle extends DebugAbstractColoredParticle<DebugShoreP
         this.bCol = this.randomizeColor(parameters.color.z(), 0.8f);
     }
 
-    @Environment(EnvType.CLIENT)
     public static class Factory implements ParticleProvider<DebugShoreParticleEffect> {
         private final SpriteSet spriteProvider;
 
@@ -61,8 +57,7 @@ public class DebugShoreParticle extends DebugAbstractColoredParticle<DebugShoreP
 
         @Override
         public ParticleType<DebugShoreParticleEffect> getType() {
-            return WavifyParticles.DEBUG_SHORELINE_PARTICLE;
+            return WavifyParticles.DEBUG_SHORELINE_PARTICLE.get();
         }
     }
-
 }

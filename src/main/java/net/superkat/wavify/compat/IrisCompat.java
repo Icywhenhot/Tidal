@@ -1,20 +1,14 @@
 package net.superkat.wavify.compat;
 
-import net.fabricmc.loader.api.FabricLoader;
+import net.neoforged.fml.ModList;
 
 import java.lang.reflect.Method;
 
-/**
- * Reflection-only Iris detection so we don't take a hard compile/runtime
- * dependency on Iris. Iris and Oculus both expose IrisApi#isShaderPackInUse().
- *
- * isShaderPackActive() is hot-path-safe: result is cached per render frame by
- * the caller; the reflective lookup itself is done once and cached here.
- */
+// reflection only, so iris and oculus stay optional at both compile and runtime
 public final class IrisCompat {
     private static final boolean IRIS_LOADED =
-            FabricLoader.getInstance().isModLoaded("iris")
-            || FabricLoader.getInstance().isModLoaded("oculus");
+            ModList.get().isLoaded("iris")
+            || ModList.get().isLoaded("oculus");
 
     private static Method isShaderPackInUseMethod;
     private static Object irisApiInstance;

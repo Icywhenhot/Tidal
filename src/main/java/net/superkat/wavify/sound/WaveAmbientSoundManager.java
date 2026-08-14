@@ -14,24 +14,10 @@ import net.superkat.wavify.wave.WavifyWaveHandler;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-/**
- * Drives the ambient ocean / river loops. Called every client tick.
- *
- * Each tick we scan the wave handler's active waves, find the closest ocean
- * and river instances within {@link #DETECTION_RADIUS}, and set the target
- * volume on the corresponding looping sound. {@link WaveAmbientSoundInstance}
- * handles the actual lerp.
- *
- * Ocean variant: picked once per "session" (each time the ocean loop starts
- * from cold), randomly chosen between OCEAN_WAVE_1 / OCEAN_WAVE_2.
- */
 public final class WaveAmbientSoundManager {
     private static final double DETECTION_RADIUS = 48.0;
     private static final double DETECTION_RADIUS_SQ = DETECTION_RADIUS * DETECTION_RADIUS;
 
-    // Max volume the loop ramps up to. The actual ramp speed lives in the
-    // sound instance (FADE_PER_TICK). Volume curve: distance 0 = full, edge
-    // of detection radius = 0.
     private static final float OCEAN_MAX_VOLUME = 0.6f;
     private static final float RIVER_MAX_VOLUME = 0.5f;
 
@@ -84,14 +70,13 @@ public final class WaveAmbientSoundManager {
         boolean present = closestSq < Double.MAX_VALUE;
         float target = 0f;
         if (present) {
-            // Linear falloff: 1.0 at distance 0, 0.0 at DETECTION_RADIUS.
             double dist = Math.sqrt(closestSq);
             float falloff = (float) Math.max(0.0, 1.0 - dist / DETECTION_RADIUS);
             target = maxVolume * falloff;
         }
 
         if (present && (loop == null || loop.isStopped())) {
-            SoundEvent event = ocean ? pickOceanVariant() : WavifySounds.RIVER_WAVE;
+            SoundEvent event = ocean ? pickOceanVariant() : WavifySounds.RIVER_WAVE.get();
             loop = new WaveAmbientSoundInstance(event, maxVolume);
             Minecraft.getInstance().getSoundManager().play(loop);
             if (ocean) oceanLoop = loop;
@@ -108,7 +93,7 @@ public final class WaveAmbientSoundManager {
     }
 
     private SoundEvent pickOceanVariant() {
-        return ThreadLocalRandom.current().nextBoolean() ? WavifySounds.OCEAN_WAVE_1 : WavifySounds.OCEAN_WAVE_2;
+        return ThreadLocalRandom.current().nextBoolean() ? WavifySounds.OCEAN_WAVE_1.get() : WavifySounds.OCEAN_WAVE_2.get();
     }
 
     public void stopAll() {
@@ -120,7 +105,6 @@ public final class WaveAmbientSoundManager {
         }
     }
 
-    /** Called when leaving a world / changing dimensions: nuke loops immediately. */
     public void hardReset() {
         SoundManager sm = Minecraft.getInstance().getSoundManager();
         if (oceanLoop != null) {

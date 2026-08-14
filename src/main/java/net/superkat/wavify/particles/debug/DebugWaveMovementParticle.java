@@ -3,8 +3,6 @@ package net.superkat.wavify.particles.debug;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
@@ -58,16 +56,12 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
 
         }
 
-//        this.hasPhysics = false;
         this.gravity = 0;
         this.yd = -0.01f;
 
         startColor = new Vector3f(2 / 255f, 246 / 255f, 65 / 255f);
         midColor = new Vector3f(253 / 255f, 179 / 255f, 66 / 255f);
         endColor = new Vector3f(166 / 255f, 17 / 255f, 61 / 255f);
-//        startColor = Vec3.unpackRgb(new Color(2, 246, 65).getRGB()).toVector3f();
-//        midColor = Vec3.unpackRgb(new Color(253, 179, 66).getRGB()).toVector3f();
-//        endColor = Vec3.unpackRgb(new Color(166, 17, 61).getRGB()).toVector3f();
     }
 
     @Override
@@ -92,11 +86,9 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
         this.gCol = vector3f.y();
         this.bCol = vector3f.z();
 
-        //i don't think this works but okay
         this.setAlpha(Mth.lerp((float) this.age / this.lifetime, 1f, 0f));
     }
 
-    @Environment(EnvType.CLIENT)
     public static class Factory implements ParticleProvider<DebugWaveMovementParticleEffect> {
         private final SpriteSet spriteProvider;
 
@@ -144,7 +136,7 @@ public class DebugWaveMovementParticle extends DebugAbstractColoredParticle<Debu
 
         @Override
         public ParticleType<DebugWaveMovementParticleEffect> getType() {
-            return WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE;
+            return WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE.get();
         }
 
         public float getYaw() {

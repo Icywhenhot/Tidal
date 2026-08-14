@@ -1,7 +1,5 @@
 package net.superkat.wavify.particles;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.SpriteSet;
@@ -18,7 +16,6 @@ public class WhiteSprayParticle extends SprayParticle {
         return false;
     }
 
-    @Environment(EnvType.CLIENT)
     public static class Factory implements ParticleProvider<WhiteSprayParticleEffect> {
         public final SpriteSet spriteProvider;
 

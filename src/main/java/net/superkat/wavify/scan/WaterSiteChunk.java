@@ -21,5 +21,4 @@ public class WaterSiteChunk {
     public WaterSiteChunk(long chunkPos) {
         this.chunkPos = chunkPos;
     }
-
 }

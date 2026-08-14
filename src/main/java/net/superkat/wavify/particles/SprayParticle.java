@@ -1,7 +1,5 @@
 package net.superkat.wavify.particles;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.Particle;
@@ -66,11 +64,11 @@ public class SprayParticle extends SingleQuadParticle {
             return;
         }
 
-        if(WavifyWaveHandler.posIsWater(this.level, this.getPos().offset(0, 1, 0))) {
+        if(WavifyWaveHandler.posIsWater(this.level, this.getBlockPos().offset(0, 1, 0))) {
             this.x -= this.xd * 8;
             this.z -= this.zd * 8f;
             for (int i = 0; i < 5; i++) {
-                this.level.addParticle(WavifyParticles.SPLASH_PARTICLE,
+                this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(),
                         this.x + this.random.nextGaussian(), this.y + 1,
                         this.z + this.random.nextGaussian(),
                         this.random.nextGaussian() * 0.05f,
@@ -114,7 +112,6 @@ public class SprayParticle extends SingleQuadParticle {
         if (!this.stopped) {
             double e = dy;
             if (this.hasPhysics && (dx != 0.0 || dy != 0.0 || dz != 0.0) && dx * dx + dy * dy + dz * dz < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
-                //expanding bounding box to specifically account for mud and I guess soul sand too?
                 Vec3 vec3d = Entity.collideBoundingBox((Entity) null, new Vec3(dx, dy, dz), this.getBoundingBox().inflate(0, 0.15, 0), this.level, List.of());
                 dx = vec3d.x;
                 dy = vec3d.y;
@@ -130,12 +127,12 @@ public class SprayParticle extends SingleQuadParticle {
         }
     }
 
-    public BlockPos getPos() {
+    public BlockPos getBlockPos() {
         return BlockPos.containing(this.x, this.y, this.z);
     }
 
     public void updateWaterColor() {
-        int color = BiomeColors.getAverageWaterColor(this.level, this.getPos());
+        int color = BiomeColors.getAverageWaterColor(this.level, this.getBlockPos());
         float r = (float) (color >> 16 & 0xFF) / 255.0F;
         float g = (float) (color >> 8 & 0xFF) / 255.0F;
         float b = (float) (color & 0xFF) / 255.0F;
@@ -156,7 +153,6 @@ public class SprayParticle extends SingleQuadParticle {
         return SingleQuadParticle.Layer.TRANSLUCENT;
     }
 
-    @Environment(EnvType.CLIENT)
     public static class Factory implements ParticleProvider<SprayParticleEffect> {
         private final SpriteSet spriteProvider;
 

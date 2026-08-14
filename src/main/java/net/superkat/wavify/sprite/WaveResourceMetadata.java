@@ -15,6 +15,4 @@ public record WaveResourceMetadata(int frameTime, int frameHeight) {
                     ExtraCodecs.POSITIVE_INT.optionalFieldOf("frame_height", 16).forGetter(WaveResourceMetadata::frameHeight)
             ).apply(instance, WaveResourceMetadata::new));
     public static final MetadataSectionType<WaveResourceMetadata> SERIALIZER = new MetadataSectionType<>(KEY, CODEC);
-
-
 }

@@ -21,21 +21,12 @@ import org.jetbrains.annotations.Range;
 import java.util.List;
 import java.util.Set;
 
-/**
- * A total mess of a class which handles wave position/movement, scale, color, and lifecycle of waves.<br><br>
- * <p>
- * i actually dislike this class a lot it is very incomprehensible
- */
 public class Wave {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = Mth.square(100.0);
 
-    //TODO - wave scales
-    //TODO - spary particle width
-    //TODO - fix fall washing up
-
     public ClientLevel level;
     public BlockPos spawnPos;
-    public float yaw; //wave's yaw in degrees (in theory)
+    public float yaw;
     public boolean bigWave;
 
     public AABB box;
@@ -105,11 +96,6 @@ public class Wave {
         this.box = (new AABB(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f)).inflate(this.scale / 4f, 0, this.scale / 4f);
         float speed = 0.115f;
 
-        // A wave spawns spawnDistance blocks out and crawls toward shore at `speed` blocks/tick, so it needs
-        // spawnDistance/speed ticks just to get there. Both lifetimes below were fixed constants tuned for a
-        // small spawnDistance: maxWaterAge (drown-away timeout) and maxAge (absolute lifetime). With a larger
-        // configured distance the wave gave up and faded out mid-water before it could ever reach the beach.
-        // Scale both with the actual distance to travel, keeping the originals as a floor.
         int ticksToShore = Mth.ceil(WavifyConfig.spawnDistance / speed);
         this.maxWaterAge = Math.max(this.maxWaterAge, ticksToShore + 40);
         this.maxAge = Math.max(this.maxAge, ticksToShore + this.maxWashingAge + 40);
@@ -135,9 +121,6 @@ public class Wave {
 
     public Set<BlockPos> getCoveredBlocks() {
         Set<BlockPos> set = Sets.newHashSet();
-        // Only wet the shore once the wave actually breaks on it. Before washing up the wave is still out
-        // over the water, so darkening here would run ahead of the visible crest - that's the desync this
-        // fixes. River waves never wash up, so they never wet a bank either.
         if (!this.isWashingUp()) return set;
         BlockPos currentPos = this.getBlockPos();
 
@@ -159,15 +142,15 @@ public class Wave {
             return;
         }
 
-        if (updateWashingUp()) { // wave has hit shore
-            if (this.getWashingAge() <= 10) { // just hit shore - immediate slowdown
+        if (updateWashingUp()) {
+            if (this.getWashingAge() <= 10) {
                 this.velX *= 0.875f;
                 this.velY = -0.0005f;
                 this.velZ *= 0.875f;
-            } else if (washBounce()) { // sometime after shore - slight bounce
+            } else if (washBounce()) {
                 this.velX *= 1.2f;
                 this.velZ *= 1.2f;
-            } else { // remaining time in shore - continue slowing down until despawn
+            } else {
                 this.velX *= 0.9f;
                 this.velZ *= 0.9f;
             }
@@ -181,13 +164,13 @@ public class Wave {
             }
         } else {
             this.updateWaterColor();
-            if (drowningAway) { // wave is despawning in water because it didn't hit shore within reasonable time
+            if (drowningAway) {
                 this.length -= 0.1f;
                 this.velY -= 0.005f;
                 if (this.length <= 0f) this.markDead();
             }
 
-            if (this.alpha < 1f) this.alpha += 0.05f; //fade in
+            if (this.alpha < 1f) this.alpha += 0.05f;
         }
 
         if (this.hitBlock && this.age - this.hitBlockAge >= 2) {
@@ -224,7 +207,6 @@ public class Wave {
         }
     }
 
-    // wave hit block and should spray - intensity depends on current speed & and if it was washing up
     public void spray() {
         if (this.hitBlock) return;
 
@@ -242,12 +224,11 @@ public class Wave {
             double splashZ = this.z + this.velZ * 10;
 
             for (int i = 0; i < sprayAmount; i++) {
-                this.level.addParticle(WavifyParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.level.getRandom().nextGaussian() * 0.1f, Math.abs(this.level.getRandom().nextGaussian()) * 0.1f + 0.1f, this.level.getRandom().nextGaussian() * 0.1f);
+                this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(), splashX, this.y, splashZ, this.level.getRandom().nextGaussian() * 0.1f, Math.abs(this.level.getRandom().nextGaussian()) * 0.1f + 0.1f, this.level.getRandom().nextGaussian() * 0.1f);
                 if (this.bigWave) {
-                    this.level.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE, splashX + this.level.getRandom().nextGaussian() / 2f, this.y, splashZ + this.level.getRandom().nextGaussian() / 2f, 0, 0.01, 0);
+                    this.level.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE.get(), splashX + this.level.getRandom().nextGaussian() / 2f, this.y, splashZ + this.level.getRandom().nextGaussian() / 2f, 0, 0.01, 0);
                 }
             }
-
 
             this.level.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
@@ -255,7 +236,6 @@ public class Wave {
             this.velY = 0;
             this.velZ = 0;
         }
-
 
         this.hitBlockAge = this.age;
         this.hitBlock = true;
@@ -284,7 +264,7 @@ public class Wave {
 
             for (int i = 0; i < this.width; i++) {
                 for (int j = 0; j < splashAmount; j++) {
-                    this.level.addParticle(WavifyParticles.SPLASH_PARTICLE,
+                    this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(),
                             splashX + this.level.getRandom().nextGaussian(),
                             this.y,
                             splashZ + this.level.getRandom().nextGaussian(),
@@ -324,7 +304,7 @@ public class Wave {
 
     public AABB getHitBox() {
         if (this.isWashingUp()) {
-            float yawRadians = (float) Math.toRadians(this.yaw); // this took way to long to figure out ( ͡ಠ ʖ̯ ͡ಠ)
+            float yawRadians = (float) Math.toRadians(this.yaw);
             float usedLength = this.bigWave ? this.length * 1.5f : this.length / 16f;
             return this.getBoundingBox().expandTowards(usedLength * Math.cos(yawRadians), 0, usedLength * Math.sin(yawRadians));
         }
@@ -346,11 +326,6 @@ public class Wave {
         this.setColor(color.x, color.y, color.z);
     }
 
-    /**
-     * @param red   Float 0f through 1f
-     * @param green Float 0f through 1f
-     * @param blue  Float 0f through 255f - nah I'm just kidding its 0f through 1f
-     */
     public void setColor(@Range(from = 0, to = 1) float red, @Range(from = 0, to = 1) float green, @Range(from = 0, to = 1) float blue) {
         this.red = red;
         this.green = green;
@@ -382,7 +357,6 @@ public class Wave {
     }
 
     public int getLight() {
-        //emissive during full moon :)
         long dayTime = this.level.getGameTime();
         if (canFullMoonGlow() && (int)(dayTime / 24000L % 8L) == 0 && dayTime % 24000L >= 12000)
             return LightCoordsUtil.pack(15, 15);
@@ -440,5 +414,4 @@ public class Wave {
     public boolean isDead() {
         return this.dead;
     }
-
 }

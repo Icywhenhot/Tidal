@@ -6,20 +6,9 @@ import net.minecraft.util.Mth;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.river.RiverFlowField;
 
-/**
- * A river wave: a particle that follows the cached {@link RiverFlowField flow field} down the length of
- * the channel, then fades out after a fixed travel distance.
- * <br><br>
- * Unlike ocean {@link Wave}s, a river wave never washes up: it fully overrides {@link #tick()} and never
- * enters {@link Wave#updateWashingUp()}, so {@link #isWashingUp()} stays {@code false}. It travels
- * <i>along</i> the channel (parallel to the banks). A predictive bank check fades it out <i>before</i> it
- * can reach a bank, and the coherent flow field means neighbouring waves never point at each other.
- */
 public class RiverWave extends Wave {
-    /** Render height above the water block: ~0.15 above the surface, matching the prior river-wave look. */
     private static final float BODY_HEIGHT = 1.15f;
 
-    /** Per-tick steering blend toward the flow field direction. */
     private static final double STEER_BLEND = 0.18;
 
     protected final RiverFlowField field;
@@ -60,7 +49,6 @@ public class RiverWave extends Wave {
         this.baseLength = this.length;
         this.maxAlpha = 0.78f;
         this.motionPhase = world.getRandom().nextFloat() * 24f;
-        // Always > 0 so no wave is a straight line; upper end produces deep crescents.
         this.curvatureFactor = 0.65f + world.getRandom().nextFloat() * 0.95f;
         this.lateralFactor = 0.85f + world.getRandom().nextFloat() * 0.35f;
 
@@ -143,12 +131,10 @@ public class RiverWave extends Wave {
     }
 
     protected void steerAndAdvance() {
-        // Steer gently toward the flow field so the wave curves down the channel.
         RiverFlow.Flow flow = this.field.flowAt(this.x, this.z);
         if (flow != null) {
             double tx = flow.dirX();
             double tz = flow.dirZ();
-            // Keep moving forward: never let an orientation flip reverse a wave mid-channel.
             if (tx * this.dirX + tz * this.dirZ < 0.0) {
                 tx = -tx;
                 tz = -tz;
@@ -162,8 +148,6 @@ public class RiverWave extends Wave {
             }
         }
 
-        // Move along the heading. If the wave's CENTERPOINT would land on a block instead of water, fade
-        // out immediately rather than trying to dodge the bank - that dodging was the edge jitter.
         double nextX = this.x + this.dirX * this.travelSpeed;
         double nextZ = this.z + this.dirZ * this.travelSpeed;
         if (!waterAt(nextX, nextZ)) {
@@ -182,7 +166,6 @@ public class RiverWave extends Wave {
         }
     }
 
-    /** True if a position's centerpoint column is open surface water (not a block). */
     private boolean waterAt(double wx, double wz) {
         return RiverFlow.surfaceWaterY(this.level, wx, wz, this.waterY) != Integer.MIN_VALUE;
     }

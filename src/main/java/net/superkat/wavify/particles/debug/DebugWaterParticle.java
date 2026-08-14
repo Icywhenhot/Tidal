@@ -2,8 +2,6 @@ package net.superkat.wavify.particles.debug;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.SpriteSet;
@@ -19,7 +17,6 @@ import net.superkat.wavify.WavifyParticles;
 import org.joml.Vector3fc;
 
 public class DebugWaterParticle extends DebugAbstractColoredParticle<DebugWaterParticle.DebugWaterParticleEffect> {
-
     public DebugWaterParticle(ClientLevel level, double x, double y, double z, double xd, double yd, double zd, DebugWaterParticleEffect parameters, SpriteSet spriteProvider) {
         super(level, x, y, z, xd, yd, zd, parameters, spriteProvider);
         this.rCol = this.randomizeColor(parameters.color.x(), 1);
@@ -27,7 +24,6 @@ public class DebugWaterParticle extends DebugAbstractColoredParticle<DebugWaterP
         this.bCol = this.randomizeColor(parameters.color.z(), 1);
     }
 
-    @Environment(EnvType.CLIENT)
     public static class Factory implements ParticleProvider<DebugWaterParticleEffect> {
         private final SpriteSet spriteProvider;
 
@@ -60,8 +56,7 @@ public class DebugWaterParticle extends DebugAbstractColoredParticle<DebugWaterP
 
         @Override
         public ParticleType<DebugWaterParticleEffect> getType() {
-            return WavifyParticles.DEBUG_WATERBODY_PARTICLE;
+            return WavifyParticles.DEBUG_WATERBODY_PARTICLE.get();
         }
     }
-
 }

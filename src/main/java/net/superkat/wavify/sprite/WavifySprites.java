@@ -5,7 +5,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 
 public class WavifySprites {
-
     public static final String MOD_ID = WavifySpriteHandler.MOD_ID;
 
     public static final Identifier MOVING_TEXTURE_ID = Identifier.fromNamespaceAndPath(MOD_ID, "moving");
@@ -26,7 +25,6 @@ public class WavifySprites {
         int frameTime = getMetadata(sprite).frameTime();
         if(frameTime <= 0) {
             return (int) Mth.lerp((float) age / maxAge, 0f, (float) totalFrames);
-//            return (age / maxAge) * totalFrames;
         }
         return (age / frameTime) % totalFrames;
     }

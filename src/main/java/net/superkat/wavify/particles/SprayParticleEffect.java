@@ -12,7 +12,6 @@ import net.minecraft.core.particles.ParticleType;
 import net.superkat.wavify.WavifyParticles;
 
 public class SprayParticleEffect implements ParticleOptions {
-
     protected static <T extends SprayParticleEffect> MapCodec<T> createCodec(Function3<Float, Float, Float, T> particle) {
         return RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
@@ -58,6 +57,6 @@ public class SprayParticleEffect implements ParticleOptions {
 
     @Override
     public ParticleType<?> getType() {
-        return WavifyParticles.SPRAY_PARTICLE;
+        return WavifyParticles.SPRAY_PARTICLE.get();
     }
 }

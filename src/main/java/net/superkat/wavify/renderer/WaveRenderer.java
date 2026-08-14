@@ -1,6 +1,5 @@
 package net.superkat.wavify.renderer;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Camera;
@@ -26,32 +25,11 @@ import org.joml.Matrix4f;
 import java.util.List;
 import java.util.Set;
 
-/**
- * THE WAVES AREN'T ENTITIES!!!!!!!!!!!!!!!!!!!!!!!!!!!
- */
 public class WaveRenderer {
     private static final float WAVE_FOAM_Y_OFFSET = 0.08f;
-    // Render-only Y sink for ocean waves so the visible body sits flusher with
-    // the water surface. Does NOT touch collision Y — keeping the wave's actual
-    // position high lets it transition into the washing-up phase and bounce
-    // instead of crashing sideways into the shore block. River waves are
-    // unaffected.
+    // render only sink, the wave keeps its real y so it still washes up instead of crashing into the shore block
     private static final float OCEAN_RENDER_Y_SINK = -0.5f;
 
-    // When an Iris/Oculus shaderpack is active, sink the colored wave body so
-    // vanilla water still covers the wave footprint. The shaderpack then
-    // renders its water reflections/refractions on top of (and tinted by) the
-    // wave color, giving the wave the same shader-water look as the rest of
-    // the surface. The foam quad stays at WAVE_FOAM_Y_OFFSET above the body so
-    // the white crest still pokes through the water surface.
-    //
-    // Sink amount is user-tunable via WavifyConfig.shaderWaveYSink. Cached per
-    // frame: isShaderPackActive() reflects into Iris, cheap but not free.
-    //
-    // frameBodyYOffset = waveYOffset + (shaderWaveYSink if shaders else 0)
-    // frameFoamYOffset = waveYOffset
-    // Foam never gets the shader sink; under shaders we WANT it at the water
-    // surface so the shaderpack's water shading covers it.
     private float frameBodyYOffset = 0f;
     private float frameFoamYOffset = 0f;
 
@@ -65,7 +43,7 @@ public class WaveRenderer {
         this.level = level;
     }
 
-    public void render(VertexConsumer buffer, LevelRenderContext context) {
+    public void render(VertexConsumer buffer) {
         List<Wave> waves = this.handler.getWaves();
         if (waves == null || waves.isEmpty()) return;
 
@@ -73,6 +51,7 @@ public class WaveRenderer {
         float tickDelta = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
         Camera camera = mc.gameRenderer.mainCamera();
 
+        // under shaders the body sinks below water so the pack's reflections land on top of it, foam stays put
         float shaderSink = IrisCompat.isShaderPackActive() ? (float) WavifyConfig.shaderWaveYSink : 0f;
         float baseOffset = (float) WavifyConfig.waveYOffset;
         this.frameFoamYOffset = baseOffset;
@@ -96,8 +75,8 @@ public class WaveRenderer {
         Vec3 transPos = center.subtract(cameraPos);
 
         matrices.pushPose();
-        matrices.translate(transPos.x, transPos.y, transPos.z); // offsets to the wave's position
-        matrices.mulPose(Axis.YP.rotationDegrees(-wave.getYaw(delta) + 90)); // rotate wave left/right
+        matrices.translate(transPos.x, transPos.y, transPos.z);
+        matrices.mulPose(Axis.YP.rotationDegrees(-wave.getYaw(delta) + 90));
         matrices.mulPose(Axis.XP.rotationDegrees(wave.pitch));
         float scale = wave.scale;
         matrices.scale(scale, 1, scale);
@@ -127,12 +106,10 @@ public class WaveRenderer {
 
         renderWaveColumns(posMatrix, buffer, wave, colorableSprite, whiteSprite, age, maxAge, red, green, blue, alpha, foamAlpha, light, bodyYOffset, foamYOffset);
 
-        // beneath wave texture after hitting shore
         if (washingUp && wave.bigWave) {
             TextureAtlasSprite washingColorableSprite = getBottomWashingSprite();
             TextureAtlasSprite washingWhiteSprite = getBottomWashingWhiteSprite();
 
-            // this is beyond cursed but i'm really frustrated right now so its fine
             float ageDelta = (float) age / maxAge;
             float turnBackDelta = 0.5f;
             float washingLength = ageDelta > turnBackDelta ? Mth.lerp((ageDelta - turnBackDelta) * 2, 2f, 3f) : 2f;
@@ -257,5 +234,4 @@ public class WaveRenderer {
     public TextureAtlasSprite getWetOverlaySprite() {
         return spriteHandler.getSprite(WavifySprites.WET_OVERLAY_TEXTURE_ID);
     }
-
 }
