@@ -2,6 +2,8 @@ package net.superkat.wavify.wave;
 
 import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.PoseStack;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import net.minecraft.world.level.block.state.BlockState;
@@ -9,39 +11,24 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.level.material.FluidState;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.Vec3i;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.superkat.wavify.DebugHelper;
-import net.superkat.wavify.Wavify;
-import net.superkat.wavify.compat.DynamicWatersCompat;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.mixin.OptionsAccessor;
-import net.superkat.wavify.particles.debug.DebugWaterParticle;
-import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
 import net.superkat.wavify.renderer.WaveRenderer;
 import net.superkat.wavify.river.RiverFlow;
-import net.superkat.wavify.river.RiverFlowField;
 import net.superkat.wavify.scan.SitePos;
 import net.superkat.wavify.scan.WaterHandler;
-import org.joml.Vector3f;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 
@@ -53,14 +40,8 @@ public class WavifyWaveHandler {
     public List<Wave> waves = new ObjectArrayList<>();
 
     public Set<BlockPos> coveredBlocks = new ObjectArraySet<>();
-    private List<RiverFlow.DebugMarker> riverDebugMarkers = List.of();
-    private final RiverFlowField riverFlow = new RiverFlowField();
 
-    private static final double RIVER_MIN_SPACING_SQ = 5.0 * 5.0;
-
-    private static final int SPAWN_BANK_MARGIN = 1;
-
-    private static final int LANDMASS_CAP = 768;
+    private final RiverSpawner rivers;
 
     public boolean nearbyChunksLoaded = false;
 
@@ -68,6 +49,7 @@ public class WavifyWaveHandler {
         this.level = level;
         this.waterHandler = new WaterHandler(this, level);
         this.renderer = new WaveRenderer(this, level);
+        this.rivers = new RiverSpawner(level, this.waterHandler);
     }
 
     public void reloadNearbyChunks() {
@@ -85,37 +67,21 @@ public class WavifyWaveHandler {
 
         this.waterHandler.tick();
         wavifyTick();
-
-        if (DebugHelper.debug()) {
-            debugTick(client, player);
-        }
-
     }
 
-    public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, com.mojang.blaze3d.vertex.BufferBuilder buffer) {
+    public void render(PoseStack poseStack, BufferBuilder buffer) {
         this.renderer.render(poseStack, buffer);
     }
 
     public void wavifyTick() {
-        if (DynamicWatersCompat.isLoaded() && this.level.getGameTime() % 60 == 0) {
-            Wavify.LOGGER.info("[wavify-dw] handler ticking: enableRiverWaves={} paused={}",
-                    WavifyConfig.enableRiverWaves, Minecraft.getInstance().isPaused());
-        }
-
         if (Minecraft.getInstance().isPaused()) return;
-        double time = this.level.getGameTime();
+        long time = this.level.getGameTime();
+
         if (WavifyConfig.enableOceanWaves && time % 80 == 0) {
             spawnAllWaves();
         }
-        if (WavifyConfig.enableRiverWaves) {
-            LocalPlayer riverPlayer = Minecraft.getInstance().player;
-            if (riverPlayer != null) {
-                this.riverFlow.ensureBuilt(this.level, this.waterHandler, riverPlayer.getX(), riverPlayer.getZ(), (long) time);
-                if (time % 40 == 0) spawnRiverWavesNearPlayer();
-            }
-        } else {
-            this.riverDebugMarkers = List.of();
-        }
+
+        this.rivers.tick(this.waves, Minecraft.getInstance().player, time);
 
         boolean updateCoveredBlocks = WavifyConfig.enableWetOverlay && time % 10 == 0;
         ObjectArraySet<BlockPos> updatedCovered = new ObjectArraySet<>();
@@ -140,7 +106,6 @@ public class WavifyWaveHandler {
 
     public void spawnAllWaves() {
         int distFromShore = WavifyConfig.spawnDistance;
-        WavifyConfig.waveDistFromShore = distFromShore;
         int chunkRadius = WavifyConfig.chunkRadius - 2;
 
         ChunkPos playerChunk = Minecraft.getInstance().player.chunkPosition();
@@ -150,19 +115,10 @@ public class WavifyWaveHandler {
                 .map(chunkPos -> this.waterHandler.getWaterCacheAtDistance(chunkPos, distFromShore))
                 .filter(map -> map != null)
                 .flatMap(Collection::stream)
-                .filter(water -> !isRiverBiomeWater(water))
+                .filter(water -> !RiverFlow.isRiverWater(this.level, water))
                 .collect(ObjectArraySet::new, Set::add, Set::addAll);
         if (!waterBlocks.isEmpty()) spawnWaves(waterBlocks);
 
-        if (DebugHelper.debug()) {
-            if (DebugHelper.holdingSpyglass()) debugWaveParticles(waterBlocks);
-            if (DebugHelper.offhandClock()) {
-                for (BlockPos water : waterBlocks) {
-                    Vec3 pos = water.getCenter();
-                    this.level.addParticle(ParticleTypes.END_ROD, pos.x(), pos.y() + 2.5, pos.z(), 0, 0, 0);
-                }
-            }
-        }
     }
 
     public void spawnWaves(Set<BlockPos> waterBlocks) {
@@ -188,300 +144,17 @@ public class WavifyWaveHandler {
             BlockPos beneath = spawnPos.offset(0, -1, 0);
             if (this.level.isEmptyBlock(beneath) || !this.level.getBlockState(beneath).getFluidState().isSource()) continue;
 
-            if (isRiverBiomeWater(spawnPos)) continue;
+            if (RiverFlow.isRiverWater(this.level, spawnPos)) continue;
 
-            boolean oceanConnected = isOceanConnectedWave(spawnPos, yaw);
-            if (!oceanConnected) continue;
-            if (!isShoreWavePathSafe(spawnPos, yaw)) continue;
-            if (isIsolatedObjectSite(site)) continue;
+            if (!ShoreCheck.isOceanConnected(this.level, spawnPos, yaw)) continue;
+            if (!ShoreCheck.isPathSafe(this.level, spawnPos, yaw)) continue;
+            if (ShoreCheck.isIsolatedObject(this.level, site)) continue;
 
             Wave wave = new Wave(this.level, spawnPos, yaw, yOffset, bigWave);
             int width = (int) Mth.clamp(connected.size() * 1.5, 1, 3);
             wave.setWidth(width);
             this.waves.add(wave);
         }
-    }
-
-    private boolean isOceanConnectedWave(BlockPos surfaceSpawn, float yaw) {
-        double x = surfaceSpawn.getX() + 0.5;
-        double z = surfaceSpawn.getZ() + 0.5;
-        double rad = Math.toRadians(yaw);
-        double dirX = Math.cos(rad);
-        double dirZ = Math.sin(rad);
-        double speed = 0.115;
-        int preferredWaterY = surfaceSpawn.getY() - 1;
-        boolean sawOceanWater = this.level.getBiome(surfaceSpawn).is(BiomeTags.IS_OCEAN);
-
-        for (int step = 0; step < 96; step++) {
-            x -= dirX * speed;
-            z -= dirZ * speed;
-
-            BlockPos water = findSurfaceWaterAtPathPoint(x, z, preferredWaterY);
-            if (water == null) return sawOceanWater;
-            preferredWaterY = water.getY();
-
-            if (isRiverBiomeWater(water)) return false;
-            if (this.level.getBiome(water).is(BiomeTags.IS_OCEAN)) {
-                sawOceanWater = true;
-            }
-        }
-
-        return sawOceanWater;
-    }
-
-    private boolean isShoreWavePathSafe(BlockPos surfaceSpawn, float yaw) {
-        double x = surfaceSpawn.getX() + 0.5;
-        double z = surfaceSpawn.getZ() + 0.5;
-        double rad = Math.toRadians(yaw);
-        double dirX = Math.cos(rad);
-        double dirZ = Math.sin(rad);
-        double speed = 0.115;
-        int preferredWaterY = surfaceSpawn.getY() - 1;
-
-        for (int step = 0; step < 80; step++) {
-            x += dirX * speed;
-            z += dirZ * speed;
-
-            BlockPos water = findSurfaceWaterAtPathPoint(x, z, preferredWaterY);
-            if (water == null) return true;
-            preferredWaterY = water.getY();
-
-            if (isRiverBiomeWater(water)) return false;
-        }
-
-        return true;
-    }
-
-    private BlockPos findSurfaceWaterAtPathPoint(double x, double z, int preferredWaterY) {
-        int baseX = Mth.floor(x);
-        int baseZ = Mth.floor(z);
-        BlockPos best = null;
-        double bestDistance = Double.MAX_VALUE;
-
-        for (int y = preferredWaterY + 1; y >= preferredWaterY - 2; y--) {
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    BlockPos check = new BlockPos(baseX + dx, y, baseZ + dz);
-                    if (!WavifyWaveHandler.posIsWater(this.level, check)) continue;
-                    if (!this.level.getBlockState(check.above()).isAir()) continue;
-
-                    double dist = Mth.square(check.getX() + 0.5 - x) + Mth.square(check.getZ() + 0.5 - z);
-                    if (dist < bestDistance) {
-                        bestDistance = dist;
-                        best = check;
-                    }
-                }
-            }
-            if (best != null) return best;
-        }
-
-        return null;
-    }
-
-    private boolean isIsolatedObjectSite(SitePos site) {
-        if (site.shoreClass != 0) return site.shoreClass == 1;
-        boolean small = isSmallObject(site);
-        site.shoreClass = (byte) (small ? 1 : 2);
-        return small;
-    }
-
-    private boolean isSmallObject(SitePos site) {
-        BlockPos waterPos = site.getPos();
-        BlockPos seed = solidNeighborAt(waterPos);
-        if (seed == null) {
-            if (DebugHelper.debug()) {
-                Wavify.LOGGER.info("[wavify] site {} has no solid waterline neighbour -> treated as shore", waterPos);
-            }
-            return false;
-        }
-        int size = floodLandmassSize(seed, waterPos.getY());
-        boolean small = size <= LANDMASS_CAP;
-        if (DebugHelper.debug()) {
-            Wavify.LOGGER.info("[wavify] landmass at {} (seaY {}) size={} cap={} -> {}",
-                    waterPos, waterPos.getY(), size, LANDMASS_CAP, small ? "OBJECT (suppress)" : "shore (keep)");
-        }
-        return small;
-    }
-
-    private BlockPos solidNeighborAt(BlockPos waterPos) {
-        for (Direction dir : Direction.Plane.HORIZONTAL) {
-            BlockPos neighbor = waterPos.relative(dir);
-            if (isSolidColumn(neighbor)) return neighbor;
-        }
-        return null;
-    }
-
-    private boolean isSolidColumn(BlockPos pos) {
-        return !this.level.isEmptyBlock(pos) && !posIsWater(this.level, pos);
-    }
-
-    private int floodLandmassSize(BlockPos seed, int seaY) {
-        Set<Long> visited = Sets.newHashSet();
-        Queue<BlockPos> queue = Queues.newArrayDeque();
-        queue.add(seed);
-        visited.add(packXZ(seed.getX(), seed.getZ()));
-        int count = 0;
-        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-        while (!queue.isEmpty()) {
-            BlockPos current = queue.poll();
-            if (++count > LANDMASS_CAP) return count;
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    if (dx == 0 && dz == 0) continue;
-                    int nx = current.getX() + dx;
-                    int nz = current.getZ() + dz;
-                    if (!visited.add(packXZ(nx, nz))) continue;
-                    cursor.set(nx, seaY, nz);
-                    if (isSolidColumn(cursor)) queue.add(new BlockPos(nx, seaY, nz));
-                }
-            }
-        }
-        return count;
-    }
-
-    private static long packXZ(int x, int z) {
-        return (x & 0xFFFFFFFFL) | ((long) z << 32);
-    }
-
-    private boolean isDynamicRiverWater(BlockPos pos) {
-        if (!DynamicWatersCompat.isLoaded()) return false;
-        Vec3 flow = this.level.getFluidState(pos).getFlow(this.level, pos);
-        return flow.x * flow.x + flow.z * flow.z > 1.0e-6;
-    }
-
-    private boolean isRiverBiomeWater(BlockPos pos) {
-        if (this.level.getBiome(pos).is(BiomeTags.IS_RIVER)) return true;
-
-        for (BlockPos check : BlockPos.betweenClosed(pos.offset(-1, 0, -1), pos.offset(1, 0, 1))) {
-            if (this.level.getBiome(check).is(BiomeTags.IS_RIVER)) return true;
-        }
-
-        return false;
-    }
-
-    private void spawnRiverWavesNearPlayer() {
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) return;
-
-        double px = player.getX();
-        double pz = player.getZ();
-        ChunkPos playerChunk = player.chunkPosition();
-
-        double spawnRadius = WavifyConfig.riverWaveSpawnRadius;
-        double spawnRadiusSq = spawnRadius * spawnRadius;
-        int spawnChunkRadius = Mth.ceil(spawnRadius / 16.0);
-
-        List<BlockPos> candidates = new ArrayList<>();
-
-        boolean dwDiag = DynamicWatersCompat.isLoaded();
-        int diagNearbyWaters = 0, diagDwRiver = 0, diagBiomeRiver = 0;
-        Set<String> diagFluidIds = Sets.newHashSet();
-        BlockPos diagSample = null;
-        for (int cdx = -spawnChunkRadius; cdx <= spawnChunkRadius; cdx++) {
-            for (int cdz = -spawnChunkRadius; cdz <= spawnChunkRadius; cdz++) {
-                long chunkPosL = new ChunkPos(playerChunk.x + cdx, playerChunk.z + cdz).toLong();
-                Set<BlockPos> waters = this.waterHandler.waters.get(chunkPosL);
-                if (waters == null || waters.isEmpty()) continue;
-
-                for (BlockPos water : waters) {
-                    double dx = water.getX() + 0.5 - px;
-                    double dz = water.getZ() + 0.5 - pz;
-                    if (dx * dx + dz * dz > spawnRadiusSq) continue;
-                    if (dwDiag) {
-                        diagNearbyWaters++;
-                        if (diagFluidIds.size() < 8) {
-                            ResourceLocation fid = BuiltInRegistries.FLUID.getKey(this.level.getFluidState(water).getType());
-                            if (fid != null) diagFluidIds.add(fid.toString());
-                        }
-                    }
-                    boolean dwRiver = isDynamicRiverWater(water);
-                    if (dwRiver && diagSample == null) diagSample = water;
-                    if (!dwRiver) {
-                        if (!isRiverBiomeWater(water)) continue;
-                        if (this.riverFlow.isOceanSurroundedRiver(this.level, water)) continue;
-                        if (dwDiag) diagBiomeRiver++;
-                    } else if (dwDiag) {
-                        diagDwRiver++;
-                    }
-                    if (!posIsWater(this.level, water)) continue;
-                    if (!this.level.getBlockState(water.above()).isAir()) continue;
-                    candidates.add(water);
-                }
-            }
-        }
-
-        if (dwDiag) {
-            String sample = "none";
-            if (diagSample != null) {
-                Vec3 v = DynamicWatersCompat.getRiverFlow(diagSample.getX() + 0.5, diagSample.getY(), diagSample.getZ() + 0.5, this.level);
-                sample = diagSample.toShortString() + " airAbove=" + this.level.getBlockState(diagSample.above()).isAir()
-                        + String.format(" flow=(%.3f,%.3f)", v.x, v.z);
-            }
-            Wavify.LOGGER.info("[wavify-dw] enableRiver={} nearbyWaters={} fluids={} dwRiver={} biomeRiver={} candidates={} | sample {}",
-                    WavifyConfig.enableRiverWaves, diagNearbyWaters, diagFluidIds, diagDwRiver, diagBiomeRiver, candidates.size(), sample);
-        }
-
-        if (candidates.isEmpty()) {
-            this.riverDebugMarkers = List.of();
-            return;
-        }
-
-        List<double[]> taken = new ArrayList<>();
-        for (Wave wave : this.waves) {
-            if (wave instanceof RiverWave riverWave) {
-                taken.add(new double[]{riverWave.x, riverWave.z});
-            }
-        }
-
-        int target = (int) Math.round(candidates.size() / 100.0 * WavifyConfig.riverWaveDensity);
-        target = Mth.clamp(target, 1, 48);
-        int toSpawn = target - taken.size();
-        if (toSpawn <= 0) {
-            this.riverDebugMarkers = List.of();
-            return;
-        }
-
-        RandomSource random = this.level.getRandom();
-        int spawned = 0;
-        int attempts = 0;
-        int maxAttempts = toSpawn * 8 + 16;
-
-        while (spawned < toSpawn && attempts++ < maxAttempts) {
-            BlockPos water = candidates.get(random.nextInt(candidates.size()));
-            double cx = water.getX() + 0.5;
-            double cz = water.getZ() + 0.5;
-            if (tooCloseToExistingRiverWave(taken, cx, cz)) continue;
-
-            RiverFlow.Flow flow = RiverFlow.dynamicFlowAt(this.level, cx, water.getY(), cz);
-            boolean dynamic = flow != null;
-            if (!dynamic) {
-                flow = this.riverFlow.flowAt(cx, cz);
-                if (flow == null) continue;
-
-                if (RiverFlow.bankClearance(this.level, cx, cz, water.getY(), flow.dirX(), flow.dirZ(), 4) < SPAWN_BANK_MARGIN) continue;
-            }
-
-            this.waves.add(new RiverWave(this.level, water, this.riverFlow, flow.dirX(), flow.dirZ(), (float) WavifyConfig.riverWaveTravelBlocks, dynamic));
-            taken.add(new double[]{cx, cz});
-            spawned++;
-        }
-
-        if (DebugHelper.debug()) {
-            List<RiverFlow.DebugMarker> debugMarkers = new ArrayList<>();
-            this.riverFlow.addDebugMarkers(this.level, debugMarkers, Mth.floor(player.getY()));
-            this.riverDebugMarkers = List.copyOf(debugMarkers);
-        } else {
-            this.riverDebugMarkers = List.of();
-        }
-    }
-
-    private boolean tooCloseToExistingRiverWave(List<double[]> taken, double x, double z) {
-        for (double[] entry : taken) {
-            double dx = entry[0] - x;
-            double dz = entry[1] - z;
-            if (dx * dx + dz * dz <= RIVER_MIN_SPACING_SQ) return true;
-        }
-        return false;
     }
 
     public Set<BlockPos> findConnected(BlockPos start, float yaw, Set<BlockPos> waterBlocks, Set<BlockPos> ignoreSet) {
@@ -509,24 +182,6 @@ public class WavifyWaveHandler {
         return connected;
     }
 
-    public void debugWaveParticles(Set<BlockPos> waterBlocks) {
-        Vector3f color = new Vector3f(1f, 1f, 1f);
-
-        boolean farParticles = false;
-
-        for (BlockPos water : waterBlocks) {
-            SitePos site = this.waterHandler.getSiteForPos(water);
-            if (site == null || !site.yawCalculated) continue;
-
-            DebugWaveMovementParticle.DebugWaveMovementParticleEffect particleEffect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
-                    color,
-                    1f,
-                    site.getYaw(),
-                    0.3f,
-                    20);
-            this.level.addParticle(particleEffect, farParticles, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
-        }
-    }
 
     public List<Wave> getWaves() {
         return this.waves;
@@ -553,27 +208,6 @@ public class WavifyWaveHandler {
         return checkChunks.stream().noneMatch(LevelChunk::isEmpty);
     }
 
-    public Set<ChunkPos> getNearbyChunkPos() {
-        Minecraft client = Minecraft.getInstance();
-        LocalPlayer player = client.player;
-        ChunkPos playerPos = player.chunkPosition();
-        int playerX = playerPos.x;
-        int playerZ = playerPos.z;
-
-        int radius = getLoadedChunkRadius();
-        ChunkPos start = new ChunkPos(playerX + radius, playerZ + radius);
-        ChunkPos end = new ChunkPos(playerX - radius, playerZ - radius);
-
-        Set<ChunkPos> loadedChunks = Sets.newHashSet();
-        for (ChunkPos chunkPos : ChunkPos.rangeClosed(start, end).toList()) {
-            LevelChunk chunk = this.level.getChunk(chunkPos.x, chunkPos.z);
-            if (chunk.isEmpty()) continue;
-            loadedChunks.add(chunkPos);
-        }
-
-        return loadedChunks;
-    }
-
     public int getChunkRadius() {
         Minecraft client = Minecraft.getInstance();
         int configRadius = WavifyConfig.chunkRadius;
@@ -582,101 +216,6 @@ public class WavifyWaveHandler {
         return Math.min(configRadius, serverRadius);
     }
 
-    public int getLoadedChunkRadius() {
-        Minecraft client = Minecraft.getInstance();
-        int loadRadius = ((OptionsAccessor) client.options).wavify$getServerRenderDistance();
-        return Math.max(2, loadRadius) + 3;
-    }
-
-    public void debugTick(Minecraft client, LocalPlayer player) {
-        if (DebugHelper.offhandSpyglass()) {
-            renderRiverDebugMarkers(player);
-        }
-
-        if (DebugHelper.holdingCompass() || DebugHelper.offhandCompass()) {
-            if (!this.waterHandler.built) return;
-
-            ChunkPos playerChunk = player.chunkPosition();
-            if (DebugHelper.offhandCompass()) {
-                if (client.level.getGameTime() % 5 != 0) return;
-                int radius = 2;
-                ChunkPos start = new ChunkPos(playerChunk.x + radius, playerChunk.z + radius);
-                ChunkPos end = new ChunkPos(playerChunk.x - radius, playerChunk.z - radius);
-                for (ChunkPos chunkPos : ChunkPos.rangeClosed(start, end).toList()) {
-                    debugChunkDirectionParticles(chunkPos.toLong(), true);
-                }
-            } else {
-                debugChunkDirectionParticles(playerChunk.toLong(), false);
-            }
-
-        }
-
-        if (DebugHelper.usingSpyglass()) {
-            if (client.level.getGameTime() % 20 != 0) return;
-
-            BlockPos playerPos = player.blockPosition();
-
-            List<BlockPos> scannedBlocks = this.waterHandler.waterCache.values().stream().flatMap(map -> map.keySet().stream()).toList();
-            if (scannedBlocks.contains(playerPos)) {
-                long chunkPosL = ChunkPos.asLong(playerPos);
-                SitePos site = this.waterHandler.waterCache.get(chunkPosL).get(playerPos);
-
-                System.out.println(site.xList.size());
-            }
-        }
-    }
-
-    private void renderRiverDebugMarkers(LocalPlayer player) {
-        if (this.riverDebugMarkers.isEmpty()) return;
-
-        for (RiverFlow.DebugMarker marker : this.riverDebugMarkers) {
-            if (!new Vec3(marker.x(), marker.y(), marker.z()).closerThan(new Vec3(player.getX(), player.getY(), player.getZ()), 96.0)) continue;
-
-            if (marker.arrow()) {
-                DebugWaveMovementParticle.DebugWaveMovementParticleEffect effect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
-                        marker.color(),
-                        marker.scale(),
-                        marker.yaw(),
-                        marker.speed(),
-                        marker.lifetime()
-                );
-                this.level.addParticle(effect, false, marker.x(), marker.y(), marker.z(), 0, 0, 0);
-            } else {
-                DebugWaterParticle.DebugWaterParticleEffect effect = new DebugWaterParticle.DebugWaterParticleEffect(marker.color(), marker.scale());
-                this.level.addParticle(effect, marker.x(), marker.y(), marker.z(), 0, 0, 0);
-            }
-        }
-    }
-
-    public void debugChunkDirectionParticles(long chunkPosL, boolean farParticles) {
-        Vector3f color = new Vector3f(1f, 1f, 1f);
-
-        Map<BlockPos, SitePos> map = this.waterHandler.waterCache.get(chunkPosL);
-        if (map == null) return;
-
-        for (Map.Entry<BlockPos, SitePos> entry : map.entrySet()) {
-            BlockPos pos = entry.getKey();
-            SitePos sitePos = entry.getValue();
-            if (sitePos == null || !sitePos.yawCalculated) continue;
-            DebugWaveMovementParticle.DebugWaveMovementParticleEffect particleEffect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
-                    color,
-                    1f,
-                    sitePos.getYaw(),
-                    0.3f,
-                    20);
-            this.level.addParticle(particleEffect, farParticles, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
-        }
-    }
-
-    public static RandomSource getRandom() {
-        return RandomSource.create();
-    }
-
-    public static RandomSource getSyncedRandom() {
-        long time = Minecraft.getInstance().level.getGameTime();
-        long random = 5L * Math.round(time / 5f);
-        return RandomSource.create(random);
-    }
 
     public static boolean posIsWater(ClientLevel level, BlockPos pos) {
         FluidState state = level.getFluidState(pos);

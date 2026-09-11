@@ -14,7 +14,6 @@ public class RiverWave extends Wave {
 
     protected final RiverFlowField field;
 
-    protected final boolean followDynamic;
     protected double dirX;
     protected double dirZ;
     protected final float travelSpeed;
@@ -31,18 +30,13 @@ public class RiverWave extends Wave {
     protected final float lateralFactor;
 
     public RiverWave(ClientLevel world, BlockPos spawnWater, RiverFlowField field, double dirX, double dirZ, float travelBlocks) {
-        this(world, spawnWater, field, dirX, dirZ, travelBlocks, false);
-    }
-
-    public RiverWave(ClientLevel world, BlockPos spawnWater, RiverFlowField field, double dirX, double dirZ, float travelBlocks, boolean followDynamic) {
         super(world, spawnWater.above(), (float) Math.toDegrees(Math.atan2(dirZ, dirX)), 0.4f, false);
         this.field = field;
-        this.followDynamic = followDynamic;
         this.dirX = dirX;
         this.dirZ = dirZ;
         this.waterY = spawnWater.getY();
 
-        int rawWidth = RiverFlow.channelWidth(world, this.x, this.z, this.waterY, dirX, dirZ, 5);
+        int rawWidth = RiverFlow.banksAt(world, this.x, this.z, this.waterY, dirX, dirZ, 5).width();
         int width = Mth.clamp(rawWidth, 3, 9);
         if ((width & 1) == 0) width = Math.max(3, width - 1);
         this.setWidth(width);
@@ -70,6 +64,11 @@ public class RiverWave extends Wave {
         this.y = this.waterY + BODY_HEIGHT;
         this.prevY = this.y;
         syncBoxToCurrentPosition();
+    }
+
+    @Override
+    public float getRenderYSink() {
+        return 0f;
     }
 
     @Override
@@ -140,8 +139,7 @@ public class RiverWave extends Wave {
     }
 
     protected void steerAndAdvance() {
-        RiverFlow.Flow flow = this.followDynamic ? RiverFlow.dynamicFlowAt(this.level, this.x, this.waterY, this.z) : null;
-        if (flow == null) flow = this.field.flowAt(this.x, this.z);
+        RiverFlow.Flow flow = this.field.flowAt(this.level, this.x, this.waterY, this.z);
         if (flow != null) {
             double tx = flow.dirX();
             double tz = flow.dirZ();

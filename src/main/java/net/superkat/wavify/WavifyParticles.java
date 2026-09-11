@@ -9,10 +9,6 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import net.superkat.wavify.particles.SprayParticleEffect;
-import net.superkat.wavify.particles.WhiteSprayParticleEffect;
-import net.superkat.wavify.particles.debug.DebugShoreParticle;
-import net.superkat.wavify.particles.debug.DebugWaterParticle;
-import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
 
 public class WavifyParticles {
     public static final String MOD_ID = Wavify.MOD_ID;
@@ -22,9 +18,9 @@ public class WavifyParticles {
             "spray_particle",
             () -> new CodecParticleType<>(false, SprayParticleEffect.DESERIALIZER, SprayParticleEffect.CODEC)
     );
-    public static final RegistryObject<ParticleType<WhiteSprayParticleEffect>> WHITE_SPRAY_PARTICLE = PARTICLES.register(
+    public static final RegistryObject<ParticleType<SprayParticleEffect>> WHITE_SPRAY_PARTICLE = PARTICLES.register(
             "white_spray_particle",
-            () -> new CodecParticleType<>(false, WhiteSprayParticleEffect.DESERIALIZER, WhiteSprayParticleEffect.CODEC)
+            () -> new CodecParticleType<>(false, SprayParticleEffect.DESERIALIZER, SprayParticleEffect.CODEC)
     );
 
     public static final RegistryObject<SimpleParticleType> SPLASH_PARTICLE = PARTICLES.register(
@@ -36,32 +32,8 @@ public class WavifyParticles {
             () -> new SimpleParticleType(false) {}
     );
 
-    public static final RegistryObject<ParticleType<DebugWaterParticle.DebugWaterParticleEffect>> DEBUG_WATERBODY_PARTICLE = PARTICLES.register(
-            "debug_waterbody_particle",
-            () -> new CodecParticleType<>(
-                    false,
-                    DebugWaterParticle.DebugWaterParticleEffect.DESERIALIZER,
-                    DebugWaterParticle.DebugWaterParticleEffect.CODEC
-            )
-    );
 
-    public static final RegistryObject<ParticleType<DebugShoreParticle.DebugShoreParticleEffect>> DEBUG_SHORELINE_PARTICLE = PARTICLES.register(
-            "debug_shoreline_particle",
-            () -> new CodecParticleType<>(
-                    false,
-                    DebugShoreParticle.DebugShoreParticleEffect.DESERIALIZER,
-                    DebugShoreParticle.DebugShoreParticleEffect.CODEC
-            )
-    );
 
-    public static final RegistryObject<ParticleType<DebugWaveMovementParticle.DebugWaveMovementParticleEffect>> DEBUG_WAVEMOVEMENT_PARTICLE = PARTICLES.register(
-            "debug_wavemovement_particle",
-            () -> new CodecParticleType<>(
-                    false,
-                    DebugWaveMovementParticle.DebugWaveMovementParticleEffect.DESERIALIZER,
-                    DebugWaveMovementParticle.DebugWaveMovementParticleEffect.CODEC
-            )
-    );
 
     public static void register(IEventBus modEventBus) {
         PARTICLES.register(modEventBus);

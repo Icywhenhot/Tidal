@@ -23,18 +23,14 @@ base {
 }
 
 java {
-    // JDK 17 is auto-provisioned by the foojay toolchain resolver (see settings.gradle),
-    // matching what ForgeGradle's MCP recompile step and Forge 1.20.1 require.
     toolchain.languageVersion = JavaLanguageVersion.of(17)
 }
 
 minecraft {
-    // 'official' Mojang mappings for 1.20.1 - no extra plugin required.
     mappings channel: 'official', version: minecraft_version
 
     copyIdeResources = true
 
-    // Forge needs to know which mixin configs to load in dev.
     runs {
         configureEach {
             workingDirectory project.file('run')
@@ -74,9 +70,6 @@ mixin {
 }
 
 repositories {
-    // Iris/Oculus are detected reflectively at runtime, so no compile dependency is needed.
-    // Local, dev-only: lets fg.deobf resolve the Dynamic Waters jar from libs/ by coordinate so it can
-    // be remapped for runtime testing (see dependencies). flatDir ignores the group, matches name-version.jar.
     flatDir { dirs 'libs' }
 }
 
@@ -84,12 +77,6 @@ dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
-    // DEV TESTING ONLY - not required to build or ship Wavify.
-    // The published Dynamic Waters jar is SRG-mapped (production names); the dev runtime uses official
-    // names, so dropping it straight into run/mods crashes with NoSuchFieldError. fg.deobf remaps it to
-    // dev mappings so it can load here and we can verify the river-wave flow compat. runtimeOnly keeps
-    // it OFF the compile classpath (DynamicWatersCompat stays reflection-only) and out of the built jar.
-    // The jar lives in libs/ (gitignored, resolved via the flatDir repo above); group is arbitrary.
     if (file('libs/dynamicwaters-10.0.0.jar').exists()) {
         runtimeOnly fg.deobf("blank:dynamicwaters:10.0.0")
     }

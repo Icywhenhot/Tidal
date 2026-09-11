@@ -7,8 +7,6 @@ pluginManagement {
 }
 
 plugins {
-    // Enables automatic download/provisioning of the JDK 17 toolchain that Forge 1.20.1
-    // (and ForgeGradle's MCP recompile step) requires, since no JDK 17 is installed locally.
     id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
 }
 

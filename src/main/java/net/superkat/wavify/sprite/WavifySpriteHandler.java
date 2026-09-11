@@ -11,8 +11,8 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.superkat.wavify.ClientState;
 import net.superkat.wavify.Wavify;
-import net.superkat.wavify.duck.WavifyWorld;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -35,6 +35,11 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
 
     public TextureAtlasSprite getSprite(ResourceLocation id) {
         return this.atlas.getSprite(id);
+    }
+
+    public WaveSprite getWaveSprite(ResourceLocation id) {
+        TextureAtlasSprite sprite = getSprite(id);
+        return WaveSprite.of(sprite, getMetadata(sprite.contents().name()));
     }
 
     public WaveResourceMetadata getMetadata(ResourceLocation spriteId) {
@@ -72,7 +77,8 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
                 String stripped = path.substring(TEXTURE_FOLDER.length() + 1, path.length() - ".png.mcmeta".length());
                 ResourceLocation spriteId = new ResourceLocation(MOD_ID, stripped);
                 map.put(spriteId, new WaveResourceMetadata(frameTime, frameHeight));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                Wavify.LOGGER.warn("bad wave mcmeta {}: {}", mcmetaId, e.toString());
             }
         }
         return map;
@@ -90,16 +96,6 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
-
-        WavifyWorld wavifyWorld = (WavifyWorld) mc.level;
-        wavifyWorld.wavify$wavifyWaveHandler().reloadNearbyChunks();
-        wavifyWorld.wavify$wavifyWaveHandler().waterHandler.rebuild();
+        ClientState.cachesInvalidated(mc.level);
     }
-
-    public void clearAtlas() {
-        if (this.atlas != null) {
-            this.atlas.clearTextureData();
-        }
-    }
-
 }

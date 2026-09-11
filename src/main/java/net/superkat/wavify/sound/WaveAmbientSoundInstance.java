@@ -13,7 +13,7 @@ public class WaveAmbientSoundInstance extends AbstractTickableSoundInstance {
     public float targetVolume = 0f;
     private boolean done = false;
 
-    public WaveAmbientSoundInstance(SoundEvent event, float maxVolume) {
+    public WaveAmbientSoundInstance(SoundEvent event) {
         super(event, SoundSource.AMBIENT, Minecraft.getInstance().level == null
                 ? net.minecraft.util.RandomSource.create()
                 : Minecraft.getInstance().level.getRandom());

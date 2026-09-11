@@ -5,9 +5,8 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.util.Mth;
-import net.superkat.wavify.scan.WaterHandler;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -15,6 +14,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
@@ -50,7 +50,7 @@ public final class RiverFlowField {
     private long builtTick = Long.MIN_VALUE;
     private boolean built = false;
 
-    public void ensureBuilt(ClientLevel level, WaterHandler waterHandler, double px, double pz, long tick) {
+    public void ensureBuilt(Map<Long, Set<BlockPos>> riverWaters, double px, double pz, long tick) {
         int cx = Mth.floor(px);
         int cz = Mth.floor(pz);
         if (built
@@ -59,7 +59,14 @@ public final class RiverFlowField {
                 && tick - builtTick < REBUILD_INTERVAL) {
             return;
         }
-        build(level, waterHandler, cx, cz, tick);
+        build(riverWaters, cx, cz, tick);
+    }
+
+    @Nullable
+    public RiverFlow.Flow flowAt(Level level, double x, int y, double z) {
+        RiverFlow.Flow dyn = RiverFlow.dynamicFlowAt(level, x, y, z);
+        if (dyn != null) return dyn;
+        return flowAt(x, z);
     }
 
     @Nullable
@@ -88,7 +95,7 @@ public final class RiverFlowField {
         return embedded;
     }
 
-    private void build(ClientLevel level, WaterHandler waterHandler, int cx, int cz, long tick) {
+    private void build(Map<Long, Set<BlockPos>> riverWaters, int cx, int cz, long tick) {
         this.oceanRiverCache.clear();
 
         boolean hadPrev = this.built;
@@ -111,14 +118,13 @@ public final class RiverFlowField {
         for (int cdx = -chunkRadius; cdx <= chunkRadius; cdx++) {
             for (int cdz = -chunkRadius; cdz <= chunkRadius; cdz++) {
                 long key = new ChunkPos(playerChunkX + cdx, playerChunkZ + cdz).toLong();
-                Set<BlockPos> waters = waterHandler.waters.get(key);
+                Set<BlockPos> waters = riverWaters.get(key);
                 if (waters == null || waters.isEmpty()) continue;
 
                 for (BlockPos w : waters) {
                     int lx = w.getX() - this.originX;
                     int lz = w.getZ() - this.originZ;
                     if (lx < 0 || lz < 0 || lx >= this.blockW || lz >= this.blockH) continue;
-                    if (!RiverFlow.isRiverWater(level, w)) continue;
                     this.water[lz * this.blockW + lx] = true;
                 }
             }
@@ -428,19 +434,4 @@ public final class RiverFlowField {
         return false;
     }
 
-    public void addDebugMarkers(ClientLevel level, List<RiverFlow.DebugMarker> out, int playerY) {
-        if (!built) return;
-        for (int gz = 0; gz < this.gridH; gz++) {
-            for (int gx = 0; gx < this.gridW; gx++) {
-                int i = gz * this.gridW + gx;
-                if (isInvalid(i)) continue;
-                int wx = this.originX + gx * CELL + CELL / 2;
-                int wz = this.originZ + gz * CELL + CELL / 2;
-                int y = RiverFlow.surfaceWaterY(level, wx + 0.5, wz + 0.5, playerY);
-                if (y == Integer.MIN_VALUE) continue;
-                float yaw = (float) Math.toDegrees(Math.atan2(this.dirZ[i], this.dirX[i]));
-                out.add(new RiverFlow.DebugMarker(wx + 0.5, y + 1.3, wz + 0.5, new Vector3f(0.2f, 0.95f, 0.95f), 0.8f, true, yaw, 0.14f, 45));
-            }
-        }
-    }
 }

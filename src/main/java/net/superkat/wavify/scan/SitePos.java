@@ -24,14 +24,6 @@ public class SitePos {
         this.zList.add(pos.getZ());
     }
 
-    public void removePos(BlockPos pos) {
-        int xIndex = this.xList.indexOf(pos.getX());
-        this.xList.removeInt(xIndex);
-
-        int zIndex = this.zList.indexOf(pos.getZ());
-        this.zList.removeInt(zIndex);
-    }
-
     public void clearPositions() {
         this.xList.clear();
         this.zList.clear();
@@ -58,13 +50,6 @@ public class SitePos {
 
     public float getYaw() {
         return this.yaw;
-    }
-
-    public float getYawAsF3Angle() {
-        float angle = this.getYaw() - 90;
-        if(angle < 0) angle += 360;
-        if(angle > 180) angle -= 360;
-        return angle;
     }
 
     public BlockPos getPos() {
