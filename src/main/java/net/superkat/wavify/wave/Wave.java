@@ -57,7 +57,6 @@ public class Wave {
     public boolean washingUp = false;
     public boolean hitBlock = false;
     public int hitBlockAge;
-    public boolean ending = false;
 
     public boolean waterfallMode = false;
     public boolean waterfallSplashed = false;
@@ -90,9 +89,7 @@ public class Wave {
         this.y = spawnPos.getY() + Math.abs(yOffset) + 0.15f;
         this.z = spawnPos.getZ() + 0.5f;
 
-        float f = 0.2f / 2.0F;
-        float g = 0.2f;
-        this.box = (new AABB(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f)).inflate(this.scale / 4f, 0, this.scale / 4f);
+        syncBoxToCurrentPosition();
         float speed = 0.115f;
 
         this.velX = (float) (Math.cos(Math.toRadians(yaw)) * speed);
@@ -149,8 +146,6 @@ public class Wave {
                 this.velX *= 0.9f;
                 this.velZ *= 0.9f;
             }
-
-            this.ending = Math.abs(this.velX) <= 0.03f && Math.abs(this.velZ) <= 0.3f;
 
             float addedLength = Math.abs(velX) * (this.bigWave ? 1 : 0.75f);
             this.length += addedLength;
@@ -268,9 +263,6 @@ public class Wave {
                             this.level.getRandom().nextGaussian() * splashIntensity);
                 }
             }
-
-            for (int i = 0; i < splashAmount; i++) {
-            }
         }
 
         if (!drowningAway && !washingUp && this.age >= this.maxWaterAge) {
@@ -308,12 +300,6 @@ public class Wave {
 
     public void setWidth(int width) {
         this.width = width;
-    }
-
-    public void offsetVertical(float offset) {
-        this.y += offset;
-        this.prevY += offset;
-        syncBoxToCurrentPosition();
     }
 
     public void updateWaterColor() {
@@ -364,6 +350,10 @@ public class Wave {
 
     protected boolean canFullMoonGlow() {
         return true;
+    }
+
+    public float getRenderYSink() {
+        return -0.5f;
     }
 
     public int getRenderColumnCount() {

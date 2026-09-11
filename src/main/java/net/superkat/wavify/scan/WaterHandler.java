@@ -70,6 +70,8 @@ public class WaterHandler {
 
     public Map<Long, Set<BlockPos>> waters = new ConcurrentHashMap<>();
 
+    public Map<Long, Set<BlockPos>> riverWaters = new ConcurrentHashMap<>();
+
     public WaterHandler(WavifyWaveHandler wavifyWaveHandler, ClientLevel level) {
         this.wavifyWaveHandler = wavifyWaveHandler;
         this.level = level;
@@ -90,6 +92,10 @@ public class WaterHandler {
                         long chunkPosL = chunk.chunkPos;
                         if (chunk.waters != null && !chunk.waters.isEmpty()) {
                             this.waters.computeIfAbsent(chunkPosL, aLong -> ConcurrentHashMap.newKeySet()).addAll(chunk.waters);
+                        }
+
+                        if (chunk.rivers != null && !chunk.rivers.isEmpty()) {
+                            this.riverWaters.computeIfAbsent(chunkPosL, aLong -> ConcurrentHashMap.newKeySet()).addAll(chunk.rivers);
                         }
 
                         if (chunk.sites != null && !chunk.sites.isEmpty()) {
@@ -215,8 +221,8 @@ public class WaterHandler {
             }
         }
 
-        int intDistance = (int) Math.sqrt(distance);
-        return IntObjectPair.of(intDistance, closest);
+        if (closest == null) return null;
+        return IntObjectPair.of((int) Math.sqrt(distance), closest);
     }
 
     @Nullable
@@ -248,18 +254,14 @@ public class WaterHandler {
 
         IntObjectPair<SitePos> siteDistPair = this.calcClosestSite(pos);
         if (siteDistPair == null) return null;
-        int distance = siteDistPair.firstInt();
-        SitePos site = siteDistPair.second();
 
-        if (site != null) {
-            this.waterDistCache.computeIfAbsent(
-                    chunkPosL, chunkPosL2 -> new Int2ObjectOpenHashMap<>()
-            ).computeIfAbsent(
-                    distance, dist -> new ObjectOpenHashSet<>()
-            ).add(pos);
-        }
+        this.waterDistCache.computeIfAbsent(
+                chunkPosL, chunkPosL2 -> new Int2ObjectOpenHashMap<>()
+        ).computeIfAbsent(
+                siteDistPair.firstInt(), dist -> new ObjectOpenHashSet<>()
+        ).add(pos);
 
-        return site;
+        return siteDistPair.second();
     }
 
     private void debugTick(Minecraft client, LocalPlayer player) {
@@ -379,14 +381,17 @@ public class WaterHandler {
         this.waterDistCache.remove(chunkPosL);
         this.sites.remove(chunkPosL);
         this.waters.remove(chunkPosL);
+        this.riverWaters.remove(chunkPosL);
         this.cachedSiteSet.clear();
     }
 
     public void clear() {
         this.shoreBlocks.clear();
-        this.sites.clear();
         this.waterCache.clear();
         this.waterDistCache.clear();
+        this.sites.clear();
+        this.waters.clear();
+        this.riverWaters.clear();
         this.cachedSiteSet.clear();
         this.unscannedChunks.clear();
         this.chunkUpdates.clear();

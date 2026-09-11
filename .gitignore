@@ -1,22 +1,14 @@
-# gradle
-
 .gradle/
 build/
 out/
 classes/
 
-# eclipse
-
 *.launch
-
-# idea
 
 .idea/
 *.iml
 *.ipr
 *.iws
-
-# vscode
 
 .settings/
 .vscode/
@@ -24,19 +16,11 @@ bin/
 .classpath
 .project
 
-# macos
-
 *.DS_Store
 
-# fabric
-
 run/
-
-# local-only dev test mods (e.g. Dynamic Waters jar remapped via fg.deobf for runtime testing)
-
 libs/
-
-# java
+tools/
 
 hs_err_*.log
 replay_*.log

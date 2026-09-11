@@ -18,7 +18,6 @@ import net.superkat.wavify.compat.IrisCompat;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 import net.superkat.wavify.sprite.WavifySprites;
-import net.superkat.wavify.wave.RiverWave;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import net.superkat.wavify.wave.Wave;
 import org.joml.Matrix4f;
@@ -28,7 +27,6 @@ import java.util.Set;
 
 public class WaveRenderer {
     private static final float WAVE_FOAM_Y_OFFSET = 0.08f;
-    private static final float OCEAN_RENDER_Y_SINK = -0.5f;
 
     private float frameBodyYOffset = 0f;
     private float frameFoamYOffset = 0f;
@@ -95,10 +93,9 @@ public class WaveRenderer {
         int age = wave.getAge();
         int maxAge = wave.getMaxAge();
 
-        boolean isOcean = !(wave instanceof RiverWave);
-        float oceanSink = isOcean ? OCEAN_RENDER_Y_SINK : 0f;
-        float bodyYOffset = frameBodyYOffset + oceanSink;
-        float foamYOffset = frameFoamYOffset + oceanSink;
+        float sink = wave.getRenderYSink();
+        float bodyYOffset = frameBodyYOffset + sink;
+        float foamYOffset = frameFoamYOffset + sink;
 
         renderWaveColumns(posMatrix, buffer, wave, colorableSprite, whiteSprite, age, maxAge, red, green, blue, alpha, foamAlpha, light, bodyYOffset, foamYOffset);
 
@@ -216,14 +213,6 @@ public class WaveRenderer {
 
     public TextureAtlasSprite getBottomWashingWhiteSprite() {
         return spriteHandler.getSprite(WavifySprites.BOTTOM_WASHING_WHITE_ID);
-    }
-
-    public TextureAtlasSprite getWashedSprite() {
-        return spriteHandler.getSprite(WavifySprites.WASHING_TEXTURE_ID);
-    }
-
-    public TextureAtlasSprite getWashedWhiteSprite() {
-        return spriteHandler.getSprite(WavifySprites.WASHING_WHITE_TEXTURE_ID);
     }
 
     public TextureAtlasSprite getWetOverlaySprite() {

@@ -16,10 +16,6 @@ public final class IrisCompat {
 
     private IrisCompat() {}
 
-    public static boolean isIrisLoaded() {
-        return IRIS_LOADED;
-    }
-
     public static boolean isShaderPackActive() {
         if (!IRIS_LOADED || lookupFailed) return false;
         if (!lookupAttempted) {

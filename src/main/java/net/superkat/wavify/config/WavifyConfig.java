@@ -18,7 +18,6 @@ public class WavifyConfig extends MidnightConfig {
     @Entry(category = WAVES, isSlider = true, min = 3, max = 16) public static int chunkRadius = 5;
     @Entry(category = WAVES, min = 1, max = 1024) public static int chunkUpdatesRescanAmount = 50;
     @Entry(category = WAVES, isSlider = true, min = 4, max = 32) public static int spawnDistance = 8;
-    @Entry(category = WAVES, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double lakeWaveMultiplier = 0.2;
 
     @Entry(category = WAVES) public static boolean debug = false;
     @Comment(category = WAVES, centered = true) public static Comment debugDocs;
@@ -44,10 +43,4 @@ public class WavifyConfig extends MidnightConfig {
 
     @Entry(category = SOUNDS) public static boolean enableWaveSounds = true;
     @Entry(category = SOUNDS, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double waveSoundVolume = 1.0;
-
-    public static int waveTicks = 80;
-
-    public static int waveDistFromShore = 8;
-
-    public static boolean modEnabled = true;
 }

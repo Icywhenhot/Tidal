@@ -48,13 +48,6 @@ public class DebugHelper {
         return player.getOffhandItem().is(Items.SPYGLASS);
     }
 
-    public static boolean clockInHotbar() {
-        Minecraft client = Minecraft.getInstance();
-        LocalPlayer player = client.player;
-        Inventory playerInventory = player.getInventory();
-        return Inventory.isHotbarSlot(playerInventory.findSlotMatchingItem(Items.CLOCK.getDefaultInstance()));
-    }
-
     public static boolean offhandClock() {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;

@@ -6,9 +6,11 @@ import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec3;
 import net.superkat.wavify.compat.DynamicWatersCompat;
 import net.superkat.wavify.wave.WavifyWaveHandler;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 
 public final class RiverFlow {
@@ -18,15 +20,29 @@ public final class RiverFlow {
     public record Flow(double dirX, double dirZ) {
     }
 
-    public static Flow dynamicFlowAt(Level level, double x, int y, double z) {
-        if (!DynamicWatersCompat.isLoaded()) return null;
-        Vec3 flow = DynamicWatersCompat.getRiverFlow(x, y, z, level);
-        double horiz = Math.sqrt(flow.x * flow.x + flow.z * flow.z);
-        if (horiz < 1.0e-6) return null;
-        return new Flow(flow.x / horiz, flow.z / horiz);
+    public record Banks(int left, int right) {
+        public int width() {
+            return this.left + this.right + 1;
+        }
+
+        public int clearance() {
+            return Math.min(this.left, this.right);
+        }
     }
 
     public record DebugMarker(double x, double y, double z, Vector3f color, float scale, boolean arrow, float yaw, float speed, int lifetime) {
+    }
+
+    @Nullable
+    public static Flow dynamicFlowAt(Level level, double x, int y, double z) {
+        if (!DynamicWatersCompat.isLoaded()) return null;
+        BlockPos pos = new BlockPos(Mth.floor(x), y, Mth.floor(z));
+        FluidState fluid = level.getFluidState(pos);
+        if (fluid.isEmpty()) return null;
+        Vec3 flow = fluid.getFlow(level, pos);
+        double len = Math.sqrt(flow.x * flow.x + flow.z * flow.z);
+        if (len < 1.0e-6) return null;
+        return new Flow(flow.x / len, flow.z / len);
     }
 
     public static boolean isRiverWater(ClientLevel level, BlockPos pos) {
@@ -37,7 +53,7 @@ public final class RiverFlow {
         return false;
     }
 
-    public static int channelWidth(ClientLevel level, double x, double z, int y, double dirX, double dirZ, int max) {
+    public static Banks banksAt(ClientLevel level, double x, double z, int y, double dirX, double dirZ, int max) {
         double nx = -dirZ;
         double nz = dirX;
         int left = 0;
@@ -50,23 +66,7 @@ public final class RiverFlow {
             if (surfaceWaterY(level, x - nx * s, z - nz * s, y) == Integer.MIN_VALUE) break;
             right++;
         }
-        return left + right + 1;
-    }
-
-    public static int bankClearance(ClientLevel level, double x, double z, int y, double dirX, double dirZ, int max) {
-        double nx = -dirZ;
-        double nz = dirX;
-        int left = 0;
-        for (int s = 1; s <= max; s++) {
-            if (surfaceWaterY(level, x + nx * s, z + nz * s, y) == Integer.MIN_VALUE) break;
-            left++;
-        }
-        int right = 0;
-        for (int s = 1; s <= max; s++) {
-            if (surfaceWaterY(level, x - nx * s, z - nz * s, y) == Integer.MIN_VALUE) break;
-            right++;
-        }
-        return Math.min(left, right);
+        return new Banks(left, right);
     }
 
     public static int depthAt(ClientLevel level, BlockPos waterTop, int max) {
@@ -79,15 +79,18 @@ public final class RiverFlow {
         return depth;
     }
 
+    public static boolean isSurfaceWater(ClientLevel level, BlockPos pos) {
+        if (!WavifyWaveHandler.posIsWater(level, pos)) return false;
+        return level.getBlockState(pos.above()).isAir();
+    }
+
     public static int surfaceWaterY(ClientLevel level, double x, double z, int preferredY) {
         int bx = Mth.floor(x);
         int bz = Mth.floor(z);
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (int y = preferredY + 1; y >= preferredY - 2; y--) {
             cursor.set(bx, y, bz);
-            if (!WavifyWaveHandler.posIsWater(level, cursor)) continue;
-            if (!level.getBlockState(cursor.above()).isAir()) continue;
-            return y;
+            if (isSurfaceWater(level, cursor)) return y;
         }
         return Integer.MIN_VALUE;
     }
