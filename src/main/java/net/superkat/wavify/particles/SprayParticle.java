@@ -2,7 +2,6 @@ package net.superkat.wavify.particles;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.color.world.BiomeColors;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleFactory;
 import net.minecraft.client.particle.ParticleTextureSheet;
@@ -17,6 +16,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.superkat.wavify.WavifyParticles;
+import net.superkat.wavify.util.WavifyColors;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -24,6 +24,7 @@ import org.joml.Vector3f;
 import java.util.List;
 
 public class SprayParticle extends SpriteBillboardParticle {
+    private final boolean white;
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = MathHelper.square(100.0);
     protected final SpriteProvider spriteProvider;
 
@@ -48,14 +49,18 @@ public class SprayParticle extends SpriteBillboardParticle {
         this.collidesWithWorld = true;
         this.gravityStrength = 0.5f;
 
-        if(spawnWhite()) {
-            this.world.addParticle(new WhiteSprayParticleEffect(yaw, intensity, this.scale), x, y, z, velX, velY, velZ);
-            this.updateWaterColor(); // only on spawn, these live for barely any time
+        this.white = params.isWhite();
+
+        if(params.isWhite()) {
+            this.world.addParticle(new SprayParticleEffect(yaw, intensity, this.scale, false), x, y, z, velX, velY, velZ);
+        } else {
+            this.updateWaterColor();
         }
 
-        this.angle = 15 * intensity * 5f;
+        this.angle = 75f;
 
         this.setSpriteForAge(this.spriteProvider);
+
     }
 
     @Override
@@ -91,7 +96,7 @@ public class SprayParticle extends SpriteBillboardParticle {
         if(this.velocityY != 0 && !onGround) {
             this.angle = this.angle + (float) this.velocityY * 35f;
         } else {
-            this.angle = 0f;
+            this.angle *= 0.7f;
         }
 
         this.setSpriteForAge(this.spriteProvider);
@@ -111,7 +116,7 @@ public class SprayParticle extends SpriteBillboardParticle {
     protected void render(VertexConsumer vertexConsumer, Camera camera, Quaternionf quaternionf, float tickDelta) {
         Vec3d vec3d = camera.getPos();
         float x = (float)(MathHelper.lerp(tickDelta, this.prevPosX, this.x) - vec3d.getX());
-        float y = (float)(MathHelper.lerp(tickDelta, this.prevPosY, this.y) - vec3d.getY()) + (spawnWhite() ? 0.025f : 0.125f);
+        float y = (float)(MathHelper.lerp(tickDelta, this.prevPosY, this.y) - vec3d.getY()) + (this.white ? 0.125f : 0.025f);
         float z = (float)(MathHelper.lerp(tickDelta, this.prevPosZ, this.z) - vec3d.getZ());
         this.quad(vertexConsumer, quaternionf, x, y, z, tickDelta);
     }
@@ -147,7 +152,7 @@ public class SprayParticle extends SpriteBillboardParticle {
             double e = dy;
             double f = dz;
             if (this.collidesWithWorld && (dx != 0.0 || dy != 0.0 || dz != 0.0) && dx * dx + dy * dy + dz * dz < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
-                // bigger bounding box for mud, and soul sand i guess?
+
                 Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(dx, dy, dz), this.getBoundingBox().expand(0, 0.15, 0), this.world, List.of());
                 dx = vec3d.x;
                 dy = vec3d.y;
@@ -168,15 +173,8 @@ public class SprayParticle extends SpriteBillboardParticle {
     }
 
     public void updateWaterColor() {
-        int color = BiomeColors.getWaterColor(this.world, this.getPos());
-        float r = (float) (color >> 16 & 0xFF) / 255.0F;
-        float g = (float) (color >> 8 & 0xFF) / 255.0F;
-        float b = (float) (color & 0xFF) / 255.0F;
-        this.setColor(r, g, b);
-    }
-
-    protected boolean spawnWhite() {
-        return true;
+        Vector3f color = WavifyColors.getWaterColorVec(this.world, this.getPos());
+        this.setColor(color.x, color.y, color.z);
     }
 
     @Override

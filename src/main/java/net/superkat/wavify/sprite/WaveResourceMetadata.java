@@ -16,5 +16,4 @@ public record WaveResourceMetadata(int frameTime, int frameHeight) {
             ).apply(instance, WaveResourceMetadata::new));
     public static final ResourceMetadataSerializer<WaveResourceMetadata> SERIALIZER = ResourceMetadataSerializer.fromCodec(KEY, CODEC);
 
-
 }

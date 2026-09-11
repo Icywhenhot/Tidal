@@ -16,11 +16,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-// our own take on minecraft's particle texture system
-// sprites from a SpriteIdentifier always tick their animation, so waves can't have their own timings
-// vanilla particles get around it by splitting every frame into its own texture with a custom reloader
-// we instead put frame width, height and time in our own mcmeta and load it ourselves
-// the normal sprite metadata gets ignored completely so the atlas never sets up an animation
 public class WavifySpriteHandler implements SimpleResourceReloadListener<SpriteLoader.StitchResult> {
     public static final String MOD_ID = Wavify.MOD_ID;
     public static final Identifier WAVE_ATLAS_ID = Identifier.of(MOD_ID, "textures/atlas/waves.png");
@@ -29,6 +24,10 @@ public class WavifySpriteHandler implements SimpleResourceReloadListener<SpriteL
     public static final Set<ResourceMetadataReader<?>> METADATA_READERS = Set.of(WaveResourceMetadata.SERIALIZER);
 
     public SpriteAtlasTexture atlas;
+
+    public WaveSprite getWaveSprite(Identifier id) {
+        return WaveSprite.of(getSprite(id));
+    }
 
     public Sprite getSprite(Identifier id) {
         return this.atlas.getSprite(id);

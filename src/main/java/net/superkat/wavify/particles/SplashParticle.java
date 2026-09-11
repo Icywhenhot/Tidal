@@ -2,7 +2,6 @@ package net.superkat.wavify.particles;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.color.world.BiomeColors;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleFactory;
 import net.minecraft.client.particle.RainSplashParticle;
@@ -10,6 +9,8 @@ import net.minecraft.client.particle.SpriteProvider;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.SimpleParticleType;
 import net.minecraft.util.math.BlockPos;
+import net.superkat.wavify.util.WavifyColors;
+import org.joml.Vector3f;
 
 public class SplashParticle extends RainSplashParticle {
     public SplashParticle(ClientWorld clientWorld, double x, double y, double z, double velX, double velY, double velZ) {
@@ -18,17 +19,12 @@ public class SplashParticle extends RainSplashParticle {
         this.velocityX = velX;
         this.velocityY = velY;
         this.velocityZ = velZ;
-        if(this.random.nextBoolean()) {
-            this.updateWaterColor();
-        }
+        this.updateWaterColor();
     }
 
     public void updateWaterColor() {
-        int color = BiomeColors.getWaterColor(this.world, this.getPos());
-        float r = (float) (color >> 16 & 0xFF) / 255.0F;
-        float g = (float) (color >> 8 & 0xFF) / 255.0F;
-        float b = (float) (color & 0xFF) / 255.0F;
-        this.setColor(r, g, b);
+        Vector3f color = WavifyColors.getWaterColorVec(this.world, this.getPos());
+        this.setColor(color.x, color.y, color.z);
     }
 
     public BlockPos getPos() {

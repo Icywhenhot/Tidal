@@ -20,18 +20,12 @@ import org.jetbrains.annotations.Range;
 import java.util.List;
 import java.util.Set;
 
-// total mess of a class, does wave position, movement, scale, color and lifecycle
-// i actually dislike this class a lot it is very incomprehensible
 public class Wave {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = MathHelper.square(100.0);
 
-    // todo: wave scales
-    // todo: spary particle width
-    // todo: fix fall washing up
-
     public ClientWorld world;
     public BlockPos spawnPos;
-    public float yaw; // yaw in degrees, in theory
+    public float yaw;
     public boolean bigWave;
 
     public Box box;
@@ -63,7 +57,6 @@ public class Wave {
     public boolean washingUp = false;
     public boolean hitBlock = false;
     public int hitBlockAge;
-    public boolean ending = false;
 
     public boolean waterfallMode = false;
     public boolean waterfallSplashed = false;
@@ -96,11 +89,8 @@ public class Wave {
         this.y = spawnPos.getY() + Math.abs(yOffset) + 0.15f;
         this.z = spawnPos.getZ() + 0.5f;
 
-        float f = 0.2f / 2.0F;
-        float g = 0.2f;
-        this.box = (new Box(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f)).expand(this.scale / 4f, 0, this.scale / 4f);
+        syncBoxToCurrentPosition();
         float speed = 0.115f;
-
 
         this.velX = (float) (Math.cos(Math.toRadians(yaw)) * speed);
         this.velZ = (float) (Math.sin(Math.toRadians(yaw)) * speed);
@@ -144,20 +134,18 @@ public class Wave {
             return;
         }
 
-        if (updateWashingUp()) { // hit the shore
-            if (this.getWashingAge() <= 10) { // just landed, slow down hard
+        if (updateWashingUp()) {
+            if (this.getWashingAge() <= 10) {
                 this.velX *= 0.875f;
                 this.velY = -0.0005f;
                 this.velZ *= 0.875f;
-            } else if (washBounce()) { // little bounce a bit later
+            } else if (washBounce()) {
                 this.velX *= 1.2f;
                 this.velZ *= 1.2f;
-            } else { // rest of its time onshore, keep slowing until it dies
+            } else {
                 this.velX *= 0.9f;
                 this.velZ *= 0.9f;
             }
-
-            this.ending = Math.abs(this.velX) <= 0.03f && Math.abs(this.velZ) <= 0.3f;
 
             float addedLength = Math.abs(velX) * (this.bigWave ? 1 : 0.75f);
             this.length += addedLength;
@@ -166,13 +154,13 @@ public class Wave {
             }
         } else {
             this.updateWaterColor();
-            if (drowningAway) { // never found a shore in time so it just dies out in the water
+            if (drowningAway) {
                 this.length -= 0.1f;
                 this.velY -= 0.005f;
                 if (this.length <= 0f) this.markDead();
             }
 
-            if (this.alpha < 1f) this.alpha += 0.05f; // fade in
+            if (this.alpha < 1f) this.alpha += 0.05f;
         }
 
         if (this.hitBlock && this.age - this.hitBlockAge >= 2) {
@@ -209,7 +197,6 @@ public class Wave {
         }
     }
 
-    // hit a block so it sprays, how much depends on speed and whether it was washing up
     public void spray() {
         if (this.hitBlock) return;
 
@@ -220,8 +207,9 @@ public class Wave {
                 sprayIntensity = getWashingAge() / 128f;
                 if (washBounce()) sprayIntensity *= 2f;
             } else {
-                sprayIntensity = ((float) this.age / this.maxAge) * 2.5f / (this.age / 16f);
+                sprayIntensity = (float) this.age / this.maxAge;
             }
+            sprayIntensity = MathHelper.clamp(sprayIntensity, 0.15f, 0.45f);
 
             double splashX = this.x + this.velX * 10;
             double splashZ = this.z + this.velZ * 10;
@@ -233,14 +221,12 @@ public class Wave {
                 }
             }
 
-
-            this.world.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
+            this.world.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale, true), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;
             this.velZ = 0;
         }
-
 
         this.hitBlockAge = this.age;
         this.hitBlock = true;
@@ -279,8 +265,6 @@ public class Wave {
                 }
             }
 
-            for (int i = 0; i < splashAmount; i++) {
-            }
         }
 
         if (!drowningAway && !washingUp && this.age >= this.maxWaterAge) {
@@ -309,7 +293,7 @@ public class Wave {
 
     public Box getHitBox() {
         if (this.isWashingUp()) {
-            float yawRadians = (float) Math.toRadians(this.yaw); // this took way to long to figure out ( ͡ಠ ʖ̯ ͡ಠ)
+            float yawRadians = (float) Math.toRadians(this.yaw);
             float usedLength = this.bigWave ? this.length * 1.5f : this.length / 16f;
             return this.getBoundingBox().stretch(usedLength * Math.cos(yawRadians), 0, usedLength * Math.sin(yawRadians));
         }
@@ -320,18 +304,11 @@ public class Wave {
         this.width = width;
     }
 
-    public void offsetVertical(float offset) {
-        this.y += offset;
-        this.prevY += offset;
-        syncBoxToCurrentPosition();
-    }
-
     public void updateWaterColor() {
         Vector3f color = WavifyColors.getWaterColorVec(this.world, this.getBlockPos());
         this.setColor(color.x, color.y, color.z);
     }
 
-    // all three are 0f through 1f, blue is 0f through 255f, nah i'm kidding it's 0f through 1f
     public void setColor(@Range(from = 0, to = 1) float red, @Range(from = 0, to = 1) float green, @Range(from = 0, to = 1) float blue) {
         this.red = red;
         this.green = green;
@@ -363,7 +340,7 @@ public class Wave {
     }
 
     public int getLight() {
-        // emissive during a full moon :)
+
         if (canFullMoonGlow() && (int)(this.world.getTimeOfDay() / 24000L % 8L) == 0 && this.world.getTimeOfDay() >= 12000)
             return LightmapTextureManager.pack(15, 15);
         BlockPos pos = this.getBlockPos().add(0, 1, 0);
@@ -374,6 +351,10 @@ public class Wave {
 
     protected boolean canFullMoonGlow() {
         return true;
+    }
+
+    public float getRenderYSink() {
+        return -0.5f;
     }
 
     public int getRenderColumnCount() {

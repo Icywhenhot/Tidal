@@ -5,9 +5,8 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.MathHelper;
-import net.superkat.wavify.scan.WaterHandler;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -15,42 +14,32 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-// cached flow field for river waves, only over a window around the player
-// direction is the gradient of the along water distance from one end of each river
-// gradient fields are irrotational so neighbouring cells can never point at each other
-// that kills head on collisions and overlapping upstream/downstream waves by construction
-// distance barely changes across a cross section and grows along the length, so the gradient
-// points down the channel evenly even on wide rivers
-// steps, all bounded to the window and rebuilt only when the player moves or on a timeout:
-// occupancy map, connected components, pick a seed end per component,
-// dijkstra out from the seed, then fill the gradient-less cells and smooth once
 public final class RiverFlowField {
-    // how far out from the player we bother looking
+
     private static final int WINDOW_RADIUS = 60;
-    // coarse cell size, flow changes slowly so this is plenty
+
     private static final int CELL = 4;
-    // rebuild once the player wanders this far from the last centre
+
     private static final int REBUILD_MOVE = 8;
-    // and rebuild this often anyway so terrain edits show up
+
     private static final int REBUILD_INTERVAL = 200;
 
     private static final double SQRT2 = Math.sqrt(2.0);
 
     private static final int OCEAN_RIVER_RAY = 24;
-    private static final int OCEAN_RIVER_CELL_BITS = 2; // 4 block classification cells
+    private static final int OCEAN_RIVER_CELL_BITS = 2;
     private final Long2ByteOpenHashMap oceanRiverCache = new Long2ByteOpenHashMap();
 
-    // block resolution occupancy over the window
     private int originX;
     private int originZ;
     private int blockW;
     private int blockH;
     private boolean[] water = new boolean[0];
 
-    // coarse flow grid, (0, 0) means the cell is invalid
     private int gridW;
     private int gridH;
     private float[] dirX = new float[0];
@@ -61,8 +50,7 @@ public final class RiverFlowField {
     private long builtTick = Long.MIN_VALUE;
     private boolean built = false;
 
-    // rebuilds if the cache went stale for where the player is now, cheap when it hasn't
-    public void ensureBuilt(ClientWorld world, WaterHandler waterHandler, double px, double pz, long tick) {
+    public void ensureBuilt(Map<Long, Set<BlockPos>> riverWaters, double px, double pz, long tick) {
         int cx = MathHelper.floor(px);
         int cz = MathHelper.floor(pz);
         if (built
@@ -71,10 +59,16 @@ public final class RiverFlowField {
                 && tick - builtTick < REBUILD_INTERVAL) {
             return;
         }
-        build(world, waterHandler, cx, cz, tick);
+        build(riverWaters, cx, cz, tick);
     }
 
-    // flow direction at a spot, null if you're outside the window or off the channel
+    @Nullable
+    public RiverFlow.Flow flowAt(World world, double x, int y, double z) {
+        RiverFlow.Flow dyn = RiverFlow.dynamicFlowAt(world, x, y, z);
+        if (dyn != null) return dyn;
+        return flowAt(x, z);
+    }
+
     @Nullable
     public RiverFlow.Flow flowAt(double x, double z) {
         if (!built) return null;
@@ -91,21 +85,19 @@ public final class RiverFlowField {
         return new RiverFlow.Flow(dx, dz);
     }
 
-    // true when worldgen tagged a stripe of ocean as IS_RIVER and it isn't really a river
-    // cached per 4 block cell, thrown away on every rebuild
     public boolean isOceanSurroundedRiver(ClientWorld world, BlockPos pos) {
         long key = (((long) (pos.getX() >> OCEAN_RIVER_CELL_BITS)) & 0xFFFFFFFFL)
                 | (((long) (pos.getZ() >> OCEAN_RIVER_CELL_BITS)) << 32);
-        byte cached = this.oceanRiverCache.get(key); // 0 means we haven't checked yet
+        byte cached = this.oceanRiverCache.get(key);
         if (cached != 0) return cached == 2;
         boolean embedded = RiverFlow.isOceanSurrounded(world, pos, OCEAN_RIVER_RAY);
-        this.oceanRiverCache.put(key, (byte) (embedded ? 2 : 1)); // 1 is a real river, 2 is embedded
+        this.oceanRiverCache.put(key, (byte) (embedded ? 2 : 1));
         return embedded;
     }
 
-    private void build(ClientWorld world, WaterHandler waterHandler, int cx, int cz, long tick) {
+    private void build(Map<Long, Set<BlockPos>> riverWaters, int cx, int cz, long tick) {
         this.oceanRiverCache.clear();
-        // keep the old field around so the new one can match its direction where they overlap
+
         boolean hadPrev = this.built;
         int prevOriginX = this.originX;
         int prevOriginZ = this.originZ;
@@ -126,14 +118,13 @@ public final class RiverFlowField {
         for (int cdx = -chunkRadius; cdx <= chunkRadius; cdx++) {
             for (int cdz = -chunkRadius; cdz <= chunkRadius; cdz++) {
                 long key = new ChunkPos(playerChunkX + cdx, playerChunkZ + cdz).toLong();
-                Set<BlockPos> waters = waterHandler.waters.get(key);
+                Set<BlockPos> waters = riverWaters.get(key);
                 if (waters == null || waters.isEmpty()) continue;
 
                 for (BlockPos w : waters) {
                     int lx = w.getX() - this.originX;
                     int lz = w.getZ() - this.originZ;
                     if (lx < 0 || lz < 0 || lx >= this.blockW || lz >= this.blockH) continue;
-                    if (!RiverFlow.isRiverWater(world, w)) continue;
                     this.water[lz * this.blockW + lx] = true;
                 }
             }
@@ -204,8 +195,6 @@ public final class RiverFlowField {
         return component;
     }
 
-    // picks which end of the river to flow away from, the most extreme cell along the principal axis
-    // the axis gets pinned to a fixed sign so every client lands on the same answer and it survives rebuilds
     private int chooseSeed(List<Integer> component) {
         double meanX = 0;
         double meanZ = 0;
@@ -238,7 +227,6 @@ public final class RiverFlowField {
             axisZ = Math.sin(theta);
         }
 
-        // force the dominant component positive, only wobbles on the exact 45 degree tie
         if (Math.abs(axisX) >= Math.abs(axisZ)) {
             if (axisX < 0) {
                 axisX = -axisX;
@@ -261,7 +249,6 @@ public final class RiverFlowField {
         return seed;
     }
 
-    // dijkstra along the water from the seed, staying inside one connected component
     private void geodesic(int seed, boolean[] cellWater, double[] dist) {
         dist[seed] = 0;
         boolean[] settled = new boolean[this.gridW * this.gridH];
@@ -293,7 +280,6 @@ public final class RiverFlowField {
         }
     }
 
-    // normalised gradient of that distance, points downstream away from the seed
     private void computeGradient(boolean[] cellWater, double[] dist) {
         for (int iz = 0; iz < this.gridH; iz++) {
             for (int ix = 0; ix < this.gridW; ix++) {
@@ -311,8 +297,6 @@ public final class RiverFlowField {
         }
     }
 
-    // stops the flow flipping as you walk around, if a component overlaps the old field and disagrees we flip it
-    // brand new components with no overlap, like after a teleport, just keep whatever they picked
     private void reconcileOrientation(List<List<Integer>> components,
                                       int prevOriginX, int prevOriginZ, int prevGridW, int prevGridH,
                                       float[] prevDirX, float[] prevDirZ) {
@@ -367,7 +351,6 @@ public final class RiverFlowField {
         return gz * this.gridW + gx;
     }
 
-    // patches the handful of cells with no gradient, the seed and watershed ones, from their neighbours
     private void fillGaps(boolean[] cellWater) {
         for (int pass = 0; pass < 2; pass++) {
             for (int iz = 0; iz < this.gridH; iz++) {
@@ -440,7 +423,6 @@ public final class RiverFlowField {
         return this.water[bz * this.blockW + bx];
     }
 
-    // a cell counts as water if any block in it is, keeps narrow rivers from vanishing
     private boolean cellHasWater(int gx, int gz) {
         int baseX = gx * CELL;
         int baseZ = gz * CELL;
@@ -452,20 +434,4 @@ public final class RiverFlowField {
         return false;
     }
 
-    // debug, one arrow per cell so you can actually see the field in world
-    public void addDebugMarkers(ClientWorld world, List<RiverFlow.DebugMarker> out, int playerY) {
-        if (!built) return;
-        for (int gz = 0; gz < this.gridH; gz++) {
-            for (int gx = 0; gx < this.gridW; gx++) {
-                int i = gz * this.gridW + gx;
-                if (isInvalid(i)) continue;
-                int wx = this.originX + gx * CELL + CELL / 2;
-                int wz = this.originZ + gz * CELL + CELL / 2;
-                int y = RiverFlow.surfaceWaterY(world, wx + 0.5, wz + 0.5, playerY);
-                if (y == Integer.MIN_VALUE) continue;
-                float yaw = (float) Math.toDegrees(Math.atan2(this.dirZ[i], this.dirX[i]));
-                out.add(new RiverFlow.DebugMarker(wx + 0.5, y + 1.3, wz + 0.5, new Vector3f(0.2f, 0.95f, 0.95f), 0.8f, true, yaw, 0.14f, 45));
-            }
-        }
-    }
 }

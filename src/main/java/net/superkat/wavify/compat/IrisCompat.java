@@ -4,8 +4,6 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import java.lang.reflect.Method;
 
-// all reflection so we never actually depend on iris, both iris and oculus expose the same api
-// safe to call often, the caller caches per frame and the lookup itself only happens once
 public final class IrisCompat {
     private static final boolean IRIS_LOADED =
             FabricLoader.getInstance().isModLoaded("iris")

@@ -14,16 +14,10 @@ import net.superkat.wavify.wave.WavifyWaveHandler;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-// runs the ambient ocean and river loops, ticked client side
-// every tick we look through the active waves, find the closest ocean and river ones in range,
-// and set a target volume on the matching loop, the sound instance does the actual lerp
-// the ocean variant gets picked once each time the loop starts from cold, either wave 1 or wave 2
 public final class WaveAmbientSoundManager {
     private static final double DETECTION_RADIUS = 48.0;
     private static final double DETECTION_RADIUS_SQ = DETECTION_RADIUS * DETECTION_RADIUS;
 
-    // loudest the loop gets, ramp speed lives in the sound instance
-    // full volume right on top of a wave, silent at the edge of the radius
     private static final float OCEAN_MAX_VOLUME = 0.6f;
     private static final float RIVER_MAX_VOLUME = 0.5f;
 
@@ -76,7 +70,7 @@ public final class WaveAmbientSoundManager {
         boolean present = closestSq < Double.MAX_VALUE;
         float target = 0f;
         if (present) {
-            // straight linear falloff from 1 down to 0 across the radius
+
             double dist = Math.sqrt(closestSq);
             float falloff = (float) Math.max(0.0, 1.0 - dist / DETECTION_RADIUS);
             target = maxVolume * falloff;
@@ -112,7 +106,6 @@ public final class WaveAmbientSoundManager {
         }
     }
 
-    // leaving a world or swapping dimensions, kill the loops right away
     public void hardReset() {
         SoundManager sm = MinecraftClient.getInstance().getSoundManager();
         if (oceanLoop != null) {

@@ -17,6 +17,6 @@ public class WavifySounds {
     }
 
     public static void init() {
-        // just touching the class so the static fields above register
+
     }
 }

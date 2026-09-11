@@ -3,8 +3,6 @@ package net.superkat.wavify.scan;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import net.minecraft.util.math.BlockPos;
 
-// one pos plus every x/z that picked this site as its closest
-// yaw is the direction from the center of all those blocks back toward this pos
 public class SitePos {
     public BlockPos pos;
     public int centerX = 0;
@@ -12,10 +10,8 @@ public class SitePos {
     public float yaw = 0f;
     public boolean yawCalculated = false;
 
-    // cached shoreline type, 0 unknown, 1 isolated object, 2 normal shore
     public byte shoreClass = 0;
 
-    // cached x's and z's, ints because it's faster
     public IntArrayList xList = new IntArrayList();
     public IntArrayList zList = new IntArrayList();
 
@@ -64,7 +60,6 @@ public class SitePos {
         return this.yaw;
     }
 
-    // yaw in the same format as the f3 screen, -180 through 180
     public float getYawAsF3Angle() {
         float angle = this.getYaw() - 90;
         if(angle < 0) angle += 360;

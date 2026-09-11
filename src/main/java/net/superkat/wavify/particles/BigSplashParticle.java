@@ -9,6 +9,9 @@ import net.minecraft.client.particle.SpriteBillboardParticle;
 import net.minecraft.client.particle.SpriteProvider;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.SimpleParticleType;
+import net.minecraft.util.math.BlockPos;
+import net.superkat.wavify.util.WavifyColors;
+import org.joml.Vector3f;
 
 public class BigSplashParticle extends SpriteBillboardParticle {
     private final SpriteProvider spriteProvider;
@@ -19,6 +22,10 @@ public class BigSplashParticle extends SpriteBillboardParticle {
         this.maxAge = this.random.nextBetween(7, 30);
         this.scale = 0.5f;
         this.gravityStrength = 0.04f;
+
+        Vector3f color = WavifyColors.getWaterColorVec(clientWorld, BlockPos.ofFloored(x, y, z));
+        this.setColor(color.x, color.y, color.z);
+
         this.setSpriteForAge(this.spriteProvider);
     }
 
