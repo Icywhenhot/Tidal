@@ -207,8 +207,9 @@ public class Wave {
                 sprayIntensity = getWashingAge() / 128f;
                 if (washBounce()) sprayIntensity *= 2f;
             } else {
-                sprayIntensity = Mth.clamp((float) this.age / this.maxAge * 2.5f, 0.25f, 1f);
+                sprayIntensity = (float) this.age / this.maxAge;
             }
+            sprayIntensity = Mth.clamp(sprayIntensity, 0.15f, 0.45f);
 
             double splashX = this.x + this.velX * 10;
             double splashZ = this.z + this.velZ * 10;

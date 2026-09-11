@@ -97,7 +97,7 @@ public class SprayParticle extends TextureSheetParticle {
         if(this.yd != 0 && !onGround) {
             this.sprayRoll = this.sprayRoll + (float) this.yd * 35f;
         } else {
-            this.sprayRoll = 0f;
+            this.sprayRoll *= 0.7f;
         }
 
         this.setSpriteFromAge(this.spriteProvider);
