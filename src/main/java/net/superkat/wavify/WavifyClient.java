@@ -15,21 +15,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.server.packs.PackType;
-import net.superkat.wavify.duck.WavifyWorld;
 import net.superkat.wavify.particles.BigSplashParticle;
 import net.superkat.wavify.particles.SplashParticle;
 import net.superkat.wavify.particles.SprayParticle;
-import net.superkat.wavify.particles.WhiteSprayParticle;
-import net.superkat.wavify.particles.debug.DebugShoreParticle;
-import net.superkat.wavify.particles.debug.DebugWaterParticle;
-import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
-import net.superkat.wavify.sound.WaveAmbientSoundManager;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 
 public class WavifyClient implements ClientModInitializer {
-
-    public static WavifySpriteHandler WAVIFY_SPRITE_HANDLER = new WavifySpriteHandler();
-    public static final WaveAmbientSoundManager SOUND_MANAGER = new WaveAmbientSoundManager();
 
     private static RenderType waveRenderLayer;
     private static ClientLevel lastLevel;
@@ -44,59 +35,54 @@ public class WavifyClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         ParticleFactoryRegistry.getInstance().register(WavifyParticles.SPRAY_PARTICLE, SprayParticle.Factory::new);
-        ParticleFactoryRegistry.getInstance().register(WavifyParticles.WHITE_SPRAY_PARTICLE, WhiteSprayParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(WavifyParticles.WHITE_SPRAY_PARTICLE, SprayParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(WavifyParticles.SPLASH_PARTICLE, SplashParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(WavifyParticles.BIG_SPLASH_PARTICLE, BigSplashParticle.Factory::new);
 
-        ParticleFactoryRegistry.getInstance().register(WavifyParticles.DEBUG_WATERBODY_PARTICLE, DebugWaterParticle.Factory::new);
-        ParticleFactoryRegistry.getInstance().register(WavifyParticles.DEBUG_SHORELINE_PARTICLE, DebugShoreParticle.Factory::new);
-        ParticleFactoryRegistry.getInstance().register(WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE, DebugWaveMovementParticle.Factory::new);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.level != lastLevel) {
                 lastLevel = client.level;
-                SOUND_MANAGER.hardReset();
-                if (client.level != null) {
-                    ((WavifyWorld) client.level).wavify$wavifyWaveHandler().reloadNearbyChunks();
-                }
+                ClientState.worldChanged(client.level);
             }
 
             if (client.level == null || client.player == null) {
-                SOUND_MANAGER.hardReset();
+                ClientState.SOUND.hardReset();
                 return;
             }
-            SOUND_MANAGER.tick();
+            ClientState.SOUND.tick();
         });
 
-        ClientTickEvents.END_WORLD_TICK.register(level -> ((WavifyWorld) level).wavify$wavifyWaveHandler().tick());
+        ClientTickEvents.END_WORLD_TICK.register(level -> {
+            Minecraft client = Minecraft.getInstance();
+            if (client.player == null) return;
+            ClientState.wavesIn(level).tick();
+        });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SOUND_MANAGER.hardReset());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientState.disconnected());
 
         ClientChunkEvents.CHUNK_LOAD.register((level, chunk) ->
-                ((WavifyWorld) level).wavify$wavifyWaveHandler().waterHandler.loadChunk(chunk));
+                ClientState.wavesIn(level).waterHandler.loadChunk(chunk));
 
         ClientChunkEvents.CHUNK_UNLOAD.register((level, chunk) ->
-                ((WavifyWorld) level).wavify$wavifyWaveHandler().waterHandler.unloadChunk(chunk));
+                ClientState.wavesIn(level).waterHandler.unloadChunk(chunk));
 
         InvalidateRenderStateCallback.EVENT.register(() -> {
             Minecraft client = Minecraft.getInstance();
             if (client.level == null || client.player == null) return;
-            WavifyWorld wavifyWorld = (WavifyWorld) client.level;
-            wavifyWorld.wavify$wavifyWaveHandler().reloadNearbyChunks();
-            wavifyWorld.wavify$wavifyWaveHandler().waterHandler.rebuild();
+            ClientState.cachesInvalidated(client.level);
         });
 
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> {
             if (context.world() == null) return;
 
-            WavifyWorld wavifyWorld = (WavifyWorld) context.world();
             RenderType layer = getWaveRenderLayer();
 
             Tesselator tesselator = Tesselator.getInstance();
             BufferBuilder buffer = tesselator.getBuilder();
             buffer.begin(layer.mode(), layer.format());
 
-            wavifyWorld.wavify$wavifyWaveHandler().render(context.matrixStack(), buffer);
+            ClientState.wavesIn(context.world()).render(context.matrixStack(), buffer);
 
             BufferBuilder.RenderedBuffer builtBuffer = buffer.endOrDiscardIfEmpty();
             if (builtBuffer == null) return;
@@ -106,6 +92,6 @@ public class WavifyClient implements ClientModInitializer {
             layer.clearRenderState();
         });
 
-        ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(WAVIFY_SPRITE_HANDLER);
+        ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(ClientState.SPRITES);
     }
 }

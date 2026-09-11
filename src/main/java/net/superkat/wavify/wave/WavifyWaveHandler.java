@@ -11,30 +11,24 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.level.material.FluidState;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.Vec3i;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.superkat.wavify.DebugHelper;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.mixin.OptionsAccessor;
-import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
 import net.superkat.wavify.renderer.WaveRenderer;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.scan.SitePos;
 import net.superkat.wavify.scan.WaterHandler;
-import org.joml.Vector3f;
 
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 
@@ -73,11 +67,6 @@ public class WavifyWaveHandler {
 
         this.waterHandler.tick();
         wavifyTick();
-
-        if (DebugHelper.debug()) {
-            debugTick(client, player);
-        }
-
     }
 
     public void render(PoseStack poseStack, BufferBuilder buffer) {
@@ -130,15 +119,6 @@ public class WavifyWaveHandler {
                 .collect(ObjectArraySet::new, Set::add, Set::addAll);
         if (!waterBlocks.isEmpty()) spawnWaves(waterBlocks);
 
-        if (DebugHelper.debug()) {
-            if (DebugHelper.holdingSpyglass()) debugWaveParticles(waterBlocks);
-            if (DebugHelper.offhandClock()) {
-                for (BlockPos water : waterBlocks) {
-                    Vec3 pos = water.getCenter();
-                    this.level.addParticle(ParticleTypes.END_ROD, pos.x(), pos.y() + 2.5, pos.z(), 0, 0, 0);
-                }
-            }
-        }
     }
 
     public void spawnWaves(Set<BlockPos> waterBlocks) {
@@ -202,24 +182,6 @@ public class WavifyWaveHandler {
         return connected;
     }
 
-    public void debugWaveParticles(Set<BlockPos> waterBlocks) {
-        Vector3f color = new Vector3f(1f, 1f, 1f);
-
-        boolean farParticles = false;
-
-        for (BlockPos water : waterBlocks) {
-            SitePos site = this.waterHandler.getSiteForPos(water);
-            if (site == null || !site.yawCalculated) continue;
-
-            DebugWaveMovementParticle.DebugWaveMovementParticleEffect particleEffect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
-                    color,
-                    1f,
-                    site.getYaw(),
-                    0.3f,
-                    20);
-            this.level.addParticle(particleEffect, farParticles, water.getX(), water.getY() + 2, water.getZ(), 0, 0, 0);
-        }
-    }
 
     public List<Wave> getWaves() {
         return this.waves;
@@ -254,67 +216,6 @@ public class WavifyWaveHandler {
         return Math.min(configRadius, serverRadius);
     }
 
-    public void debugTick(Minecraft client, LocalPlayer player) {
-        if (DebugHelper.offhandSpyglass()) {
-            this.rivers.renderDebugMarkers(player);
-        }
-
-        if (DebugHelper.holdingCompass() || DebugHelper.offhandCompass()) {
-            if (!this.waterHandler.built) return;
-
-            ChunkPos playerChunk = player.chunkPosition();
-            if (DebugHelper.offhandCompass()) {
-                if (client.level.getGameTime() % 5 != 0) return;
-                int radius = 2;
-                ChunkPos start = new ChunkPos(playerChunk.x + radius, playerChunk.z + radius);
-                ChunkPos end = new ChunkPos(playerChunk.x - radius, playerChunk.z - radius);
-                for (ChunkPos chunkPos : ChunkPos.rangeClosed(start, end).toList()) {
-                    debugChunkDirectionParticles(chunkPos.toLong(), true);
-                }
-            } else {
-                debugChunkDirectionParticles(playerChunk.toLong(), false);
-            }
-
-        }
-
-        if (DebugHelper.usingSpyglass()) {
-            if (client.level.getGameTime() % 20 != 0) return;
-
-            BlockPos playerPos = player.blockPosition();
-
-            List<BlockPos> scannedBlocks = this.waterHandler.waterCache.values().stream().flatMap(map -> map.keySet().stream()).toList();
-            if (scannedBlocks.contains(playerPos)) {
-                long chunkPosL = ChunkPos.asLong(playerPos);
-                SitePos site = this.waterHandler.waterCache.get(chunkPosL).get(playerPos);
-
-                System.out.println(site.xList.size());
-            }
-        }
-    }
-
-    public void debugChunkDirectionParticles(long chunkPosL, boolean farParticles) {
-        Vector3f color = new Vector3f(1f, 1f, 1f);
-
-        Map<BlockPos, SitePos> map = this.waterHandler.waterCache.get(chunkPosL);
-        if (map == null) return;
-
-        for (Map.Entry<BlockPos, SitePos> entry : map.entrySet()) {
-            BlockPos pos = entry.getKey();
-            SitePos sitePos = entry.getValue();
-            if (sitePos == null || !sitePos.yawCalculated) continue;
-            DebugWaveMovementParticle.DebugWaveMovementParticleEffect particleEffect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
-                    color,
-                    1f,
-                    sitePos.getYaw(),
-                    0.3f,
-                    20);
-            this.level.addParticle(particleEffect, farParticles, pos.getX(), pos.getY() + 2, pos.getZ(), 0, 0, 0);
-        }
-    }
-
-    public static RandomSource getRandom() {
-        return RandomSource.create();
-    }
 
     public static boolean posIsWater(ClientLevel level, BlockPos pos) {
         FluidState state = level.getFluidState(pos);

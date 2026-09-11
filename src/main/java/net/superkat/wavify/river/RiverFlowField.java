@@ -7,7 +7,6 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -435,19 +434,4 @@ public final class RiverFlowField {
         return false;
     }
 
-    public void addDebugMarkers(ClientLevel level, List<RiverFlow.DebugMarker> out, int playerY) {
-        if (!built) return;
-        for (int gz = 0; gz < this.gridH; gz++) {
-            for (int gx = 0; gx < this.gridW; gx++) {
-                int i = gz * this.gridW + gx;
-                if (isInvalid(i)) continue;
-                int wx = this.originX + gx * CELL + CELL / 2;
-                int wz = this.originZ + gz * CELL + CELL / 2;
-                int y = RiverFlow.surfaceWaterY(level, wx + 0.5, wz + 0.5, playerY);
-                if (y == Integer.MIN_VALUE) continue;
-                float yaw = (float) Math.toDegrees(Math.atan2(this.dirZ[i], this.dirX[i]));
-                out.add(new RiverFlow.DebugMarker(wx + 0.5, y + 1.3, wz + 0.5, new Vector3f(0.2f, 0.95f, 0.95f), 0.8f, true, yaw, 0.14f, 45));
-            }
-        }
-    }
 }

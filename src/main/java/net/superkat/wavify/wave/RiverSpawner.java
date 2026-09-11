@@ -6,11 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.phys.Vec3;
-import net.superkat.wavify.DebugHelper;
 import net.superkat.wavify.config.WavifyConfig;
-import net.superkat.wavify.particles.debug.DebugWaterParticle;
-import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.river.RiverFlowField;
 import net.superkat.wavify.scan.WaterHandler;
@@ -30,7 +26,6 @@ public class RiverSpawner {
     private final WaterHandler water;
     private final RiverFlowField field = new RiverFlowField();
 
-    private List<RiverFlow.DebugMarker> markers = List.of();
 
     private record Spot(double x, double z) {
     }
@@ -42,7 +37,6 @@ public class RiverSpawner {
 
     public void tick(List<Wave> waves, @Nullable LocalPlayer player, long time) {
         if (player == null || !WavifyConfig.enableRiverWaves) {
-            this.markers = List.of();
             return;
         }
 
@@ -53,7 +47,6 @@ public class RiverSpawner {
     private void spawn(List<Wave> waves, LocalPlayer player) {
         List<BlockPos> candidates = findCandidates(player);
         if (candidates.isEmpty()) {
-            this.markers = List.of();
             return;
         }
 
@@ -66,7 +59,6 @@ public class RiverSpawner {
         target = Mth.clamp(target, 1, 48);
         int toSpawn = target - taken.size();
         if (toSpawn <= 0) {
-            this.markers = List.of();
             return;
         }
 
@@ -93,13 +85,6 @@ public class RiverSpawner {
             spawned++;
         }
 
-        if (DebugHelper.debug()) {
-            List<RiverFlow.DebugMarker> out = new ArrayList<>();
-            this.field.addDebugMarkers(this.level, out, Mth.floor(player.getY()));
-            this.markers = List.copyOf(out);
-        } else {
-            this.markers = List.of();
-        }
     }
 
     private List<BlockPos> findCandidates(LocalPlayer player) {
@@ -150,26 +135,4 @@ public class RiverSpawner {
         return false;
     }
 
-    public void renderDebugMarkers(LocalPlayer player) {
-        if (this.markers.isEmpty()) return;
-
-        Vec3 playerPos = new Vec3(player.getX(), player.getY(), player.getZ());
-        for (RiverFlow.DebugMarker marker : this.markers) {
-            if (!new Vec3(marker.x(), marker.y(), marker.z()).closerThan(playerPos, 96.0)) continue;
-
-            if (marker.arrow()) {
-                DebugWaveMovementParticle.DebugWaveMovementParticleEffect effect = new DebugWaveMovementParticle.DebugWaveMovementParticleEffect(
-                        marker.color(),
-                        marker.scale(),
-                        marker.yaw(),
-                        marker.speed(),
-                        marker.lifetime()
-                );
-                this.level.addParticle(effect, false, marker.x(), marker.y(), marker.z(), 0, 0, 0);
-            } else {
-                DebugWaterParticle.DebugWaterParticleEffect effect = new DebugWaterParticle.DebugWaterParticleEffect(marker.color(), marker.scale());
-                this.level.addParticle(effect, marker.x(), marker.y(), marker.z(), 0, 0, 0);
-            }
-        }
-    }
 }

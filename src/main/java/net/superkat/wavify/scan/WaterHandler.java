@@ -12,22 +12,15 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.chunk.ChunkAccess;
-import net.superkat.wavify.DebugHelper;
-import net.superkat.wavify.Wavify;
 import net.superkat.wavify.config.WavifyConfig;
-import net.superkat.wavify.particles.debug.DebugShoreParticle;
-import net.superkat.wavify.particles.debug.DebugWaterParticle;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.apache.commons.compress.utils.Lists;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -85,8 +78,7 @@ public class WaterHandler {
 
         if (!this.unscannedChunkQueue.isEmpty() && wavifyWaveHandler.nearbyChunksLoaded) {
             if (this.chunkScanFuture == null) {
-                long start = Util.getMillis();
-                this.chunkScanFuture = scheduleChunkScans();
+                        this.chunkScanFuture = scheduleChunkScans();
                 this.chunkScanFuture.thenComposeAsync(chunks -> {
                     for (ScannedChunk chunk : chunks) {
                         long chunkPosL = chunk.chunkPos;
@@ -129,14 +121,9 @@ public class WaterHandler {
                     this.built = true;
                 }, client);
 
-                this.chunkScanFuture.whenCompleteAsync((chunks, throwable) -> {
-                    if(DebugHelper.debug()) Wavify.LOGGER.info("Scan time: {} ms", Util.getMillis() - start);
-                    this.chunkScanFuture = null;
-                }, client);
+                this.chunkScanFuture.whenCompleteAsync((chunks, throwable) -> this.chunkScanFuture = null, client);
             }
         }
-
-        if (DebugHelper.debug()) debugTick(client, player);
     }
 
     public CompletableFuture<List<ScannedChunk>> scheduleChunkScans() {
@@ -264,41 +251,7 @@ public class WaterHandler {
         return siteDistPair.second();
     }
 
-    private void debugTick(Minecraft client, LocalPlayer player) {
-        if (this.level.getGameTime() % 10 != 0) return;
-        boolean farParticles = false;
 
-        List<SitePos> allSites = this.sites.values().stream().flatMap(Collection::stream).toList();
-        for (SitePos site : allSites) {
-            this.level.addParticle(ParticleTypes.EGG_CRACK, true, site.getX() + 0.5, site.getY() + 2, site.getZ() + 0.5, 0, 0, 0);
-        }
-
-        if (!DebugHelper.debug()) return;
-        if (!DebugHelper.spyglassInHotbar()) return;
-
-        List<BlockPos> allShoreBLocks = this.shoreBlocks.values().stream().flatMap(Collection::stream).toList();
-        ParticleOptions shoreEffect = new DebugShoreParticle.DebugShoreParticleEffect(new Vector3f(1f, 1f, 1f), 1f);
-        for (BlockPos shore : allShoreBLocks) {
-            Vec3 pos = shore.getCenter();
-            this.level.addParticle(shoreEffect, pos.x(), pos.y() + 1, pos.z(), 0, 0, 0);
-        }
-
-        int totalSites = allSites.size();
-        for (Map<BlockPos, SitePos> posSiteMap : this.waterCache.values()) {
-            for (Map.Entry<BlockPos, SitePos> entry : posSiteMap.entrySet()) {
-                BlockPos blockPos = entry.getKey();
-                if (!blockPos.closerToCenterThan(new Vec3(player.getX(), player.getY(), player.getZ()), 100)) continue;
-                SitePos site = entry.getValue();
-
-                int siteIndex = allSites.indexOf(site);
-                Vector3f color = DebugHelper.debugColor(siteIndex, totalSites);
-
-                Vec3 pos = blockPos.getCenter();
-                ParticleOptions particleEffect = new DebugWaterParticle.DebugWaterParticleEffect(color, 1f);
-                this.level.addParticle(particleEffect, farParticles, pos.x(), pos.y() + 1, pos.z(), 0, 0, 0);
-            }
-        }
-    }
 
     public void onBlockUpdate(BlockPos pos, BlockState state) {
         long chunkPosL = ChunkPos.asLong(pos);

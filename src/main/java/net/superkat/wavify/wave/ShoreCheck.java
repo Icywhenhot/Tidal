@@ -7,8 +7,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.util.Mth;
-import net.superkat.wavify.DebugHelper;
-import net.superkat.wavify.Wavify;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.scan.SitePos;
 
@@ -94,19 +92,8 @@ public final class ShoreCheck {
     private static boolean isSmallObject(ClientLevel level, SitePos site) {
         BlockPos waterPos = site.getPos();
         BlockPos seed = solidNeighborAt(level, waterPos);
-        if (seed == null) {
-            if (DebugHelper.debug()) {
-                Wavify.LOGGER.info("[wavify] site {} has no solid waterline neighbour -> treated as shore", waterPos);
-            }
-            return false;
-        }
-        int size = floodLandmassSize(level, seed, waterPos.getY());
-        boolean small = size <= LANDMASS_CAP;
-        if (DebugHelper.debug()) {
-            Wavify.LOGGER.info("[wavify] landmass at {} (seaY {}) size={} cap={} -> {}",
-                    waterPos, waterPos.getY(), size, LANDMASS_CAP, small ? "OBJECT (suppress)" : "shore (keep)");
-        }
-        return small;
+        if (seed == null) return false;
+        return floodLandmassSize(level, seed, waterPos.getY()) <= LANDMASS_CAP;
     }
 
     private static BlockPos solidNeighborAt(ClientLevel level, BlockPos waterPos) {

@@ -23,6 +23,7 @@ import java.util.List;
 
 public class SprayParticle extends TextureSheetParticle {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = Mth.square(100.0);
+
     protected final SpriteSet spriteProvider;
 
     public float yaw;
@@ -50,15 +51,17 @@ public class SprayParticle extends TextureSheetParticle {
         this.hasPhysics = true;
         this.gravity = 0.5f;
 
-        if(spawnWhite()) {
-            this.level.addParticle(new WhiteSprayParticleEffect(yaw, intensity, this.quadSize), x, y, z, velX, velY, velZ);
+        if(params.isWhite()) {
+            this.level.addParticle(new SprayParticleEffect(yaw, intensity, this.quadSize, false), x, y, z, velX, velY, velZ);
+        } else {
             Vector3f color = WavifyColors.getWaterColorVec(this.level, BlockPos.containing(x, y, z));
             this.setColor(color.x, color.y, color.z);
         }
 
-        this.sprayRoll = 15 * intensity * 5f;
+        this.sprayRoll = 75f;
 
         this.setSpriteFromAge(this.spriteProvider);
+
     }
 
     @Override
@@ -160,10 +163,6 @@ public class SprayParticle extends TextureSheetParticle {
 
     public BlockPos getBlockPos() {
         return BlockPos.containing(this.x, this.y, this.z);
-    }
-
-    protected boolean spawnWhite() {
-        return true;
     }
 
     @Override

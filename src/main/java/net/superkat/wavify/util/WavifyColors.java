@@ -1,5 +1,6 @@
 package net.superkat.wavify.util;
 
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.resources.ResourceKey;
@@ -15,17 +16,54 @@ import java.util.Map;
 
 public class WavifyColors {
 
+    private static final int NO_OVERRIDE = Integer.MIN_VALUE;
+    private static final int CACHE_CAP = 8192;
+
+    private static final Long2IntOpenHashMap cache = new Long2IntOpenHashMap();
+
+    static {
+        cache.defaultReturnValue(NO_OVERRIDE);
+    }
+
     private static Map<ResourceLocation, Integer> parsedOverrides = null;
     private static String lastOverrideSource = null;
+    private static int lastSource = -1;
+    private static int lastCustom = -1;
+
+    public static void forget() {
+        cache.clear();
+    }
 
     public static int getWaterColor(ClientLevel world, BlockPos pos) {
+        dropStaleCache();
+
+        long key = pos.asLong();
+        int hit = cache.get(key);
+        if (hit != NO_OVERRIDE) return hit;
+
+        int color = computeWaterColor(world, pos) & 0xFFFFFF;
+        if (cache.size() >= CACHE_CAP) cache.clear();
+        cache.put(key, color);
+        return color;
+    }
+
+    private static int computeWaterColor(ClientLevel world, BlockPos pos) {
         int override = lookupBiomeOverride(world, pos);
-        if (override != Integer.MIN_VALUE) return override;
+        if (override != NO_OVERRIDE) return override;
 
         if (WavifyConfig.colorSource == WavifyConfig.ColorSource.CUSTOM) {
             return WavifyConfig.customColor & 0xFFFFFF;
         }
         return BiomeColors.getAverageWaterColor(world, pos);
+    }
+
+    private static void dropStaleCache() {
+        int source = WavifyConfig.colorSource.ordinal();
+        int custom = WavifyConfig.customColor;
+        if (source == lastSource && custom == lastCustom) return;
+        lastSource = source;
+        lastCustom = custom;
+        cache.clear();
     }
 
     public static Vector3f getWaterColorVec(ClientLevel world, BlockPos pos) {
@@ -38,13 +76,13 @@ public class WavifyColors {
 
     private static int lookupBiomeOverride(ClientLevel world, BlockPos pos) {
         Map<ResourceLocation, Integer> overrides = getParsedOverrides();
-        if (overrides.isEmpty()) return Integer.MIN_VALUE;
+        if (overrides.isEmpty()) return NO_OVERRIDE;
 
         Holder<Biome> entry = world.getBiome(pos);
         return entry.unwrapKey()
                 .map(ResourceKey::location)
-                .map(id -> overrides.getOrDefault(id, Integer.MIN_VALUE))
-                .orElse(Integer.MIN_VALUE);
+                .map(id -> overrides.getOrDefault(id, NO_OVERRIDE))
+                .orElse(NO_OVERRIDE);
     }
 
     private static Map<ResourceLocation, Integer> getParsedOverrides() {
@@ -72,6 +110,7 @@ public class WavifyColors {
 
         parsedOverrides = map;
         lastOverrideSource = raw;
+        cache.clear();
         return map;
     }
 }

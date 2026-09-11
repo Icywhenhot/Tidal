@@ -207,7 +207,7 @@ public class Wave {
                 sprayIntensity = getWashingAge() / 128f;
                 if (washBounce()) sprayIntensity *= 2f;
             } else {
-                sprayIntensity = ((float) this.age / this.maxAge) * 2.5f / (this.age / 16f);
+                sprayIntensity = Mth.clamp((float) this.age / this.maxAge * 2.5f, 0.25f, 1f);
             }
 
             double splashX = this.x + this.velX * 10;
@@ -220,7 +220,7 @@ public class Wave {
                 }
             }
 
-            this.level.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
+            this.level.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale, true), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;

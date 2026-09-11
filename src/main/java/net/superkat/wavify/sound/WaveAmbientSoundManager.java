@@ -6,7 +6,7 @@ import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.phys.Vec3;
 import net.superkat.wavify.config.WavifyConfig;
-import net.superkat.wavify.duck.WavifyWorld;
+import net.superkat.wavify.ClientState;
 import net.superkat.wavify.wave.RiverWave;
 import net.superkat.wavify.wave.Wave;
 import net.superkat.wavify.wave.WavifyWaveHandler;
@@ -37,7 +37,7 @@ public final class WaveAmbientSoundManager {
             return;
         }
 
-        WavifyWaveHandler handler = ((WavifyWorld) mc.level).wavify$wavifyWaveHandler();
+        WavifyWaveHandler handler = ClientState.wavesIn(mc.level);
         List<Wave> waves = handler.getWaves();
         Vec3 playerPos = new Vec3(player.getX(), player.getY(), player.getZ());
 
@@ -78,7 +78,7 @@ public final class WaveAmbientSoundManager {
 
         if (present && (loop == null || loop.isStopped())) {
             SoundEvent event = ocean ? pickOceanVariant() : WavifySounds.RIVER_WAVE;
-            loop = new WaveAmbientSoundInstance(event, maxVolume);
+            loop = new WaveAmbientSoundInstance(event);
             Minecraft.getInstance().getSoundManager().play(loop);
             if (ocean) oceanLoop = loop;
             else riverLoop = loop;

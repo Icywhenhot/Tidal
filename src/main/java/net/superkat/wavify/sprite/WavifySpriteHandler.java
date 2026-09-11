@@ -12,8 +12,8 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.superkat.wavify.ClientState;
 import net.superkat.wavify.Wavify;
-import net.superkat.wavify.duck.WavifyWorld;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -49,6 +49,11 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
         return this.waveMetadata.getOrDefault(spriteId, WaveResourceMetadata.DEFAULT);
     }
 
+    public WaveSprite getWaveSprite(ResourceLocation id) {
+        TextureAtlasSprite sprite = getSprite(id);
+        return WaveSprite.of(sprite, getMetadata(sprite.contents().name()));
+    }
+
     @Override
     protected AtlasPreparations prepare(ResourceManager manager, ProfilerFiller profiler) {
         Map<ResourceLocation, WaveResourceMetadata> meta = loadWaveMetadata(manager);
@@ -80,7 +85,8 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
                 String stripped = path.substring(TEXTURE_FOLDER.length() + 1, path.length() - ".png.mcmeta".length());
                 ResourceLocation spriteId = new ResourceLocation(MOD_ID, stripped);
                 map.put(spriteId, new WaveResourceMetadata(frameTime, frameHeight));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                Wavify.LOGGER.warn("bad wave mcmeta {}: {}", mcmetaId, e.toString());
             }
         }
         return map;
@@ -98,16 +104,7 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
-
-        WavifyWorld wavifyWorld = (WavifyWorld) mc.level;
-        wavifyWorld.wavify$wavifyWaveHandler().reloadNearbyChunks();
-        wavifyWorld.wavify$wavifyWaveHandler().waterHandler.rebuild();
-    }
-
-    public void clearAtlas() {
-        if (this.atlas != null) {
-            this.atlas.clearTextureData();
-        }
+        ClientState.cachesInvalidated(mc.level);
     }
 
 }

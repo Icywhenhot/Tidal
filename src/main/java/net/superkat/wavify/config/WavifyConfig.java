@@ -19,14 +19,6 @@ public class WavifyConfig extends MidnightConfig {
     @Entry(category = WAVES, min = 1, max = 1024) public static int chunkUpdatesRescanAmount = 50;
     @Entry(category = WAVES, isSlider = true, min = 4, max = 32) public static int spawnDistance = 8;
 
-    @Entry(category = WAVES) public static boolean debug = false;
-    @Comment(category = WAVES, centered = true) public static Comment debugDocs;
-    @Comment(category = WAVES) public static Comment debugDocsSite;
-    @Comment(category = WAVES) public static Comment debugDocsSpyglass;
-    @Comment(category = WAVES) public static Comment debugDocsSpyglassHotbar;
-    @Comment(category = WAVES) public static Comment debugDocsClock;
-    @Comment(category = WAVES) public static Comment debugDocsCompass;
-
     @Entry(category = APPEARANCE, isSlider = true, min = 0.0, max = 1.0, precision = 100) public static double transparency = 1.0;
     @Entry(category = APPEARANCE) public static boolean applyTransparencyToFoam = false;
     @Entry(category = APPEARANCE) public static ColorSource colorSource = ColorSource.BIOME;

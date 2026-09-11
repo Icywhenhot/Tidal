@@ -11,7 +11,6 @@ import net.minecraft.world.phys.Vec3;
 import net.superkat.wavify.compat.DynamicWatersCompat;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
 
 public final class RiverFlow {
     private RiverFlow() {
@@ -30,8 +29,6 @@ public final class RiverFlow {
         }
     }
 
-    public record DebugMarker(double x, double y, double z, Vector3f color, float scale, boolean arrow, float yaw, float speed, int lifetime) {
-    }
 
     @Nullable
     public static Flow dynamicFlowAt(Level level, double x, int y, double z) {

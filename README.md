@@ -12,7 +12,6 @@ Waves can also crash against blocks if they're in the way, making rocky cliffs n
 - There's probably some Z-fighting issues with the waves(they were scaled up to their current scale very last minute)
 - Sounds for the waves
 - Config.
-- Debug mode is inaccessible (should be fixed with config)
 - Waves cannot be viewed from beneath them.
 - The wet overlay rendering can probably be optimized.
 - Possibly use closet shoreline block instead of closest Voronoi sitepos for "distance from shore" if Quicksort + multithreading is fast enough.
