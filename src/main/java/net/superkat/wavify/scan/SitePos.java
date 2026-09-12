@@ -1,56 +1,46 @@
 package net.superkat.wavify.scan;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 import net.minecraft.core.BlockPos;
 
-/**
- * Holds a BlockPos as the main position, along with a list of all x/z coordinates of BlockPos' which were calculated to have this SitePos as the closest.<br>
- * The yaw is the direction from the center of all those blocks towards the SitePos' main position.
- */
 public class SitePos {
     public BlockPos pos;
     public int centerX = 0;
     public int centerZ = 0;
     public float yaw = 0f;
     public boolean yawCalculated = false;
-    // Cached shoreline classification for wave spawning: 0 = unknown, 1 = isolated object, 2 = normal shore.
+
     public byte shoreClass = 0;
 
-    // cache x's and z's - stored as ints for speed
-    public IntArrayList xList = new IntArrayList();
-    public IntArrayList zList = new IntArrayList();
+    private long sumX = 0L;
+    private long sumZ = 0L;
+    private int posCount = 0;
 
     public SitePos(BlockPos pos) {
         this.pos = pos;
     }
 
     public void addPos(BlockPos pos) {
-        this.xList.add(pos.getX());
-        this.zList.add(pos.getZ());
+        this.sumX += pos.getX();
+        this.sumZ += pos.getZ();
+        this.posCount++;
     }
 
-    public void removePos(BlockPos pos) {
-        int xIndex = this.xList.indexOf(pos.getX());
-        this.xList.removeInt(xIndex);
-
-        int zIndex = this.zList.indexOf(pos.getZ());
-        this.zList.removeInt(zIndex);
+    public int posCount() {
+        return this.posCount;
     }
 
     public void clearPositions() {
-        this.xList.clear();
-        this.zList.clear();
+        this.sumX = 0L;
+        this.sumZ = 0L;
+        this.posCount = 0;
         this.yawCalculated = false;
         this.shoreClass = 0;
     }
 
     public void updateCenter() {
-        if(xList.isEmpty() || zList.isEmpty()) return;
-        int xSize = this.xList.size();
-        this.centerX = this.xList.intStream().sum() / xSize;
-
-        int zSize = this.zList.size();
-        this.centerZ = this.zList.intStream().sum() / zSize;
+        if (this.posCount == 0) return;
+        this.centerX = (int) (this.sumX / this.posCount);
+        this.centerZ = (int) (this.sumZ / this.posCount);
 
         updateYaw();
     }
@@ -63,16 +53,6 @@ public class SitePos {
 
     public float getYaw() {
         return this.yaw;
-    }
-
-    /**
-     * @return The yaw of this site's yaw, formatted the same way as the F3 debug screen's yaw(-180 through 180 degrees)
-     */
-    public float getYawAsF3Angle() {
-        float angle = this.getYaw() - 90;
-        if(angle < 0) angle += 360;
-        if(angle > 180) angle -= 360;
-        return angle;
     }
 
     public BlockPos getPos() {
