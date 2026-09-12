@@ -12,14 +12,10 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.superkat.wavify.Wavify;
 import net.superkat.wavify.duck.WavifyWorld;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
-/**
- * This is an alternative to Minecraft's particle texture system.<br><br>
- * Because SpriteIdentifier's Sprites are always ticking their animation, I can't have different timed animations for different waves.<br><br>
- * Particle's fix for this is splitting each frame into its own texture, and using their own ResourceReloader.<br><br>
- * My fix for this is using my own metadata (given via .mcmeta) which says the frame height/width/time, and using my own resource loader. The normal sprite metadata is ignored completely, disallowing the animation to be setup in my atlas.
- */
 public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySpriteHandler.AtlasPreparations> {
     public static final String MOD_ID = Wavify.MOD_ID;
     public static final Identifier WAVE_ATLAS_ID = Identifier.fromNamespaceAndPath(MOD_ID, "textures/atlas/waves.png");
@@ -29,11 +25,17 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
 
     public TextureAtlas atlas;
 
+    private final Map<Identifier, WaveSprite> waveSprites = new HashMap<>();
+
     public record AtlasPreparations(TextureAtlas atlas, SpriteLoader.Preparations stitchResult) {
     }
 
     public TextureAtlasSprite getSprite(Identifier id) {
         return this.atlas.getSprite(id);
+    }
+
+    public WaveSprite getWaveSprite(Identifier id) {
+        return this.waveSprites.computeIfAbsent(id, key -> WaveSprite.of(getSprite(key)));
     }
 
     @Override
@@ -53,6 +55,7 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
         }
 
         this.atlas.upload(preparations.stitchResult());
+        this.waveSprites.clear();
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
@@ -63,6 +66,7 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
     }
 
     public void clearAtlas() {
+        this.waveSprites.clear();
         if (this.atlas != null) {
             this.atlas.clearTextureData();
         }

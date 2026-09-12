@@ -5,14 +5,6 @@
   "wavify.midnightconfig.chunkRadius.tooltip": "The chunk radius of chunks that should spawn waves. Reduce this number if your struggling for performance!",
   "wavify.midnightconfig.chunkUpdatesRescanAmount": "Chunk Updates Rescan Amount",
   "wavify.midnightconfig.chunkUpdatesRescanAmount.tooltip": "The amount of block updates that should happen in a chunk before it is rescanned for wave spawning.",
-  "wavify.midnightconfig.debug": "Debug Mode",
-  "wavify.midnightconfig.debug.tooltip": "Helpful for figuring out where waves are spawning, and how.",
-  "wavify.midnightconfig.debugDocs": "§lDebug Docs",
-  "wavify.midnightconfig.debugDocsSite": "- Green particles are SitePos', they should only spawn along shore",
-  "wavify.midnightconfig.debugDocsSpyglassHotbar": "- Spyglass in hotbar to see all scanned water blocks, color coded per closest SitePos",
-  "wavify.midnightconfig.debugDocsSpyglass": "- Hold spyglass to see debug waves on wave spawn",
-  "wavify.midnightconfig.debugDocsClock": "- Hold compass to see wave directions for current chunk, offhand to for all nearby chunks",
-  "wavify.midnightconfig.debugDocsCompass": "- Offhand clock to see spawning positions of waves",
   "wavify.midnightconfig.enableRiverWaves": "Enable River Waves",
   "wavify.midnightconfig.enableRiverWaves.tooltip": "Master toggle for all river-related waves (moving and standing). Turn off if you don't want waves on rivers.",
   "wavify.midnightconfig.waveYOffset": "Wave Y Offset",
@@ -25,20 +17,15 @@
   "wavify.midnightconfig.waveSoundVolume.tooltip": "Master volume multiplier for the ocean and river ambient loops.",
   "wavify.subtitle.ocean_wave": "Waves crashing",
   "wavify.subtitle.river_wave": "River flowing",
-
   "wavify.configuration.waves": "Waves",
   "wavify.configuration.appearance": "Appearance",
   "wavify.configuration.rivers": "Rivers",
   "wavify.configuration.sounds": "Sounds",
-
   "wavify.configuration.enable_ocean_waves": "Enable Ocean Waves",
   "wavify.configuration.enable_ocean_waves.tooltip": "Master toggle for ocean and beach (shoreline) waves. Turn off if you only want river waves, or no waves at all.",
   "wavify.configuration.chunk_radius": "Render Radius",
   "wavify.configuration.chunk_updates_rescan_amount": "Chunk Updates Rescan Amount",
   "wavify.configuration.spawn_distance": "Spawn Distance",
-  "wavify.configuration.debug": "Debug Mode",
-  "wavify.configuration.lake_wave_multiplier": "Lake Wave Multiplier",
-
   "wavify.configuration.transparency": "Transparency",
   "wavify.configuration.apply_transparency_to_foam": "Apply Transparency To Foam",
   "wavify.configuration.color_source": "Color Source",
@@ -46,14 +33,14 @@
   "wavify.configuration.biome_color_overrides": "Biome Color Overrides",
   "wavify.configuration.wave_y_offset": "Wave Y Offset",
   "wavify.configuration.shader_wave_y_sink": "Shader Wave Y Sink",
-
+  "wavify.configuration.enable_wet_overlay": "Enable Wet Sand Overlay",
+  "wavify.configuration.enable_wet_overlay.tooltip": "Darkens the ground where a wave washes up, as if the sand got wet. Turn off to disable the effect entirely.",
   "wavify.configuration.enable_river_waves": "Enable River Waves",
   "wavify.configuration.enable_river_waves.tooltip": "Master toggle for river waves. Turn off if you don't want waves on rivers.",
   "wavify.configuration.river_wave_spawn_radius": "River Wave Spawn Radius",
   "wavify.configuration.river_wave_spawn_radius.tooltip": "Radius (in blocks) around you within which river waves spawn. Larger = waves appear further away; smaller = only close by.",
   "wavify.configuration.river_wave_density": "River Wave Density",
   "wavify.configuration.river_wave_travel_blocks": "River Wave Travel Distance",
-
   "wavify.configuration.enable_wave_sounds": "Enable Wave Sounds",
   "wavify.configuration.wave_sound_volume": "Wave Sound Volume"
 }

@@ -1,12 +1,12 @@
 package net.superkat.wavify.river;
 
+import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.util.Mth;
-import net.superkat.wavify.scan.WaterHandler;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -14,50 +14,32 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-/**
- * A cached, coherent flow field for river waves over a bounded window around the player.
- * <br><br>
- * Flow direction is the <b>gradient of the geodesic (along-water) distance from one end of each river</b>.
- * This is deliberately a gradient field: it is irrotational, so two neighbouring cells can never point in
- * opposing directions - head-on collisions and the "upstream/downstream waves overlapping" problem are
- * impossible by construction. Because the distance is roughly constant across a cross-section and grows
- * along the length, the gradient points down the channel uniformly across the full width, wide rivers
- * included.
- * <br><br>
- * Pipeline (all bounded to the window, never the whole river; cached and rebuilt only when the player moves
- * a few blocks or after a timeout):
- * <ol>
- *     <li><b>Occupancy</b> - block-resolution river-water map from {@link WaterHandler#waters}.</li>
- *     <li><b>Components</b> - connected river pieces on a coarse grid.</li>
- *     <li><b>Seed</b> - per component, one end, chosen by the canonical sign of the component's principal
- *     axis (deterministic, client-independent, stable across rebuilds).</li>
- *     <li><b>Geodesic + gradient</b> - Dijkstra distance from the seed; flow = normalised gradient.</li>
- *     <li><b>Fill + smooth</b> - patch the few gradient-less cells and smooth once.</li>
- * </ol>
- */
 public final class RiverFlowField {
-    /** Window half-extent in blocks around the player. */
+
     private static final int WINDOW_RADIUS = 60;
-    /** Coarse cell size in blocks (flow direction varies slowly, so a coarse grid is plenty). */
+
     private static final int CELL = 4;
-    /** Rebuild once the player has moved this many blocks from the last build centre. */
+
     private static final int REBUILD_MOVE = 8;
-    /** Rebuild at least this often (ticks) to pick up terrain edits. */
+
     private static final int REBUILD_INTERVAL = 200;
 
     private static final double SQRT2 = Math.sqrt(2.0);
 
-    // Occupancy (block resolution) over the window.
+    private static final int OCEAN_RIVER_RAY = 24;
+    private static final int OCEAN_RIVER_CELL_BITS = 2;
+    private final Long2ByteOpenHashMap oceanRiverCache = new Long2ByteOpenHashMap();
+
     private int originX;
     private int originZ;
     private int blockW;
     private int blockH;
     private boolean[] water = new boolean[0];
 
-    // Coarse oriented flow grid. (0, 0) marks an invalid cell.
     private int gridW;
     private int gridH;
     private float[] dirX = new float[0];
@@ -68,8 +50,7 @@ public final class RiverFlowField {
     private long builtTick = Long.MIN_VALUE;
     private boolean built = false;
 
-    /** Rebuilds the field if the cache is stale for the player's current position. Cheap when fresh. */
-    public void ensureBuilt(ClientLevel level, WaterHandler waterHandler, double px, double pz, long tick) {
+    public void ensureBuilt(Map<Long, Set<BlockPos>> riverWaters, double px, double pz, long tick) {
         int cx = Mth.floor(px);
         int cz = Mth.floor(pz);
         if (built
@@ -78,10 +59,16 @@ public final class RiverFlowField {
                 && tick - builtTick < REBUILD_INTERVAL) {
             return;
         }
-        build(level, waterHandler, cx, cz, tick);
+        build(riverWaters, cx, cz, tick);
     }
 
-    /** Samples the cached flow direction, or {@code null} outside the window / off the channel. */
+    @Nullable
+    public RiverFlow.Flow flowAt(Level level, double x, int y, double z) {
+        RiverFlow.Flow dyn = RiverFlow.dynamicFlowAt(level, x, y, z);
+        if (dyn != null) return dyn;
+        return flowAt(x, z);
+    }
+
     @Nullable
     public RiverFlow.Flow flowAt(double x, double z) {
         if (!built) return null;
@@ -98,8 +85,19 @@ public final class RiverFlowField {
         return new RiverFlow.Flow(dx, dz);
     }
 
-    private void build(ClientLevel level, WaterHandler waterHandler, int cx, int cz, long tick) {
-        // Snapshot the previous field so the new build can keep the same flow sense where they overlap.
+    public boolean isOceanSurroundedRiver(ClientLevel level, BlockPos pos) {
+        long key = (((long) (pos.getX() >> OCEAN_RIVER_CELL_BITS)) & 0xFFFFFFFFL)
+                | (((long) (pos.getZ() >> OCEAN_RIVER_CELL_BITS)) << 32);
+        byte cached = this.oceanRiverCache.get(key);
+        if (cached != 0) return cached == 2;
+        boolean embedded = RiverFlow.isOceanSurrounded(level, pos, OCEAN_RIVER_RAY);
+        this.oceanRiverCache.put(key, (byte) (embedded ? 2 : 1));
+        return embedded;
+    }
+
+    private void build(Map<Long, Set<BlockPos>> riverWaters, int cx, int cz, long tick) {
+        this.oceanRiverCache.clear();
+
         boolean hadPrev = this.built;
         int prevOriginX = this.originX;
         int prevOriginZ = this.originZ;
@@ -120,14 +118,13 @@ public final class RiverFlowField {
         for (int cdx = -chunkRadius; cdx <= chunkRadius; cdx++) {
             for (int cdz = -chunkRadius; cdz <= chunkRadius; cdz++) {
                 long key = new ChunkPos(playerChunkX + cdx, playerChunkZ + cdz).toLong();
-                Set<BlockPos> waters = waterHandler.waters.get(key);
+                Set<BlockPos> waters = riverWaters.get(key);
                 if (waters == null || waters.isEmpty()) continue;
 
                 for (BlockPos w : waters) {
                     int lx = w.getX() - this.originX;
                     int lz = w.getZ() - this.originZ;
                     if (lx < 0 || lz < 0 || lx >= this.blockW || lz >= this.blockH) continue;
-                    if (!RiverFlow.isRiverWater(level, w)) continue;
                     this.water[lz * this.blockW + lx] = true;
                 }
             }
@@ -149,6 +146,7 @@ public final class RiverFlowField {
         double[] dist = new double[n];
         Arrays.fill(dist, Double.POSITIVE_INFINITY);
         boolean[] visited = new boolean[n];
+        boolean[] settled = new boolean[n];
         List<List<Integer>> components = new ArrayList<>();
 
         for (int start = 0; start < n; start++) {
@@ -156,7 +154,7 @@ public final class RiverFlowField {
             List<Integer> component = gatherComponent(start, cellWater, visited);
             components.add(component);
             int seed = chooseSeed(component);
-            geodesic(seed, cellWater, dist);
+            geodesic(seed, cellWater, dist, settled);
         }
 
         computeGradient(cellWater, dist);
@@ -198,11 +196,6 @@ public final class RiverFlowField {
         return component;
     }
 
-    /**
-     * Picks the river end to flow away from: the cell that is most extreme along the component's principal
-     * axis, with the axis canonicalised to a fixed sign so the choice is deterministic and identical on all
-     * clients (and stable as the window shifts).
-     */
     private int chooseSeed(List<Integer> component) {
         double meanX = 0;
         double meanZ = 0;
@@ -235,7 +228,6 @@ public final class RiverFlowField {
             axisZ = Math.sin(theta);
         }
 
-        // Canonical sign: dominant component positive. Stable except on the exact 45-degree tie line.
         if (Math.abs(axisX) >= Math.abs(axisZ)) {
             if (axisX < 0) {
                 axisX = -axisX;
@@ -258,15 +250,16 @@ public final class RiverFlowField {
         return seed;
     }
 
-    /** Dijkstra along-water distance from the seed over the cell's connected component. */
-    private void geodesic(int seed, boolean[] cellWater, double[] dist) {
+    private record Step(int index, double distance) {
+    }
+
+    private void geodesic(int seed, boolean[] cellWater, double[] dist, boolean[] settled) {
         dist[seed] = 0;
-        boolean[] settled = new boolean[this.gridW * this.gridH];
-        PriorityQueue<Integer> pq = new PriorityQueue<>(Comparator.comparingDouble(idx -> dist[idx]));
-        pq.add(seed);
+        PriorityQueue<Step> pq = new PriorityQueue<>(Comparator.comparingDouble(Step::distance));
+        pq.add(new Step(seed, 0));
 
         while (!pq.isEmpty()) {
-            int i = pq.poll();
+            int i = pq.poll().index();
             if (settled[i]) continue;
             settled[i] = true;
             int ix = i % this.gridW;
@@ -283,14 +276,13 @@ public final class RiverFlowField {
                     double cost = (ddx != 0 && ddz != 0) ? SQRT2 : 1.0;
                     if (dist[i] + cost < dist[ni]) {
                         dist[ni] = dist[i] + cost;
-                        pq.add(ni);
+                        pq.add(new Step(ni, dist[ni]));
                     }
                 }
             }
         }
     }
 
-    /** Flow = normalised gradient of the geodesic distance (points downstream, away from the seed). */
     private void computeGradient(boolean[] cellWater, double[] dist) {
         for (int iz = 0; iz < this.gridH; iz++) {
             for (int ix = 0; ix < this.gridW; ix++) {
@@ -308,11 +300,6 @@ public final class RiverFlowField {
         }
     }
 
-    /**
-     * Keeps the flow sense continuous as the player travels: where a new component overlaps the previous
-     * field, flip it if it disagrees with where the waves were just flowing. Components with no overlap
-     * (new rivers, after a teleport) keep their canonical orientation.
-     */
     private void reconcileOrientation(List<List<Integer>> components,
                                       int prevOriginX, int prevOriginZ, int prevGridW, int prevGridH,
                                       float[] prevDirX, float[] prevDirZ) {
@@ -367,7 +354,6 @@ public final class RiverFlowField {
         return gz * this.gridW + gx;
     }
 
-    /** Fills the few valid cells with no gradient (seed cell, watershed cells) from oriented neighbours. */
     private void fillGaps(boolean[] cellWater) {
         for (int pass = 0; pass < 2; pass++) {
             for (int iz = 0; iz < this.gridH; iz++) {
@@ -440,7 +426,6 @@ public final class RiverFlowField {
         return this.water[bz * this.blockW + bx];
     }
 
-    /** A coarse cell counts as water if any block within it is water (robust for narrow rivers). */
     private boolean cellHasWater(int gx, int gz) {
         int baseX = gx * CELL;
         int baseZ = gz * CELL;
@@ -452,20 +437,4 @@ public final class RiverFlowField {
         return false;
     }
 
-    /** Debug: one flow arrow per valid cell, so the field can be inspected in-world. */
-    public void addDebugMarkers(ClientLevel level, List<RiverFlow.DebugMarker> out, int playerY) {
-        if (!built) return;
-        for (int gz = 0; gz < this.gridH; gz++) {
-            for (int gx = 0; gx < this.gridW; gx++) {
-                int i = gz * this.gridW + gx;
-                if (isInvalid(i)) continue;
-                int wx = this.originX + gx * CELL + CELL / 2;
-                int wz = this.originZ + gz * CELL + CELL / 2;
-                int y = RiverFlow.surfaceWaterY(level, wx + 0.5, wz + 0.5, playerY);
-                if (y == Integer.MIN_VALUE) continue;
-                float yaw = (float) Math.toDegrees(Math.atan2(this.dirZ[i], this.dirX[i]));
-                out.add(new RiverFlow.DebugMarker(wx + 0.5, y + 1.3, wz + 0.5, new Vector3f(0.2f, 0.95f, 0.95f), 0.8f, true, yaw, 0.14f, 45));
-            }
-        }
-    }
 }
