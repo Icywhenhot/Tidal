@@ -21,11 +21,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Custom wave atlas loader. Reads per-sprite wave_animation metadata directly
- * from .mcmeta files since 1.21.1 doesn't expose a public sprite-metadata
- * registration API.
- */
 public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySpriteHandler.AtlasPreparations> {
     public static final String MOD_ID = Wavify.MOD_ID;
     public static final ResourceLocation WAVE_ATLAS_ID = ResourceLocation.fromNamespaceAndPath(MOD_ID, "textures/atlas/waves.png");
@@ -35,11 +30,20 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
     public TextureAtlas atlas;
     public Map<ResourceLocation, WaveResourceMetadata> waveMetadata = new HashMap<>();
 
+    private final Map<ResourceLocation, WaveSprite> waveSprites = new HashMap<>();
+
     public record AtlasPreparations(TextureAtlas atlas, SpriteLoader.Preparations stitchResult, Map<ResourceLocation, WaveResourceMetadata> waveMetadata) {
     }
 
     public TextureAtlasSprite getSprite(ResourceLocation id) {
         return this.atlas.getSprite(id);
+    }
+
+    public WaveSprite getWaveSprite(ResourceLocation id) {
+        return this.waveSprites.computeIfAbsent(id, key -> {
+            TextureAtlasSprite sprite = getSprite(key);
+            return WaveSprite.of(sprite, getMetadata(sprite.contents().name()));
+        });
     }
 
     public WaveResourceMetadata getMetadata(ResourceLocation spriteId) {
@@ -73,7 +77,7 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
                 int frameHeight = GsonHelper.getAsInt(section, "frame_height", 16);
 
                 String path = mcmetaId.getPath();
-                // Strip "textures/wave/" prefix and ".png.mcmeta" suffix.
+
                 String stripped = path.substring(TEXTURE_FOLDER.length() + 1, path.length() - ".png.mcmeta".length());
                 ResourceLocation spriteId = ResourceLocation.fromNamespaceAndPath(MOD_ID, stripped);
                 map.put(spriteId, new WaveResourceMetadata(frameTime, frameHeight));
@@ -92,6 +96,7 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
 
         this.atlas.upload(preparations.stitchResult());
         this.waveMetadata = preparations.waveMetadata();
+        this.waveSprites.clear();
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
@@ -102,6 +107,7 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
     }
 
     public void clearAtlas() {
+        this.waveSprites.clear();
         if (this.atlas != null) {
             this.atlas.clearTextureData();
         }

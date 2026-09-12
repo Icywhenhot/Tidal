@@ -14,12 +14,12 @@ import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.util.Mth;
 import com.mojang.math.Axis;
 import net.minecraft.world.phys.Vec3;
-import net.superkat.wavify.WavifyClient;
+import net.superkat.wavify.ClientState;
 import net.superkat.wavify.compat.IrisCompat;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
+import net.superkat.wavify.sprite.WaveSprite;
 import net.superkat.wavify.sprite.WavifySprites;
-import net.superkat.wavify.wave.RiverWave;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import net.superkat.wavify.wave.Wave;
 import org.joml.Matrix4f;
@@ -27,20 +27,16 @@ import org.joml.Matrix4f;
 import java.util.List;
 import java.util.Set;
 
-/**
- * THE WAVES AREN'T ENTITIES!!!!!!!!!!!!!!!!!!!!!!!!!!!
- */
 public class WaveRenderer {
     private static final float WAVE_FOAM_Y_OFFSET = 0.08f;
-    // Render-only Y sink for ocean waves so the visible body sits flush with
-    // the water surface. Does NOT touch collision Y — the wave's actual
-    // position stays high so it transitions into the washing-up phase and
-    // bounces instead of crashing sideways into the shore block. River waves
-    // are unaffected.
-    private static final float OCEAN_RENDER_Y_SINK = -0.5f;
 
-    private float frameBodyYOffset = 0f;
-    private float frameFoamYOffset = 0f;
+    private record Sheets(WaveSprite moving, WaveSprite movingWhite,
+                          WaveSprite topWashing, WaveSprite topWashingWhite,
+                          WaveSprite bottomWashing, WaveSprite bottomWashingWhite) {
+    }
+
+    private record Paint(float red, float green, float blue, float alpha, float foamAlpha, int light) {
+    }
 
     public WavifyWaveHandler handler;
     public WavifySpriteHandler spriteHandler;
@@ -48,7 +44,7 @@ public class WaveRenderer {
 
     public WaveRenderer(WavifyWaveHandler handler, ClientLevel level) {
         this.handler = handler;
-        this.spriteHandler = WavifyClient.WAVIFY_SPRITE_HANDLER;
+        this.spriteHandler = ClientState.SPRITES;
         this.level = level;
     }
 
@@ -63,78 +59,88 @@ public class WaveRenderer {
 
         float shaderSink = IrisCompat.isShaderPackActive() ? (float) WavifyConfig.shaderWaveYSink : 0f;
         float baseOffset = (float) WavifyConfig.waveYOffset;
-        this.frameFoamYOffset = baseOffset;
-        this.frameBodyYOffset = baseOffset + shaderSink;
+        float foamBase = baseOffset;
+        float bodyBase = baseOffset + shaderSink;
 
+        Sheets sheets = new Sheets(
+                this.spriteHandler.getWaveSprite(WavifySprites.MOVING_TEXTURE_ID),
+                this.spriteHandler.getWaveSprite(WavifySprites.MOVING_WHITE_TEXTURE_ID),
+                this.spriteHandler.getWaveSprite(WavifySprites.TOP_WASHING_ID),
+                this.spriteHandler.getWaveSprite(WavifySprites.TOP_WASHING_WHITE_ID),
+                this.spriteHandler.getWaveSprite(WavifySprites.BOTTOM_WASHING_ID),
+                this.spriteHandler.getWaveSprite(WavifySprites.BOTTOM_WASHING_WHITE_ID)
+        );
+
+        PoseStack matrices = new PoseStack();
         for (Wave wave : waves) {
-            renderWave(buffer, camera, wave, tickDelta);
+            if (wave == null) continue;
+            matrices.pushPose();
+            renderWave(matrices, buffer, camera, wave, tickDelta, sheets, bodyBase, foamBase);
+            matrices.popPose();
         }
 
         if (WavifyConfig.enableWetOverlay) renderOverlays(buffer, camera, handler.coveredBlocks);
     }
 
-    public void renderWave(VertexConsumer buffer, Camera camera, Wave wave, float delta) {
-        if (wave == null) return;
-
-        PoseStack matrices = new PoseStack();
-        matrices.pushPose();
-
-        Vec3 center = new Vec3(wave.getX(delta), wave.getY(delta), wave.getZ(delta));
+    private void renderWave(PoseStack matrices, VertexConsumer buffer, Camera camera, Wave wave, float delta, Sheets sheets, float bodyBase, float foamBase) {
         Vec3 cameraPos = camera.getPosition();
-        Vec3 transPos = center.subtract(cameraPos);
 
-        matrices.pushPose();
-        matrices.translate(transPos.x, transPos.y, transPos.z);
+        matrices.translate(wave.getX(delta) - cameraPos.x, wave.getY(delta) - cameraPos.y, wave.getZ(delta) - cameraPos.z);
         matrices.mulPose(Axis.YP.rotationDegrees(-wave.getYaw(delta) + 90));
         matrices.mulPose(Axis.XP.rotationDegrees(wave.pitch));
-        float scale = wave.scale;
-        matrices.scale(scale, 1, scale);
-
-        Matrix4f posMatrix = matrices.last().pose();
+        matrices.scale(wave.scale, 1, wave.scale);
 
         boolean washingUp = wave.isWashingUp();
-        TextureAtlasSprite colorableSprite = washingUp ? getTopWashingSprite() : getMovingSprite();
-        TextureAtlasSprite whiteSprite = washingUp ? getTopWashingWhiteSprite() : getMovingWhiteSprite();
-
-        int light = wave.getLight();
+        WaveSprite colorable = washingUp ? sheets.topWashing() : sheets.moving();
+        WaveSprite white = washingUp ? sheets.topWashingWhite() : sheets.movingWhite();
 
         float transparency = (float) WavifyConfig.transparency;
-        float red = wave.red;
-        float green = wave.green;
-        float blue = wave.blue;
         float alpha = wave.alpha * transparency;
-        float foamAlpha = WavifyConfig.applyTransparencyToFoam ? alpha : wave.alpha;
+        Paint paint = new Paint(wave.red, wave.green, wave.blue, alpha,
+                WavifyConfig.applyTransparencyToFoam ? alpha : wave.alpha, wave.getLight());
 
         int age = wave.getAge();
         int maxAge = wave.getMaxAge();
 
-        boolean isOcean = !(wave instanceof RiverWave);
-        float oceanSink = isOcean ? OCEAN_RENDER_Y_SINK : 0f;
-        float bodyYOffset = frameBodyYOffset + oceanSink;
-        float foamYOffset = frameFoamYOffset + oceanSink;
+        float sink = wave.getRenderYSink();
+        float bodyYOffset = bodyBase + sink;
+        float foamYOffset = foamBase + sink;
 
-        renderWaveColumns(posMatrix, buffer, wave, colorableSprite, whiteSprite, age, maxAge, red, green, blue, alpha, foamAlpha, light, bodyYOffset, foamYOffset);
+        renderWaveColumns(matrices.last().pose(), buffer, wave, colorable, white, age, maxAge, paint, bodyYOffset, foamYOffset);
 
         if (washingUp && wave.bigWave) {
-            TextureAtlasSprite washingColorableSprite = getBottomWashingSprite();
-            TextureAtlasSprite washingWhiteSprite = getBottomWashingWhiteSprite();
+            renderWashingUnderside(matrices, buffer, wave, sheets, age, maxAge, paint, bodyYOffset, foamYOffset);
+        }
+    }
 
-            float ageDelta = (float) age / maxAge;
-            float turnBackDelta = 0.5f;
-            float washingLength = ageDelta > turnBackDelta ? Mth.lerp((ageDelta - turnBackDelta) * 2, 2f, 3f) : 2f;
-            float washingZ = ageDelta > turnBackDelta ? Mth.lerp((ageDelta - turnBackDelta) * 2, 1.35f, 0) : 1.35f;
-            matrices.scale(1.25f, 1, 1);
-            for (int i = 0; i < wave.width; i++) {
-                waveQuad(posMatrix, buffer, washingColorableSprite, age, maxAge, i - 0.15f, -0.05f + bodyYOffset, washingZ, 1, washingLength, red, green, blue, alpha, light);
-                waveQuad(posMatrix, buffer, washingWhiteSprite, age, maxAge, i - 0.15f, -0.01f + foamYOffset, washingZ, 1, washingLength, 1f, 1f, 1f, foamAlpha, light);
-            }
+    private void renderWashingUnderside(PoseStack matrices, VertexConsumer buffer, Wave wave, Sheets sheets,
+                                        int age, int maxAge, Paint paint, float bodyYOffset, float foamYOffset) {
+        WaveSprite.Uv bottomBody = sheets.bottomWashing().uvAt(age, maxAge);
+        WaveSprite.Uv bottomFoam = sheets.bottomWashingWhite().uvAt(age, maxAge);
+
+        float ageDelta = (float) age / maxAge;
+        float turnBackDelta = 0.5f;
+        float washingLength = ageDelta > turnBackDelta ? Mth.lerp((ageDelta - turnBackDelta) * 2, 2f, 3f) : 2f;
+        float washingZ = ageDelta > turnBackDelta ? Mth.lerp((ageDelta - turnBackDelta) * 2, 1.35f, 0) : 1.35f;
+
+        matrices.pushPose();
+        matrices.scale(1.25f, 1, 1);
+        Matrix4f posMatrix = matrices.last().pose();
+
+        for (int i = 0; i < wave.width; i++) {
+            waveQuad(posMatrix, buffer, bottomBody, i - 0.15f, -0.05f + bodyYOffset, washingZ, 1, washingLength, paint.red(), paint.green(), paint.blue(), paint.alpha(), paint.light());
+            waveQuad(posMatrix, buffer, bottomFoam, i - 0.15f, -0.01f + foamYOffset, washingZ, 1, washingLength, 1f, 1f, 1f, paint.foamAlpha(), paint.light());
         }
 
         matrices.popPose();
     }
 
-    private void renderWaveColumns(Matrix4f posMatrix, VertexConsumer buffer, Wave wave, TextureAtlasSprite colorableSprite, TextureAtlasSprite whiteSprite, int age, int maxAge, float red, float green, float blue, float alpha, float foamAlpha, int light, float bodyYOffset, float foamYOffset) {
+    private void renderWaveColumns(Matrix4f posMatrix, VertexConsumer buffer, Wave wave,
+                                   WaveSprite colorable, WaveSprite white, int age, int maxAge,
+                                   Paint paint, float bodyYOffset, float foamYOffset) {
         int columnCount = wave.getRenderColumnCount();
+        WaveSprite.Uv bodyUv = colorable.uvAt(age, maxAge);
+        WaveSprite.Uv foamUv = white.uvAt(age, maxAge);
 
         for (int i = 0; i < columnCount; i++) {
             float x = wave.getRenderColumnLateralOffset(i, columnCount);
@@ -142,20 +148,19 @@ public class WaveRenderer {
             float z = wave.getRenderColumnForwardOffset(i, columnCount);
             float width = wave.getRenderColumnWidth(i, columnCount);
             float length = wave.getRenderColumnLength(i, columnCount);
-            waveQuad(posMatrix, buffer, colorableSprite, age, maxAge, x, y + bodyYOffset, z, width, length, red, green, blue, alpha, light);
-            waveQuad(posMatrix, buffer, whiteSprite, age, maxAge, x, y + WAVE_FOAM_Y_OFFSET + foamYOffset, z, width, length, 1f, 1f, 1f, foamAlpha, light);
+            waveQuad(posMatrix, buffer, bodyUv, x, y + bodyYOffset, z, width, length, paint.red(), paint.green(), paint.blue(), paint.alpha(), paint.light());
+            waveQuad(posMatrix, buffer, foamUv, x, y + WAVE_FOAM_Y_OFFSET + foamYOffset, z, width, length, 1f, 1f, 1f, paint.foamAlpha(), paint.light());
         }
     }
 
-    private void waveQuad(Matrix4f matrix4f, VertexConsumer buffer, TextureAtlasSprite sprite, int waveAge, int waveMaxAge, float x, float y, float z, float width, float length, float red, float green, float blue, float alpha, int light) {
+    private void waveQuad(Matrix4f matrix4f, VertexConsumer buffer, WaveSprite.Uv uv, float x, float y, float z, float width, float length, float red, float green, float blue, float alpha, int light) {
         float halfWidth = width / 2f;
         float halfLength = length / 2f;
 
-        int frame = WavifySprites.getFrameFromAge(sprite, waveAge, waveMaxAge);
-        float u0 = WavifySprites.getMinU(sprite);
-        float u1 = WavifySprites.getMaxU(sprite);
-        float v0 = WavifySprites.getMinV(sprite, frame);
-        float v1 = WavifySprites.getMaxV(sprite, frame);
+        float u0 = uv.u0();
+        float u1 = uv.u1();
+        float v0 = uv.v0();
+        float v1 = uv.v1();
 
         buffer.addVertex(matrix4f, x - halfWidth, y, z - halfLength)
                 .setColor(red, green, blue, alpha).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
@@ -171,73 +176,35 @@ public class WaveRenderer {
     }
 
     public void renderOverlays(VertexConsumer buffer, Camera camera, Set<BlockPos> coveredBlocks) {
-        for (BlockPos covered : coveredBlocks) {
-            renderCoverOverlay(buffer, camera, covered);
-        }
-    }
-
-    public void renderCoverOverlay(VertexConsumer buffer, Camera camera, BlockPos pos) {
-        PoseStack matrices = new PoseStack();
-        Vec3 cameraPos = camera.getPosition();
-        Vec3 transPos = pos.getBottomCenter().subtract(cameraPos);
+        if (coveredBlocks.isEmpty()) return;
 
         TextureAtlasSprite sprite = getWetOverlaySprite();
         float u0 = sprite.getU0();
         float u1 = sprite.getU1();
         float v0 = sprite.getV0();
         float v1 = sprite.getV1();
-
         int light = LightTexture.pack(0, 0);
 
-        matrices.pushPose();
-        matrices.translate(transPos.x - 0.5, transPos.y + 1.01, transPos.z - 0.5);
-        Matrix4f matrix4f = matrices.last().pose();
+        Vec3 cameraPos = camera.getPosition();
+        Matrix4f matrix4f = new Matrix4f();
 
-        buffer.addVertex(matrix4f, 0f, 0f, 0f)
-                .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+        for (BlockPos covered : coveredBlocks) {
+            float x = (float) (covered.getX() - cameraPos.x);
+            float y = (float) (covered.getY() + 1.01 - cameraPos.y);
+            float z = (float) (covered.getZ() - cameraPos.z);
 
-        buffer.addVertex(matrix4f, 0f, 0f, 1f)
-                .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+            buffer.addVertex(matrix4f, x, y, z)
+                    .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
 
-        buffer.addVertex(matrix4f, 1f, 0f, 1f)
-                .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+            buffer.addVertex(matrix4f, x, y, z + 1f)
+                    .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
 
-        buffer.addVertex(matrix4f, 1f, 0f, 0f)
-                .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+            buffer.addVertex(matrix4f, x + 1f, y, z + 1f)
+                    .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
 
-        matrices.popPose();
-    }
-
-    public TextureAtlasSprite getMovingSprite() {
-        return spriteHandler.getSprite(WavifySprites.MOVING_TEXTURE_ID);
-    }
-
-    public TextureAtlasSprite getMovingWhiteSprite() {
-        return spriteHandler.getSprite(WavifySprites.MOVING_WHITE_TEXTURE_ID);
-    }
-
-    public TextureAtlasSprite getTopWashingSprite() {
-        return spriteHandler.getSprite(WavifySprites.TOP_WASHING_ID);
-    }
-
-    public TextureAtlasSprite getTopWashingWhiteSprite() {
-        return spriteHandler.getSprite(WavifySprites.TOP_WASHING_WHITE_ID);
-    }
-
-    public TextureAtlasSprite getBottomWashingSprite() {
-        return spriteHandler.getSprite(WavifySprites.BOTTOM_WASHING_ID);
-    }
-
-    public TextureAtlasSprite getBottomWashingWhiteSprite() {
-        return spriteHandler.getSprite(WavifySprites.BOTTOM_WASHING_WHITE_ID);
-    }
-
-    public TextureAtlasSprite getWashedSprite() {
-        return spriteHandler.getSprite(WavifySprites.WASHING_TEXTURE_ID);
-    }
-
-    public TextureAtlasSprite getWashedWhiteSprite() {
-        return spriteHandler.getSprite(WavifySprites.WASHING_WHITE_TEXTURE_ID);
+            buffer.addVertex(matrix4f, x + 1f, y, z)
+                    .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+        }
     }
 
     public TextureAtlasSprite getWetOverlaySprite() {

@@ -12,22 +12,15 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.chunk.ChunkAccess;
-import net.superkat.wavify.DebugHelper;
-import net.superkat.wavify.Wavify;
 import net.superkat.wavify.config.WavifyConfig;
-import net.superkat.wavify.particles.debug.DebugShoreParticle;
-import net.superkat.wavify.particles.debug.DebugWaterParticle;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.apache.commons.compress.utils.Lists;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -40,50 +33,37 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
-
 public class WaterHandler {
     public final WavifyWaveHandler wavifyWaveHandler;
     public final ClientLevel level;
 
-    // Keep track of how many block updates have happened in a chunk - used to rescan chunks after enough(configurable) updates
-    public Map<Long, Integer> chunkUpdates = new Long2IntOpenHashMap(81, 0.25f);
+    public Long2IntOpenHashMap chunkUpdates = new Long2IntOpenHashMap(81, 0.25f);
 
-    // Set of shoreline sites, used to determine angle of area
-    public Map<Long, ObjectOpenHashSet<SitePos>> sites = new Long2ObjectOpenHashMap<>(81, 0.25f);
+    public Long2ObjectOpenHashMap<ObjectOpenHashSet<SitePos>> sites = new Long2ObjectOpenHashMap<>(81, 0.25f);
 
-    // Caches all the sites into one set, not split by chunk.
     public Set<SitePos> cachedSiteSet = new ObjectOpenHashSet<>();
 
-    // Keep track of which SitePos is closest to all scanned water blocks
-    public Map<Long, Map<BlockPos, SitePos>> waterCache = new Long2ObjectOpenHashMap<>();
+    public Long2ObjectOpenHashMap<Map<BlockPos, SitePos>> waterCache = new Long2ObjectOpenHashMap<>();
 
-    public Map<Long, Map<Integer, Set<BlockPos>>> waterDistCache = new Long2ObjectOpenHashMap<>();
+    public Long2ObjectOpenHashMap<Int2ObjectOpenHashMap<Set<BlockPos>>> waterDistCache = new Long2ObjectOpenHashMap<>();
 
-    // All scanned shoreline blocks
-    public Map<Long, Set<BlockPos>> shoreBlocks = new Long2ObjectOpenHashMap<>(81, 0.25f);
+    public Long2ObjectOpenHashMap<Set<BlockPos>> shoreBlocks = new Long2ObjectOpenHashMap<>(81, 0.25f);
 
-    // boolean for if the initial joining/chunk reloading build is finished or not
     public boolean built = false;
 
-    // CompletableFuture for scanning all chunks - e.g. finding water blocks, shore blocks, & sites
     public CompletableFuture<List<ScannedChunk>> chunkScanFuture = null;
 
-    // Executor for list of available threads I think
     private final Executor executor;
 
-    // Set of all loaded chunks
     public Set<ChunkPos> loadedChunks = Sets.newHashSet();
 
-    // Set of all chunks that are loaded, but haven't been scanned
     public Set<ChunkPos> unscannedChunks = Sets.newHashSet();
 
-    // Set of all chunks ready to be scanned(e.g. within wave spawning distance)
     public Queue<ChunkPos> unscannedChunkQueue = Queues.newArrayDeque();
 
-    // List of all known water blocks, split by chunk. Concurrent because the scan pipeline fills these on
-    // background threads while the main thread reads them (e.g. WavifyWaveHandler#spawnRiverWavesNearPlayer).
     public Map<Long, Set<BlockPos>> waters = new ConcurrentHashMap<>();
 
+    public Map<Long, Set<BlockPos>> riverWaters = new ConcurrentHashMap<>();
 
     public WaterHandler(WavifyWaveHandler wavifyWaveHandler, ClientLevel level) {
         this.wavifyWaveHandler = wavifyWaveHandler;
@@ -97,14 +77,17 @@ public class WaterHandler {
         assert player != null;
 
         if (!this.unscannedChunkQueue.isEmpty() && wavifyWaveHandler.nearbyChunksLoaded) {
-            if (this.chunkScanFuture == null) { // I don't know if there's a better way to do this or not but okay
-                long start = Util.getMillis();
-                this.chunkScanFuture = scheduleChunkScans();
+            if (this.chunkScanFuture == null) {
+                        this.chunkScanFuture = scheduleChunkScans();
                 this.chunkScanFuture.thenComposeAsync(chunks -> {
                     for (ScannedChunk chunk : chunks) {
                         long chunkPosL = chunk.chunkPos;
                         if (chunk.waters != null && !chunk.waters.isEmpty()) {
                             this.waters.computeIfAbsent(chunkPosL, aLong -> ConcurrentHashMap.newKeySet()).addAll(chunk.waters);
+                        }
+
+                        if (chunk.rivers != null && !chunk.rivers.isEmpty()) {
+                            this.riverWaters.computeIfAbsent(chunkPosL, aLong -> ConcurrentHashMap.newKeySet()).addAll(chunk.rivers);
                         }
 
                         if (chunk.sites != null && !chunk.sites.isEmpty()) {
@@ -138,18 +121,13 @@ public class WaterHandler {
                     this.built = true;
                 }, client);
 
-                this.chunkScanFuture.whenCompleteAsync((chunks, throwable) -> {
-                    if(DebugHelper.debug()) Wavify.LOGGER.info("Scan time: {} ms", Util.getMillis() - start);
-                    this.chunkScanFuture = null;
-                }, client);
+                this.chunkScanFuture.whenCompleteAsync((chunks, throwable) -> this.chunkScanFuture = null, client);
             }
         }
-
-        if (DebugHelper.debug()) debugTick(client, player);
     }
 
     public CompletableFuture<List<ScannedChunk>> scheduleChunkScans() {
-        // scan all chunks
+
         this.built = false;
         List<CompletableFuture<ScannedChunk>> futures = Lists.newArrayList();
 
@@ -169,12 +147,12 @@ public class WaterHandler {
         }, executor);
     }
 
-    public record WaterCacheResult(Map<Long, Map<BlockPos, SitePos>> waterCache,
-                                   Map<Long, Map<Integer, Set<BlockPos>>> distCache) {
+    public record WaterCacheResult(Long2ObjectOpenHashMap<Map<BlockPos, SitePos>> waterCache,
+                                   Long2ObjectOpenHashMap<Int2ObjectOpenHashMap<Set<BlockPos>>> distCache) {
     }
 
     public CompletableFuture<WaterCacheResult> scheduleWaterCache() {
-        // calculate all water block's closest sites first, then recalc centers
+
         List<CompletableFuture<WaterSiteChunk>> futures = Lists.newArrayList();
 
         for (Map.Entry<Long, Set<BlockPos>> entry : this.waters.entrySet()) {
@@ -185,8 +163,8 @@ public class WaterHandler {
         }
 
         return Util.sequence(futures).thenApply(chunks -> {
-            Map<Long, Map<BlockPos, SitePos>> waterCache = new Long2ObjectOpenHashMap<>();
-            Map<Long, Map<Integer, Set<BlockPos>>> distCache = new Long2ObjectOpenHashMap<>();
+            Long2ObjectOpenHashMap<Map<BlockPos, SitePos>> waterCache = new Long2ObjectOpenHashMap<>();
+            Long2ObjectOpenHashMap<Int2ObjectOpenHashMap<Set<BlockPos>>> distCache = new Long2ObjectOpenHashMap<>();
 
             for (WaterSiteChunk chunk : chunks) {
                 long chunkPosL = chunk.chunkPos;
@@ -201,7 +179,7 @@ public class WaterHandler {
     private CompletableFuture<WaterSiteChunk> scheduleWaterScan(long chunkPosL, Set<BlockPos> waters) {
         return CompletableFuture.supplyAsync(() -> {
             Map<BlockPos, SitePos> siteMap = new Object2ObjectOpenHashMap<>();
-            Map<Integer, Set<BlockPos>> distMap = new Int2ObjectOpenHashMap<>();
+            Int2ObjectOpenHashMap<Set<BlockPos>> distMap = new Int2ObjectOpenHashMap<>();
             for (BlockPos water : waters) {
                 IntObjectPair<SitePos> closestSite = calcClosestSite(water);
                 if (closestSite == null) continue;
@@ -214,7 +192,7 @@ public class WaterHandler {
         }, executor);
     }
 
-    @Nullable //FIXME - optimize this(Hama said it should be easy)
+    @Nullable
     public IntObjectPair<SitePos> calcClosestSite(BlockPos pos) {
         double distance = 0;
         SitePos closest = null;
@@ -230,18 +208,15 @@ public class WaterHandler {
             }
         }
 
-        int intDistance = (int) Math.sqrt(distance);
-        return IntObjectPair.of(intDistance, closest);
+        if (closest == null) return null;
+        return IntObjectPair.of((int) Math.sqrt(distance), closest);
     }
-
 
     @Nullable
     public Set<BlockPos> getWaterCacheAtDistance(ChunkPos chunkPos, int distance) {
-        long chunkPosL = chunkPos.toLong();
-        if (this.waterDistCache.containsKey(chunkPosL)) return this.waterDistCache.get(chunkPosL).get(distance);
-        return null;
+        Int2ObjectOpenHashMap<Set<BlockPos>> byDistance = this.waterDistCache.get(chunkPos.toLong());
+        return byDistance == null ? null : byDistance.get(distance);
     }
-
 
     public SitePos getSiteForPos(BlockPos pos) {
         long chunkPosL = ChunkPos.asLong(pos);
@@ -265,60 +240,15 @@ public class WaterHandler {
 
         IntObjectPair<SitePos> siteDistPair = this.calcClosestSite(pos);
         if (siteDistPair == null) return null;
-        int distance = siteDistPair.firstInt();
-        SitePos site = siteDistPair.second();
 
-        if (site != null) {
-            this.waterDistCache.computeIfAbsent(
-                    chunkPosL, chunkPosL2 -> new Int2ObjectOpenHashMap<>()
-            ).computeIfAbsent(
-                    distance, dist -> new ObjectOpenHashSet<>()
-            ).add(pos);
-        }
+        this.waterDistCache.computeIfAbsent(
+                chunkPosL, (long key) -> new Int2ObjectOpenHashMap<Set<BlockPos>>()
+        ).computeIfAbsent(
+                siteDistPair.firstInt(), (int dist) -> new ObjectOpenHashSet<BlockPos>()
+        ).add(pos);
 
-        return site;
+        return siteDistPair.second();
     }
-
-    private void debugTick(Minecraft client, LocalPlayer player) {
-        if (this.level.getGameTime() % 10 != 0) return;
-        boolean farParticles = false;
-
-        // display all shoreline blocks
-        // display all sitePos'
-        List<SitePos> allSites = this.sites.values().stream().flatMap(Collection::stream).toList();
-        for (SitePos site : allSites) {
-            this.level.addParticle(ParticleTypes.EGG_CRACK, true, site.getX() + 0.5, site.getY() + 2, site.getZ() + 0.5, 0, 0, 0);
-        }
-
-        if (!DebugHelper.debug()) return;
-        if (!DebugHelper.spyglassInHotbar()) return;
-
-        // display all shoreline blocks
-        List<BlockPos> allShoreBLocks = this.shoreBlocks.values().stream().flatMap(Collection::stream).toList();
-        ParticleOptions shoreEffect = new DebugShoreParticle.DebugShoreParticleEffect(new Vector3f(1f, 1f, 1f), 1f);
-        for (BlockPos shore : allShoreBLocks) {
-            Vec3 pos = shore.getCenter();
-            this.level.addParticle(shoreEffect, pos.x(), pos.y() + 1, pos.z(), 0, 0, 0);
-        }
-
-        // display all water blocks pos', colored by closest site
-        int totalSites = allSites.size();
-        for (Map<BlockPos, SitePos> posSiteMap : this.waterCache.values()) {
-            for (Map.Entry<BlockPos, SitePos> entry : posSiteMap.entrySet()) {
-                BlockPos blockPos = entry.getKey();
-                if (!blockPos.closerToCenterThan(new Vec3(player.getX(), player.getY(), player.getZ()), 100)) continue;
-                SitePos site = entry.getValue();
-
-                int siteIndex = allSites.indexOf(site);
-                Vector3f color = DebugHelper.debugColor(siteIndex, totalSites);
-
-                Vec3 pos = blockPos.getCenter();
-                ParticleOptions particleEffect = new DebugWaterParticle.DebugWaterParticleEffect(color, 1f);
-                this.level.addParticle(particleEffect, farParticles, pos.x(), pos.y() + 1, pos.z(), 0, 0, 0);
-            }
-        }
-    }
-
 
     public void onBlockUpdate(BlockPos pos, BlockState state) {
         long chunkPosL = ChunkPos.asLong(pos);
@@ -332,14 +262,13 @@ public class WaterHandler {
     }
 
     public void rebuild() {
-        this.clear(); // clear all data(ticking scanners -> null, sites/shoreblocks/waterblocks all cleared)
+        this.clear();
 
         this.unscannedChunks.addAll(this.loadedChunks);
         this.chunkScanFuture = null;
         this.checkUnscannedChunks();
     }
 
-    // I feel comfortable doing this because this calculation is usually only taken 1-3ms for me
     public void calcAllSiteCenters() {
         for (SitePos site : this.sites.values().stream().flatMap(Collection::stream).toList()) {
             site.updateCenter();
@@ -347,22 +276,19 @@ public class WaterHandler {
     }
 
     public void cacheSiteSet() {
-        // caching this list saved ~200ms during a build/rebuild
+
         this.cachedSiteSet = new ObjectOpenHashSet<>(this.sites.values().stream().flatMap(Collection::stream).collect(Collectors.toSet()));
     }
-
 
     public void loadChunk(ChunkAccess chunk) {
         addChunkPos(chunk.getPos());
     }
-
 
     public void addChunkPos(ChunkPos chunkPos) {
         this.loadedChunks.add(chunkPos);
         this.unscannedChunks.add(chunkPos);
         checkUnscannedChunks();
     }
-
 
     public void checkUnscannedChunks() {
         net.minecraft.world.phys.Vec3 camPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
@@ -371,7 +297,9 @@ public class WaterHandler {
         Iterator<ChunkPos> iterator = this.unscannedChunks.iterator();
         while (iterator.hasNext()) {
             ChunkPos chunk = iterator.next();
-            double distance = cameraChunk.distanceSquared(chunk);
+            double dxChunk = cameraChunk.x - (double) chunk.x;
+            double dzChunk = cameraChunk.z - (double) chunk.z;
+            double distance = dxChunk * dxChunk + dzChunk * dzChunk;
             if (distance > radius) continue;
 
             if (this.unscannedChunkQueue.offer(chunk)) {
@@ -379,7 +307,6 @@ public class WaterHandler {
             }
         }
     }
-
 
     public boolean rescanChunkPos(ChunkPos chunkPos) {
         long chunkPosL = chunkPos.toLong();
@@ -402,16 +329,20 @@ public class WaterHandler {
         this.shoreBlocks.remove(chunkPosL);
         this.waterCache.remove(chunkPosL);
         this.waterDistCache.remove(chunkPosL);
-        this.sites.remove(chunkPosL);
         this.waters.remove(chunkPosL);
-        this.cachedSiteSet.clear(); //resets it
+        this.riverWaters.remove(chunkPosL);
+
+        ObjectOpenHashSet<SitePos> dropped = this.sites.remove(chunkPosL);
+        if (dropped != null) this.cachedSiteSet.removeAll(dropped);
     }
 
     public void clear() {
         this.shoreBlocks.clear();
-        this.sites.clear();
         this.waterCache.clear();
         this.waterDistCache.clear();
+        this.sites.clear();
+        this.waters.clear();
+        this.riverWaters.clear();
         this.cachedSiteSet.clear();
         this.unscannedChunks.clear();
         this.chunkUpdates.clear();

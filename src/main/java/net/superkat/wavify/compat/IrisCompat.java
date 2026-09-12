@@ -4,13 +4,6 @@ import net.neoforged.fml.ModList;
 
 import java.lang.reflect.Method;
 
-/**
- * Reflection-only Iris detection so we don't take a hard compile/runtime
- * dependency on Iris. Iris and Oculus both expose IrisApi#isShaderPackInUse().
- *
- * isShaderPackActive() is hot-path-safe: result is cached per render frame by
- * the caller; the reflective lookup itself is done once and cached here.
- */
 public final class IrisCompat {
     private static final boolean IRIS_LOADED =
             ModList.get().isLoaded("iris")
