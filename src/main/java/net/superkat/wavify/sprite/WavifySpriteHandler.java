@@ -11,16 +11,12 @@ import net.minecraft.server.packs.metadata.MetadataSectionType;
 import net.minecraft.resources.Identifier;
 import net.superkat.wavify.Wavify;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-/**
- * This is an alternative to Minecraft's particle texture system.<br><br>
- * Because SpriteIdentifier's Sprites are always ticking their animation, I can't have different timed animations for different waves.<br><br>
- * Particle's fix for this is splitting each frame into its own texture, and using their own ResourceReloader.<br><br>
- * My fix for this is using my own metadata (given via .mcmeta) which says the frame height/width/time, and using my own resource loader. The normal sprite metadata is ignored completely, disallowing the animation to be setup in my atlas.
- */
 public class WavifySpriteHandler implements SimpleResourceReloadListener<SpriteLoader.Preparations> {
     public static final String MOD_ID = Wavify.MOD_ID;
     public static final Identifier WAVE_ATLAS_ID = Identifier.fromNamespaceAndPath(MOD_ID, "textures/atlas/waves.png");
@@ -30,8 +26,14 @@ public class WavifySpriteHandler implements SimpleResourceReloadListener<SpriteL
 
     public TextureAtlas atlas;
 
+    private final Map<Identifier, WaveSprite> waveSprites = new HashMap<>();
+
     public TextureAtlasSprite getSprite(Identifier id) {
         return this.atlas.getSprite(id);
+    }
+
+    public WaveSprite getWaveSprite(Identifier id) {
+        return this.waveSprites.computeIfAbsent(id, key -> WaveSprite.of(getSprite(key)));
     }
 
     @Override
@@ -49,10 +51,12 @@ public class WavifySpriteHandler implements SimpleResourceReloadListener<SpriteL
     public CompletableFuture<Void> apply(SpriteLoader.Preparations stitchResult, ResourceManager manager, Executor executor) {
         return CompletableFuture.runAsync(() -> {
             this.atlas.upload(stitchResult);
+            this.waveSprites.clear();
         }, executor);
     }
 
     public void clearAtlas() {
+        this.waveSprites.clear();
         this.atlas.clearTextureData();
     }
 

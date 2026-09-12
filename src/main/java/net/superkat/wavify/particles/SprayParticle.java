@@ -2,7 +2,6 @@ package net.superkat.wavify.particles;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
@@ -18,6 +17,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.RandomSource;
 import net.superkat.wavify.WavifyParticles;
+import net.superkat.wavify.river.RiverFlow;
+import net.superkat.wavify.util.WavifyColors;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.joml.Quaternionf;
 
@@ -30,6 +31,8 @@ public class SprayParticle extends SingleQuadParticle {
     public float yaw;
     public float intensity;
     private boolean stopped;
+
+    private final boolean white;
 
     public SprayParticle(ClientLevel level, double x, double y, double z, double velX, double velY, double velZ, SprayParticleEffect params, SpriteSet spriteProvider) {
         super(level, x, y, z, velX, velY, velZ, spriteProvider.first());
@@ -48,8 +51,10 @@ public class SprayParticle extends SingleQuadParticle {
         this.hasPhysics = true;
         this.gravity = 0.5f;
 
-        if(spawnWhite()) {
-            this.level.addParticle(new WhiteSprayParticleEffect(yaw, intensity, this.quadSize), x, y, z, velX, velY, velZ);
+        this.white = params.isWhite();
+
+        if(!this.white) {
+            this.level.addParticle(new SprayParticleEffect(yaw, intensity, this.quadSize, true), x, y, z, velX, velY, velZ);
             this.updateWaterColor();
         }
 
@@ -61,12 +66,15 @@ public class SprayParticle extends SingleQuadParticle {
     @Override
     public void tick() {
         super.tick();
+        if (!this.isAlive()) {
+            return;
+        }
         if(this.quadSize <= 0f) {
             this.remove();
             return;
         }
 
-        if(WavifyWaveHandler.posIsWater(this.level, this.getPos().offset(0, 1, 0))) {
+        if(enteredWater()) {
             this.x -= this.xd * 8;
             this.z -= this.zd * 8f;
             for (int i = 0; i < 5; i++) {
@@ -98,15 +106,24 @@ public class SprayParticle extends SingleQuadParticle {
     }
 
     @Override
+    protected void extractRotatedQuad(QuadParticleRenderState state, Camera camera, Quaternionf rotation, float tickDelta) {
+        Vec3 cameraPos = camera.position();
+        float x = (float) (Mth.lerp(tickDelta, this.xo, this.x) - cameraPos.x());
+        float y = (float) (Mth.lerp(tickDelta, this.yo, this.y) - cameraPos.y()) + (this.white ? 0.125f : 0.025f);
+        float z = (float) (Mth.lerp(tickDelta, this.zo, this.z) - cameraPos.z());
+        this.extractRotatedQuad(state, rotation, x, y, z, tickDelta);
+    }
+
+    @Override
     public void extract(QuadParticleRenderState state, Camera camera, float tickDelta) {
         Quaternionf quaternionf = new Quaternionf();
         quaternionf.rotateX((float) Math.toRadians(-90f));
         quaternionf.rotateZ((float) Math.toRadians(-90f - this.yaw));
         float angle = Mth.lerp(tickDelta, this.oRoll, this.roll);
         quaternionf.rotateX((float) Math.toRadians(angle));
-        extractRotatedQuad(state, camera, quaternionf, tickDelta);
+        this.extractRotatedQuad(state, camera, quaternionf, tickDelta);
         quaternionf.rotateY((float) Math.toRadians(180f));
-        extractRotatedQuad(state, camera, quaternionf, tickDelta);
+        this.extractRotatedQuad(state, camera, quaternionf, tickDelta);
     }
 
     @Override
@@ -114,7 +131,7 @@ public class SprayParticle extends SingleQuadParticle {
         if (!this.stopped) {
             double e = dy;
             if (this.hasPhysics && (dx != 0.0 || dy != 0.0 || dz != 0.0) && dx * dx + dy * dy + dz * dz < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
-                //expanding bounding box to specifically account for mud and I guess soul sand too?
+
                 Vec3 vec3d = Entity.collideBoundingBox(null, new Vec3(dx, dy, dz), this.getBoundingBox().inflate(0, 0.15, 0), this.level, List.of());
                 dx = vec3d.x;
                 dy = vec3d.y;
@@ -135,15 +152,18 @@ public class SprayParticle extends SingleQuadParticle {
     }
 
     public void updateWaterColor() {
-        int color = BiomeColors.getAverageWaterColor(this.level, this.getPos());
-        float r = (float) (color >> 16 & 0xFF) / 255.0F;
-        float g = (float) (color >> 8 & 0xFF) / 255.0F;
-        float b = (float) (color & 0xFF) / 255.0F;
-        this.setColor(r, g, b);
+        int color = WavifyColors.getWaterColor(this.level, this.getPos());
+        this.setColor(WavifyColors.red(color), WavifyColors.green(color), WavifyColors.blue(color));
     }
 
-    protected boolean spawnWhite() {
-        return true;
+    private boolean enteredWater() {
+        if (WavifyWaveHandler.posIsWater(this.level, this.getPos().offset(0, 1, 0))) return true;
+
+        int surfaceY = RiverFlow.surfaceWaterY(this.level, this.x, this.z, Mth.floor(this.y));
+        if (surfaceY == Integer.MIN_VALUE) return false;
+
+        BlockPos surfacePos = BlockPos.containing(this.x, surfaceY, this.z);
+        return this.y <= surfaceY + this.level.getFluidState(surfacePos).getHeight(this.level, surfacePos);
     }
 
     @Override

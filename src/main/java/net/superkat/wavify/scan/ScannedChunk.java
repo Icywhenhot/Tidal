@@ -8,12 +8,14 @@ import java.util.Set;
 public class ScannedChunk {
     public final long chunkPos;
     public Set<BlockPos> waters;
+    public Set<BlockPos> rivers;
     public Set<BlockPos> shorelines;
     public Set<SitePos> sites;
 
-    public ScannedChunk(ChunkPos chunkPos, Set<BlockPos> waters, Set<BlockPos> shorelines, Set<SitePos> sites) {
+    public ScannedChunk(ChunkPos chunkPos, Set<BlockPos> waters, Set<BlockPos> rivers, Set<BlockPos> shorelines, Set<SitePos> sites) {
         this.chunkPos = chunkPos.pack();
         this.waters = waters;
+        this.rivers = rivers;
         this.shorelines = shorelines;
         this.sites = sites;
     }
