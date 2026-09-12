@@ -10,7 +10,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.util.RandomSource;
 import net.superkat.wavify.util.WavifyColors;
-import org.joml.Vector3f;
 
 public class BigSplashParticle extends SingleQuadParticle {
     private final SpriteSet spriteProvider;
@@ -23,8 +22,8 @@ public class BigSplashParticle extends SingleQuadParticle {
         this.gravity = 0.04f;
         this.setSpriteFromAge(this.spriteProvider);
 
-        Vector3f color = WavifyColors.getWaterColorVec(clientWorld, BlockPos.containing(x, y, z));
-        this.setColor(color.x, color.y, color.z);
+        int color = WavifyColors.getWaterColor(clientWorld, BlockPos.containing(x, y, z));
+        this.setColor(WavifyColors.red(color), WavifyColors.green(color), WavifyColors.blue(color));
     }
 
     @Override
