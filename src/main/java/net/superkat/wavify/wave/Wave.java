@@ -22,6 +22,9 @@ import java.util.Set;
 public class Wave {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = Mth.square(100.0);
 
+    public static final int SMALL_WAVE_MAX_AGE = 250;
+    public static final int BIG_WAVE_MAX_AGE = 300;
+
     public ClientLevel level;
     public BlockPos spawnPos;
     public float yaw;
@@ -76,12 +79,12 @@ public class Wave {
             this.scale = 3f;
             this.length = 1.5f;
             this.width = 1f;
-            this.maxAge = 300;
+            this.maxAge = BIG_WAVE_MAX_AGE;
         } else {
             this.scale = 2f;
             this.length = 1f;
             this.width = 2f;
-            this.maxAge = 250;
+            this.maxAge = SMALL_WAVE_MAX_AGE;
         }
 
         this.x = spawnPos.getX() + 0.5f;
@@ -201,25 +204,20 @@ public class Wave {
 
         if (!drowningAway) {
             int sprayAmount = this.bigWave ? 3 : 1;
-            float sprayIntensity;
-            if (this.isWashingUp()) {
-                sprayIntensity = getWashingAge() / 128f;
-                if (washBounce()) sprayIntensity *= 2f;
-            } else {
-                sprayIntensity = ((float) this.age / this.maxAge) * 2.5f / (this.age / 16f);
-            }
+            float sprayIntensity = sprayIntensity();
 
-            double splashX = this.x + this.velX * 10;
-            double splashZ = this.z + this.velZ * 10;
+            Vec3 splash = sprayPosition();
+            double splashX = splash.x;
+            double splashZ = splash.z;
 
             for (int i = 0; i < sprayAmount; i++) {
-            this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(), splashX, this.y, splashZ, this.level.getRandom().nextGaussian() * 0.1f, Math.abs(this.level.getRandom().nextGaussian()) * 0.1f + 0.1f, this.level.getRandom().nextGaussian() * 0.1f);
+            this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(), splashX, splash.y, splashZ, this.level.getRandom().nextGaussian() * 0.1f, Math.abs(this.level.getRandom().nextGaussian()) * 0.1f + 0.1f, this.level.getRandom().nextGaussian() * 0.1f);
                 if (this.bigWave) {
-            this.level.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE.get(), splashX + this.level.getRandom().nextGaussian() / 2f, this.y, splashZ + this.level.getRandom().nextGaussian() / 2f, 0, 0.01, 0);
+            this.level.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE.get(), splashX + this.level.getRandom().nextGaussian() / 2f, splash.y, splashZ + this.level.getRandom().nextGaussian() / 2f, 0, 0.01, 0);
                 }
             }
 
-            this.level.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale, false), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
+            this.level.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale, false), splashX, splash.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;
@@ -228,6 +226,23 @@ public class Wave {
 
         this.hitBlockAge = this.age;
         this.hitBlock = true;
+    }
+
+    protected Vec3 sprayPosition() {
+        return new Vec3(this.x + this.velX * 10, this.y, this.z + this.velZ * 10);
+    }
+
+    protected float sprayIntensity() {
+        if (this.isWashingUp()) {
+            float intensity = getWashingAge() / 128f;
+            if (washBounce()) intensity *= 2f;
+            return intensity;
+        }
+        return ((float) this.age / sprayMaxAge()) * 2.5f / (this.age / 16f);
+    }
+
+    protected int sprayMaxAge() {
+        return this.maxAge;
     }
 
     public boolean updateWashingUp() {

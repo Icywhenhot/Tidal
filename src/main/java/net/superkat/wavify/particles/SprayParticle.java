@@ -14,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.superkat.wavify.WavifyParticles;
+import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.util.WavifyColors;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.joml.Quaternionf;
@@ -63,12 +64,15 @@ public class SprayParticle extends TextureSheetParticle {
     @Override
     public void tick() {
         super.tick();
+        if (!this.isAlive()) {
+            return;
+        }
         if(this.quadSize <= 0f) {
             this.remove();
             return;
         }
 
-        if(WavifyWaveHandler.posIsWater(this.level, this.getBlockPos().offset(0, 1, 0))) {
+        if(enteredWater()) {
             this.x -= this.xd * 8;
             this.z -= this.zd * 8f;
             for (int i = 0; i < 5; i++) {
@@ -97,6 +101,16 @@ public class SprayParticle extends TextureSheetParticle {
         }
 
         this.setSpriteFromAge(this.spriteProvider);
+    }
+
+    private boolean enteredWater() {
+        if (WavifyWaveHandler.posIsWater(this.level, this.getBlockPos().offset(0, 1, 0))) return true;
+
+        int surfaceY = RiverFlow.surfaceWaterY(this.level, this.x, this.z, Mth.floor(this.y));
+        if (surfaceY == Integer.MIN_VALUE) return false;
+
+        BlockPos surfacePos = BlockPos.containing(this.x, surfaceY, this.z);
+        return this.y <= surfaceY + this.level.getFluidState(surfacePos).getHeight(this.level, surfacePos);
     }
 
     @Override

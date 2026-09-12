@@ -3,8 +3,13 @@ package net.superkat.wavify.wave;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.river.RiverFlowField;
+
+import java.util.List;
 
 public class RiverWave extends Wave {
 
@@ -110,23 +115,26 @@ public class RiverWave extends Wave {
 
     @Override
     public void tick() {
-        if (this.age++ >= this.maxAge) {
+        if (this.age++ >= this.maxAge || this.hitBlock && this.age - this.hitBlockAge >= 2) {
             this.markDead();
             return;
         }
 
         capturePreviousState();
-        updateWaterColor();
-
-        int surfaceY = RiverFlow.surfaceWaterY(this.level, this.x, this.z, this.waterY);
-        if (surfaceY == Integer.MIN_VALUE) {
-            this.fading = true;
-        } else {
-            this.waterY = surfaceY;
-        }
 
         if (!this.fading) {
-            steerAndAdvance();
+            updateWaterColor();
+            int surfaceY = RiverFlow.surfaceWaterY(this.level, this.x, this.z, this.waterY);
+            if (surfaceY == Integer.MIN_VALUE) {
+                this.fading = true;
+            } else {
+                if (this.waterY != surfaceY) {
+                    this.waterY = surfaceY;
+                    this.y = this.waterY + BODY_HEIGHT;
+                    syncBoxToCurrentPosition();
+                }
+                steerAndAdvance();
+            }
         }
 
         updateShapeAndOpacity();
@@ -158,22 +166,40 @@ public class RiverWave extends Wave {
             }
         }
 
-        double nextX = this.x + this.dirX * this.travelSpeed;
-        double nextZ = this.z + this.dirZ * this.travelSpeed;
-        if (!waterAt(nextX, nextZ)) {
-            this.fading = true;
-            return;
-        }
-
+        this.yaw = (float) Math.toDegrees(Math.atan2(this.dirZ, this.dirX));
         this.velX = (float) (this.dirX * this.travelSpeed);
         this.velY = 0f;
         this.velZ = (float) (this.dirZ * this.travelSpeed);
-        this.x += this.velX;
-        this.z += this.velZ;
+
+        this.move(this.velX, this.velY, this.velZ);
+        if (this.hitBlock || !waterAt(this.x, this.z)) {
+            this.fading = true;
+            return;
+        }
         this.distanceTraveled += this.travelSpeed;
         if (this.distanceTraveled >= this.distanceBudget) {
             this.fading = true;
         }
+    }
+
+    @Override
+    public AABB getHitBox() {
+        return this.box.inflate(0.5, 0, 0.5);
+    }
+
+    @Override
+    protected Vec3 sprayPosition() {
+        double sprayY = this.waterY + 1.8;
+        AABB bounds = new AABB(this.x - 0.1, sprayY - 0.2, this.z - 0.1,
+                this.x + 0.1, sprayY + 0.3, this.z + 0.1);
+        Vec3 offset = Entity.collideBoundingBox(null, new Vec3(this.velX * 10, 0, this.velZ * 10),
+                bounds, this.level, List.of());
+        return new Vec3(this.x + offset.x, sprayY, this.z + offset.z);
+    }
+
+    @Override
+    protected int sprayMaxAge() {
+        return SMALL_WAVE_MAX_AGE;
     }
 
     private boolean waterAt(double wx, double wz) {
