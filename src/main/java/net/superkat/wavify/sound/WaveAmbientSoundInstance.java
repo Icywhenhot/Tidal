@@ -13,7 +13,7 @@ public class WaveAmbientSoundInstance extends AbstractTickableSoundInstance {
     public float targetVolume = 0f;
     private boolean done = false;
 
-    public WaveAmbientSoundInstance(SoundEvent event, float maxVolume) {
+    public WaveAmbientSoundInstance(SoundEvent event) {
         super(event, SoundSource.AMBIENT, Minecraft.getInstance().level == null
                 ? net.minecraft.util.RandomSource.create()
                 : Minecraft.getInstance().level.getRandom());
@@ -22,6 +22,7 @@ public class WaveAmbientSoundInstance extends AbstractTickableSoundInstance {
         this.volume = 0.0001f;
         this.pitch = 1.0f;
         this.attenuation = Attenuation.NONE;
+
     }
 
     public void requestStop() {
@@ -49,9 +50,11 @@ public class WaveAmbientSoundInstance extends AbstractTickableSoundInstance {
         } else if (this.volume > this.targetVolume) {
             this.volume = Math.max(this.targetVolume, this.volume - FADE_PER_TICK);
         }
+
         if (this.targetVolume <= 0f && this.volume <= 0.001f) {
             this.done = true;
         }
+
         this.volume = Mth.clamp(this.volume, 0f, 1f);
     }
 }

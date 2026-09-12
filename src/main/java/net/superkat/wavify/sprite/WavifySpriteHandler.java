@@ -1,9 +1,9 @@
 package net.superkat.wavify.sprite;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.SpriteLoader;
-import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.SpriteLoader;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.metadata.MetadataSectionType;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -12,9 +12,10 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.superkat.wavify.Wavify;
 import net.superkat.wavify.duck.WavifyWorld;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
-// own atlas and metadata because vanilla sprite animations all tick together, and waves need independent frame timings
 public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySpriteHandler.AtlasPreparations> {
     public static final String MOD_ID = Wavify.MOD_ID;
     public static final Identifier WAVE_ATLAS_ID = Identifier.fromNamespaceAndPath(MOD_ID, "textures/atlas/waves.png");
@@ -24,11 +25,17 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
 
     public TextureAtlas atlas;
 
+    private final Map<Identifier, WaveSprite> waveSprites = new HashMap<>();
+
     public record AtlasPreparations(TextureAtlas atlas, SpriteLoader.Preparations stitchResult) {
     }
 
     public TextureAtlasSprite getSprite(Identifier id) {
         return this.atlas.getSprite(id);
+    }
+
+    public WaveSprite getWaveSprite(Identifier id) {
+        return this.waveSprites.computeIfAbsent(id, key -> WaveSprite.of(getSprite(key)));
     }
 
     @Override
@@ -48,6 +55,7 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
         }
 
         this.atlas.upload(preparations.stitchResult());
+        this.waveSprites.clear();
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
@@ -58,8 +66,10 @@ public class WavifySpriteHandler extends SimplePreparableReloadListener<WavifySp
     }
 
     public void clearAtlas() {
+        this.waveSprites.clear();
         if (this.atlas != null) {
             this.atlas.clearTextureData();
         }
     }
+
 }

@@ -1,6 +1,5 @@
 package net.superkat.wavify.scan;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 import net.minecraft.core.BlockPos;
 
 public class SitePos {
@@ -9,42 +8,39 @@ public class SitePos {
     public int centerZ = 0;
     public float yaw = 0f;
     public boolean yawCalculated = false;
+
     public byte shoreClass = 0;
 
-    public IntArrayList xList = new IntArrayList();
-    public IntArrayList zList = new IntArrayList();
+    private long sumX = 0L;
+    private long sumZ = 0L;
+    private int posCount = 0;
 
     public SitePos(BlockPos pos) {
         this.pos = pos;
     }
 
     public void addPos(BlockPos pos) {
-        this.xList.add(pos.getX());
-        this.zList.add(pos.getZ());
+        this.sumX += pos.getX();
+        this.sumZ += pos.getZ();
+        this.posCount++;
     }
 
-    public void removePos(BlockPos pos) {
-        int xIndex = this.xList.indexOf(pos.getX());
-        this.xList.removeInt(xIndex);
-
-        int zIndex = this.zList.indexOf(pos.getZ());
-        this.zList.removeInt(zIndex);
+    public int posCount() {
+        return this.posCount;
     }
 
     public void clearPositions() {
-        this.xList.clear();
-        this.zList.clear();
+        this.sumX = 0L;
+        this.sumZ = 0L;
+        this.posCount = 0;
         this.yawCalculated = false;
         this.shoreClass = 0;
     }
 
     public void updateCenter() {
-        if(xList.isEmpty() || zList.isEmpty()) return;
-        int xSize = this.xList.size();
-        this.centerX = this.xList.intStream().sum() / xSize;
-
-        int zSize = this.zList.size();
-        this.centerZ = this.zList.intStream().sum() / zSize;
+        if (this.posCount == 0) return;
+        this.centerX = (int) (this.sumX / this.posCount);
+        this.centerZ = (int) (this.sumZ / this.posCount);
 
         updateYaw();
     }
@@ -57,13 +53,6 @@ public class SitePos {
 
     public float getYaw() {
         return this.yaw;
-    }
-
-    public float getYawAsF3Angle() {
-        float angle = this.getYaw() - 90;
-        if(angle < 0) angle += 360;
-        if(angle > 180) angle -= 360;
-        return angle;
     }
 
     public BlockPos getPos() {

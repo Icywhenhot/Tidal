@@ -7,10 +7,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.apache.commons.compress.utils.Lists;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,13 +23,12 @@ public class ChunkScanner {
 
     public Set<BlockPos> visitedBlocks = new ObjectOpenHashSet<>();
 
-    public Iterator<BlockPos> cachedIterator = null;
-
     public int shorelinesSinceSite = 0;
 
     public ChunkPos chunkPos;
 
     public ObjectOpenHashSet<BlockPos> waters = new ObjectOpenHashSet<>();
+    public ObjectOpenHashSet<BlockPos> rivers = new ObjectOpenHashSet<>();
     public ObjectOpenHashSet<BlockPos> shorelines = new ObjectOpenHashSet<>();
     public ObjectOpenHashSet<SitePos> sites = new ObjectOpenHashSet<>();
 
@@ -37,9 +36,6 @@ public class ChunkScanner {
         this.handler = handler;
         this.level = level;
         this.chunkPos = chunkPos;
-        BlockPos startPos = chunkPos.getWorldPosition();
-        BlockPos endPos = startPos.offset(15, 0, 15);
-        this.cachedIterator = stack(startPos, endPos);
     }
 
     public ScannedChunk scan() {
@@ -50,19 +46,19 @@ public class ChunkScanner {
             scanPos(new BlockPos(pos.getX(), y, pos.getZ()));
         }
 
-        return new ScannedChunk(this.chunkPos, this.waters, this.shorelines, this.sites);
+        for (BlockPos water : this.waters) {
+            if (RiverFlow.isRiverWater(this.level, water)) this.rivers.add(water);
+        }
+
+        return new ScannedChunk(this.chunkPos, this.waters, this.rivers, this.shorelines, this.sites);
     }
 
     private int sampleHeightmap(BlockPos pos) {
         return this.level.getHeight(Heightmap.Types.WORLD_SURFACE, pos.getX(), pos.getZ());
     }
 
-    public Iterator<BlockPos> stack(BlockPos startPos, BlockPos endPos) {
-        cachedIterator = BlockPos.betweenClosed(startPos, endPos).iterator();
-        return cachedIterator;
-    }
-
     public void scanPos(BlockPos pos) {
+
         if(visitedBlocks.contains(pos)) return;
         if(this.level.isEmptyBlock(pos)) return;
 

@@ -1,14 +1,13 @@
 package net.superkat.wavify.particles;
 
-import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.Camera;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.BlockPos;
@@ -16,7 +15,10 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.RandomSource;
 import net.superkat.wavify.WavifyParticles;
+import net.superkat.wavify.river.RiverFlow;
+import net.superkat.wavify.util.WavifyColors;
 import net.superkat.wavify.wave.WavifyWaveHandler;
+
 import org.joml.Quaternionf;
 
 import java.util.List;
@@ -28,6 +30,10 @@ public class SprayParticle extends SingleQuadParticle {
     public float yaw;
     public float intensity;
     private boolean stopped;
+
+    private final boolean white;
+    private float sprayRoll;
+    private float oSprayRoll;
 
     public SprayParticle(ClientLevel level, double x, double y, double z, double velX, double velY, double velZ, SprayParticleEffect params, SpriteSet spriteProvider) {
         super(level, x, y, z, velX, velY, velZ, spriteProvider.first());
@@ -46,12 +52,14 @@ public class SprayParticle extends SingleQuadParticle {
         this.hasPhysics = true;
         this.gravity = 0.5f;
 
-        if(spawnWhite()) {
-            this.level.addParticle(new WhiteSprayParticleEffect(yaw, intensity, this.quadSize), x, y, z, velX, velY, velZ);
+        this.white = params.isWhite();
+
+        if(!this.white) {
+            this.level.addParticle(new SprayParticleEffect(yaw, intensity, this.quadSize, true), x, y, z, velX, velY, velZ);
             this.updateWaterColor();
         }
 
-        this.roll = 15 * intensity * 5f;
+        this.sprayRoll = 15 * intensity * 5f;
 
         this.setSpriteFromAge(this.spriteProvider);
     }
@@ -59,12 +67,15 @@ public class SprayParticle extends SingleQuadParticle {
     @Override
     public void tick() {
         super.tick();
+        if (!this.isAlive()) {
+            return;
+        }
         if(this.quadSize <= 0f) {
             this.remove();
             return;
         }
 
-        if(WavifyWaveHandler.posIsWater(this.level, this.getBlockPos().offset(0, 1, 0))) {
+        if(enteredWater()) {
             this.x -= this.xd * 8;
             this.z -= this.zd * 8f;
             for (int i = 0; i < 5; i++) {
@@ -83,13 +94,14 @@ public class SprayParticle extends SingleQuadParticle {
                         this.random.nextGaussian() / 8f);
             }
             this.remove();
+            return;
         }
 
-        this.oRoll = this.roll;
+        this.oSprayRoll = this.sprayRoll;
         if(this.yd != 0 && !onGround) {
-            this.roll = this.roll + (float) this.yd * 35f;
+            this.sprayRoll = this.sprayRoll + (float) this.yd * 35f;
         } else {
-            this.roll = 0f;
+            this.sprayRoll = 0f;
         }
 
         this.setSpriteFromAge(this.spriteProvider);
@@ -97,14 +109,33 @@ public class SprayParticle extends SingleQuadParticle {
 
     @Override
     public void extract(QuadParticleRenderState state, Camera camera, float tickDelta) {
-        Quaternionf quaternionf = new Quaternionf();
-        quaternionf.rotateX((float) Math.toRadians(-90f));
-        quaternionf.rotateZ((float) Math.toRadians(-90f - this.yaw));
-        float angle = Mth.lerp(tickDelta, this.oRoll, this.roll);
-        quaternionf.rotateX((float) Math.toRadians(angle));
-        extractRotatedQuad(state, camera, quaternionf, tickDelta);
-        quaternionf.rotateY((float) Math.toRadians(180f));
-        extractRotatedQuad(state, camera, quaternionf, tickDelta);
+        Quaternionf rotation = new Quaternionf();
+        rotation.rotateX((float) Math.toRadians(-90f));
+        rotation.rotateZ((float) Math.toRadians(-90f - this.yaw));
+        float angle = Mth.lerp(tickDelta, this.oSprayRoll, this.sprayRoll);
+        rotation.rotateX((float) Math.toRadians(angle));
+        this.extractRotatedQuad(state, camera, rotation, tickDelta);
+        rotation.rotateY((float) Math.toRadians(180f));
+        this.extractRotatedQuad(state, camera, rotation, tickDelta);
+    }
+
+    @Override
+    protected void extractRotatedQuad(QuadParticleRenderState state, Camera camera, Quaternionf rotation, float tickDelta) {
+        Vec3 cameraPos = camera.position();
+        float x = (float) (Mth.lerp(tickDelta, this.xo, this.x) - cameraPos.x());
+        float y = (float) (Mth.lerp(tickDelta, this.yo, this.y) - cameraPos.y()) + (this.white ? 0.125f : 0.025f);
+        float z = (float) (Mth.lerp(tickDelta, this.zo, this.z) - cameraPos.z());
+        this.extractRotatedQuad(state, rotation, x, y, z, tickDelta);
+    }
+
+    private boolean enteredWater() {
+        if (WavifyWaveHandler.posIsWater(this.level, this.getBlockPos().offset(0, 1, 0))) return true;
+
+        int surfaceY = RiverFlow.surfaceWaterY(this.level, this.x, this.z, Mth.floor(this.y));
+        if (surfaceY == Integer.MIN_VALUE) return false;
+
+        BlockPos surfacePos = BlockPos.containing(this.x, surfaceY, this.z);
+        return this.y <= surfaceY + this.level.getFluidState(surfacePos).getHeight(this.level, surfacePos);
     }
 
     @Override
@@ -132,15 +163,8 @@ public class SprayParticle extends SingleQuadParticle {
     }
 
     public void updateWaterColor() {
-        int color = BiomeColors.getAverageWaterColor(this.level, this.getBlockPos());
-        float r = (float) (color >> 16 & 0xFF) / 255.0F;
-        float g = (float) (color >> 8 & 0xFF) / 255.0F;
-        float b = (float) (color & 0xFF) / 255.0F;
-        this.setColor(r, g, b);
-    }
-
-    protected boolean spawnWhite() {
-        return true;
+        int color = WavifyColors.getWaterColor(this.level, this.getBlockPos());
+        this.setColor(WavifyColors.red(color), WavifyColors.green(color), WavifyColors.blue(color));
     }
 
     @Override

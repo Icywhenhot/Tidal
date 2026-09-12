@@ -1,20 +1,16 @@
 package net.superkat.wavify;
 
 import com.mojang.serialization.MapCodec;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleType;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraft.core.particles.ParticleType;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.core.registries.Registries;
 import net.superkat.wavify.particles.SprayParticleEffect;
-import net.superkat.wavify.particles.WhiteSprayParticleEffect;
-import net.superkat.wavify.particles.debug.DebugShoreParticle;
-import net.superkat.wavify.particles.debug.DebugWaterParticle;
-import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
 
 public class WavifyParticles {
     public static final String MOD_ID = Wavify.MOD_ID;
@@ -24,45 +20,18 @@ public class WavifyParticles {
             "spray_particle",
             () -> new CodecParticleType<>(false, SprayParticleEffect.CODEC, SprayParticleEffect.PACKET_CODEC)
     );
-    public static final DeferredHolder<ParticleType<?>, ParticleType<WhiteSprayParticleEffect>> WHITE_SPRAY_PARTICLE = PARTICLES.register(
+    public static final DeferredHolder<ParticleType<?>, ParticleType<SprayParticleEffect>> WHITE_SPRAY_PARTICLE = PARTICLES.register(
             "white_spray_particle",
-            () -> new CodecParticleType<>(false, WhiteSprayParticleEffect.CODEC, WhiteSprayParticleEffect.PACKET_CODEC)
+            () -> new CodecParticleType<>(false, SprayParticleEffect.CODEC, SprayParticleEffect.PACKET_CODEC)
     );
 
     public static final DeferredHolder<ParticleType<?>, SimpleParticleType> SPLASH_PARTICLE = PARTICLES.register(
             "splash",
-            () -> new SimpleParticleType(false)
+            () -> new SimpleParticleType(false) {}
     );
     public static final DeferredHolder<ParticleType<?>, SimpleParticleType> BIG_SPLASH_PARTICLE = PARTICLES.register(
             "bigsplash",
-            () -> new SimpleParticleType(false)
-    );
-
-    public static final DeferredHolder<ParticleType<?>, ParticleType<DebugWaterParticle.DebugWaterParticleEffect>> DEBUG_WATERBODY_PARTICLE = PARTICLES.register(
-            "debug_waterbody_particle",
-            () -> new CodecParticleType<>(
-                    false,
-                    DebugWaterParticle.DebugWaterParticleEffect.CODEC,
-                    DebugWaterParticle.DebugWaterParticleEffect.PACKET_CODEC
-            )
-    );
-
-    public static final DeferredHolder<ParticleType<?>, ParticleType<DebugShoreParticle.DebugShoreParticleEffect>> DEBUG_SHORELINE_PARTICLE = PARTICLES.register(
-            "debug_shoreline_particle",
-            () -> new CodecParticleType<>(
-                    false,
-                    DebugShoreParticle.DebugShoreParticleEffect.CODEC,
-                    DebugShoreParticle.DebugShoreParticleEffect.PACKET_CODEC
-            )
-    );
-
-    public static final DeferredHolder<ParticleType<?>, ParticleType<DebugWaveMovementParticle.DebugWaveMovementParticleEffect>> DEBUG_WAVEMOVEMENT_PARTICLE = PARTICLES.register(
-            "debug_wavemovement_particle",
-            () -> new CodecParticleType<>(
-                    false,
-                    DebugWaveMovementParticle.DebugWaveMovementParticleEffect.CODEC,
-                    DebugWaveMovementParticle.DebugWaveMovementParticleEffect.PACKET_CODEC
-            )
+            () -> new SimpleParticleType(false) {}
     );
 
     public static void register(IEventBus modEventBus) {

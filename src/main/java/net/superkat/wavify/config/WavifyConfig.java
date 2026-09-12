@@ -20,14 +20,12 @@ public final class WavifyConfig {
     private static final ModConfigSpec.IntValue CHUNK_RADIUS_VALUE;
     private static final ModConfigSpec.IntValue CHUNK_UPDATES_RESCAN_AMOUNT_VALUE;
     private static final ModConfigSpec.IntValue SPAWN_DISTANCE_VALUE;
-    private static final ModConfigSpec.BooleanValue DEBUG_VALUE;
     private static final ModConfigSpec.DoubleValue TRANSPARENCY_VALUE;
     private static final ModConfigSpec.BooleanValue APPLY_TRANSPARENCY_TO_FOAM_VALUE;
-    private static final ModConfigSpec.BooleanValue ENABLE_WET_OVERLAY_VALUE;
     private static final ModConfigSpec.EnumValue<ColorSource> COLOR_SOURCE_VALUE;
     private static final ModConfigSpec.IntValue CUSTOM_COLOR_VALUE;
     private static final ModConfigSpec.ConfigValue<String> BIOME_COLOR_OVERRIDES_VALUE;
-    private static final ModConfigSpec.DoubleValue LAKE_WAVE_MULTIPLIER_VALUE;
+    private static final ModConfigSpec.BooleanValue ENABLE_WET_OVERLAY_VALUE;
     private static final ModConfigSpec.BooleanValue ENABLE_RIVER_WAVES_VALUE;
     private static final ModConfigSpec.IntValue RIVER_WAVE_SPAWN_RADIUS_VALUE;
     private static final ModConfigSpec.DoubleValue RIVER_WAVE_DENSITY_VALUE;
@@ -53,12 +51,6 @@ public final class WavifyConfig {
         SPAWN_DISTANCE_VALUE = BUILDER.comment("How many blocks from shore waves try to spawn.")
                 .translation("wavify.configuration.spawn_distance")
                 .defineInRange("spawnDistance", 8, 4, 32);
-        DEBUG_VALUE = BUILDER.comment("Enables wave debug visuals and tools.")
-                .translation("wavify.configuration.debug")
-                .define("debug", false);
-        LAKE_WAVE_MULTIPLIER_VALUE = BUILDER.comment("Scales down waves that spawn on inland water bodies.")
-                .translation("wavify.configuration.lake_wave_multiplier")
-                .defineInRange("lakeWaveMultiplier", 0.2D, 0.0D, 1.0D);
         BUILDER.pop();
 
         BUILDER.translation("wavify.configuration." + APPEARANCE).push(APPEARANCE);
@@ -68,9 +60,6 @@ public final class WavifyConfig {
         APPLY_TRANSPARENCY_TO_FOAM_VALUE = BUILDER.comment("Applies the transparency slider to foam as well.")
                 .translation("wavify.configuration.apply_transparency_to_foam")
                 .define("applyTransparencyToFoam", false);
-        ENABLE_WET_OVERLAY_VALUE = BUILDER.comment("Darkens the blocks a wave has just washed over.")
-                .translation("wavify.configuration.enable_wet_overlay")
-                .define("enableWetOverlay", true);
         COLOR_SOURCE_VALUE = BUILDER.comment("Whether wave tinting uses biome water colors or the custom color below.")
                 .translation("wavify.configuration.color_source")
                 .defineEnum("colorSource", ColorSource.BIOME);
@@ -86,6 +75,9 @@ public final class WavifyConfig {
         SHADER_WAVE_Y_SINK_VALUE = BUILDER.comment("Extra downward offset applied to the wave body while shaders are active.")
                 .translation("wavify.configuration.shader_wave_y_sink")
                 .defineInRange("shaderWaveYSink", -0.30D, -0.5D, 0.5D);
+        ENABLE_WET_OVERLAY_VALUE = BUILDER.comment("Darkens the ground where a wave washes up, as if the sand got wet. Turn off to disable the effect entirely.")
+                .translation("wavify.configuration.enable_wet_overlay")
+                .define("enableWetOverlay", true);
         BUILDER.pop();
 
         BUILDER.translation("wavify.configuration." + RIVERS).push(RIVERS);
@@ -119,14 +111,12 @@ public final class WavifyConfig {
     public static int chunkRadius = 5;
     public static int chunkUpdatesRescanAmount = 50;
     public static int spawnDistance = 8;
-    public static boolean debug = false;
     public static double transparency = 1.0;
     public static boolean applyTransparencyToFoam = false;
-    public static boolean enableWetOverlay = true;
     public static ColorSource colorSource = ColorSource.BIOME;
     public static int customColor = 0x3F76E4;
     public static String biomeColorOverrides = "";
-    public static double lakeWaveMultiplier = 0.2;
+    public static boolean enableWetOverlay = true;
     public static boolean enableRiverWaves = true;
     public static int riverWaveSpawnRadius = 56;
     public static double riverWaveDensity = 4.0;
@@ -135,12 +125,6 @@ public final class WavifyConfig {
     public static double shaderWaveYSink = -0.30;
     public static boolean enableWaveSounds = true;
     public static double waveSoundVolume = 1.0;
-
-    public static int waveTicks = 80;
-
-    public static int waveDistFromShore = 8;
-
-    public static boolean modEnabled = true;
 
     private WavifyConfig() {
     }
@@ -160,14 +144,12 @@ public final class WavifyConfig {
         chunkRadius = CHUNK_RADIUS_VALUE.get();
         chunkUpdatesRescanAmount = CHUNK_UPDATES_RESCAN_AMOUNT_VALUE.get();
         spawnDistance = SPAWN_DISTANCE_VALUE.get();
-        debug = DEBUG_VALUE.get();
         transparency = TRANSPARENCY_VALUE.get();
         applyTransparencyToFoam = APPLY_TRANSPARENCY_TO_FOAM_VALUE.get();
-        enableWetOverlay = ENABLE_WET_OVERLAY_VALUE.get();
         colorSource = COLOR_SOURCE_VALUE.get();
         customColor = CUSTOM_COLOR_VALUE.get();
         biomeColorOverrides = BIOME_COLOR_OVERRIDES_VALUE.get();
-        lakeWaveMultiplier = LAKE_WAVE_MULTIPLIER_VALUE.get();
+        enableWetOverlay = ENABLE_WET_OVERLAY_VALUE.get();
         enableRiverWaves = ENABLE_RIVER_WAVES_VALUE.get();
         riverWaveSpawnRadius = RIVER_WAVE_SPAWN_RADIUS_VALUE.get();
         riverWaveDensity = RIVER_WAVE_DENSITY_VALUE.get();
@@ -176,6 +158,5 @@ public final class WavifyConfig {
         shaderWaveYSink = SHADER_WAVE_Y_SINK_VALUE.get();
         enableWaveSounds = ENABLE_WAVE_SOUNDS_VALUE.get();
         waveSoundVolume = WAVE_SOUND_VOLUME_VALUE.get();
-        waveDistFromShore = spawnDistance;
     }
 }

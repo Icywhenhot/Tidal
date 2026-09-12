@@ -4,7 +4,6 @@ import net.neoforged.fml.ModList;
 
 import java.lang.reflect.Method;
 
-// reflection only, so iris and oculus stay optional at both compile and runtime
 public final class IrisCompat {
     private static final boolean IRIS_LOADED =
             ModList.get().isLoaded("iris")

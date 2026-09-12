@@ -1,8 +1,8 @@
 package net.superkat.wavify.mixin;
 
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.state.BlockState;
 import net.superkat.wavify.duck.WavifyWorld;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.spongepowered.asm.mixin.Mixin;

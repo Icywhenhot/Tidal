@@ -1,12 +1,10 @@
 {
   "wavify.subtitle.ocean_wave": "Waves crashing",
   "wavify.subtitle.river_wave": "River flowing",
-
   "wavify.configuration.waves": "Waves",
   "wavify.configuration.appearance": "Appearance",
   "wavify.configuration.rivers": "Rivers",
   "wavify.configuration.sounds": "Sounds",
-
   "wavify.configuration.enable_ocean_waves": "Enable Ocean Waves",
   "wavify.configuration.enable_ocean_waves.tooltip": "Master toggle for ocean and beach (shoreline) waves. Turn off if you only want river waves, or no waves at all.",
   "wavify.configuration.chunk_radius": "Render Radius",
@@ -15,11 +13,6 @@
   "wavify.configuration.chunk_updates_rescan_amount.tooltip": "The amount of block updates that should happen in a chunk before it is rescanned for wave spawning.",
   "wavify.configuration.spawn_distance": "Spawn Distance",
   "wavify.configuration.spawn_distance.tooltip": "How many blocks out from the shore waves try to spawn.",
-  "wavify.configuration.debug": "Debug Mode",
-  "wavify.configuration.debug.tooltip": "Helpful for figuring out where waves are spawning, and how. Hold a spyglass to see debug waves on spawn, keep one in your hotbar to see all scanned water blocks, hold a compass for wave directions, and put a clock in your offhand for wave spawn positions.",
-  "wavify.configuration.lake_wave_multiplier": "Lake Wave Multiplier",
-  "wavify.configuration.lake_wave_multiplier.tooltip": "Scales down waves that spawn on inland water bodies.",
-
   "wavify.configuration.transparency": "Transparency",
   "wavify.configuration.transparency.tooltip": "Overall wave body transparency.",
   "wavify.configuration.apply_transparency_to_foam": "Apply Transparency To Foam",
@@ -36,7 +29,6 @@
   "wavify.configuration.wave_y_offset.tooltip": "Shifts the whole wave (body and foam) up or down. Applied in both vanilla and shader modes. Negative = lower.",
   "wavify.configuration.shader_wave_y_sink": "Shader Wave Y Sink",
   "wavify.configuration.shader_wave_y_sink.tooltip": "Only applied when an Iris/Oculus shaderpack is active. Sinks the wave body below water so the shaderpack's water reflections render on top. More negative = waves sit deeper. 0 disables shader compensation.",
-
   "wavify.configuration.enable_river_waves": "Enable River Waves",
   "wavify.configuration.enable_river_waves.tooltip": "Master toggle for river waves. Turn off if you don't want waves on rivers.",
   "wavify.configuration.river_wave_spawn_radius": "River Wave Spawn Radius",
@@ -45,7 +37,6 @@
   "wavify.configuration.river_wave_density.tooltip": "Roughly how many river waves appear per 100 river water blocks near you.",
   "wavify.configuration.river_wave_travel_blocks": "River Wave Travel Distance",
   "wavify.configuration.river_wave_travel_blocks.tooltip": "How far (in blocks) a river wave travels down the channel before fading out.",
-
   "wavify.configuration.enable_wave_sounds": "Enable Wave Sounds",
   "wavify.configuration.enable_wave_sounds.tooltip": "Plays a looping ambient ocean sound when ocean waves are nearby, and a river sound when river waves are nearby. Sounds fade in/out smoothly.",
   "wavify.configuration.wave_sound_volume": "Wave Sound Volume",

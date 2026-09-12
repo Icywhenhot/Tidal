@@ -26,24 +26,15 @@ import net.neoforged.neoforge.event.GameShuttingDownEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
-import net.superkat.wavify.duck.WavifyWorld;
+import net.superkat.wavify.sprite.WavifySpriteHandler;
 import net.superkat.wavify.particles.BigSplashParticle;
 import net.superkat.wavify.particles.SplashParticle;
 import net.superkat.wavify.particles.SprayParticle;
-import net.superkat.wavify.particles.WhiteSprayParticle;
-import net.superkat.wavify.particles.debug.DebugShoreParticle;
-import net.superkat.wavify.particles.debug.DebugWaterParticle;
-import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
-import net.superkat.wavify.sound.WaveAmbientSoundManager;
-import net.superkat.wavify.sprite.WavifySpriteHandler;
 import org.joml.Matrix4fStack;
 
 @Mod(value = Wavify.MOD_ID, dist = Dist.CLIENT)
 public class WavifyClient {
-    public static WavifySpriteHandler WAVIFY_SPRITE_HANDLER = new WavifySpriteHandler();
-    public static final WaveAmbientSoundManager SOUND_MANAGER = new WaveAmbientSoundManager();
 
-    // entityTranslucent maps to gbuffers_entities_translucent under shaderpacks, which blends far more predictably than weather
     private static RenderType waveRenderLayer;
 
     private static StagedVertexBuffer waveBuffer;
@@ -81,18 +72,15 @@ public class WavifyClient {
 
     private void registerParticleProviders(RegisterParticleProvidersEvent event) {
         event.registerSpriteSet(WavifyParticles.SPRAY_PARTICLE.get(), SprayParticle.Factory::new);
-        event.registerSpriteSet(WavifyParticles.WHITE_SPRAY_PARTICLE.get(), WhiteSprayParticle.Factory::new);
+        event.registerSpriteSet(WavifyParticles.WHITE_SPRAY_PARTICLE.get(), SprayParticle.Factory::new);
         event.registerSpriteSet(WavifyParticles.SPLASH_PARTICLE.get(), SplashParticle.Factory::new);
         event.registerSpriteSet(WavifyParticles.BIG_SPLASH_PARTICLE.get(), BigSplashParticle.Factory::new);
 
-        event.registerSpriteSet(WavifyParticles.DEBUG_WATERBODY_PARTICLE.get(), DebugWaterParticle.Factory::new);
-        event.registerSpriteSet(WavifyParticles.DEBUG_SHORELINE_PARTICLE.get(), DebugShoreParticle.Factory::new);
-        event.registerSpriteSet(WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE.get(), DebugWaveMovementParticle.Factory::new);
     }
 
     private void registerReloadListeners(AddClientReloadListenersEvent event) {
         Identifier key = Identifier.fromNamespaceAndPath(Wavify.MOD_ID, "wave_sprites");
-        event.addListener(key, WAVIFY_SPRITE_HANDLER);
+        event.addListener(key, ClientState.SPRITES);
         event.addDependency(VanillaClientListeners.TEXTURES, key);
         event.addDependency(key, VanillaClientListeners.LEVEL_EXTRACTOR);
     }
@@ -100,61 +88,57 @@ public class WavifyClient {
     private void onClientTick(ClientTickEvent.Post event) {
         Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.player == null) {
-            SOUND_MANAGER.hardReset();
+            ClientState.SOUND.hardReset();
             return;
         }
-        SOUND_MANAGER.tick();
+        ClientState.SOUND.tick();
     }
 
     private void onLevelTick(LevelTickEvent.Post event) {
         if (event.getLevel() instanceof ClientLevel level) {
-            ((WavifyWorld) level).wavify$wavifyWaveHandler().tick();
+            ClientState.wavesIn(level).tick();
         }
     }
 
     private void onLevelLoad(LevelEvent.Load event) {
         if (event.getLevel() instanceof ClientLevel level) {
-            ((WavifyWorld) level).wavify$wavifyWaveHandler().reloadNearbyChunks();
-            SOUND_MANAGER.hardReset();
+            ClientState.wavesIn(level).reloadNearbyChunks();
+            ClientState.SOUND.hardReset();
         }
     }
 
     private void onLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel() instanceof ClientLevel) {
-            SOUND_MANAGER.hardReset();
+            ClientState.SOUND.hardReset();
         }
     }
 
     private void onChunkLoad(ChunkEvent.Load event) {
         if (event.getLevel() instanceof ClientLevel level) {
-            ((WavifyWorld) level).wavify$wavifyWaveHandler().waterHandler.loadChunk(event.getChunk());
+            ClientState.wavesIn(level).waterHandler.loadChunk(event.getChunk());
         }
     }
 
     private void onChunkUnload(ChunkEvent.Unload event) {
         if (event.getLevel() instanceof ClientLevel level) {
-            ((WavifyWorld) level).wavify$wavifyWaveHandler().waterHandler.unloadChunk(event.getChunk());
+            ClientState.wavesIn(level).waterHandler.unloadChunk(event.getChunk());
         }
     }
 
-    // drawing after translucent terrain keeps waves on top of water instead of punching a hole through it
     private void onRenderLevelStage(RenderLevelStageEvent.AfterTranslucentBlocks event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
 
-        WavifyWorld wavifyWorld = (WavifyWorld) mc.level;
         RenderType layer = getWaveRenderLayer();
         StagedVertexBuffer buffer = getWaveBuffer();
 
         StagedVertexBuffer.Draw draw = buffer.appendDraw(layer.format(), layer.primitiveTopology());
         VertexConsumer consumer = buffer.getVertexBuilder(draw);
 
-        wavifyWorld.wavify$wavifyWaveHandler().render(consumer);
+        ClientState.wavesIn(mc.level).render(consumer);
 
-        // upload() sets the draw's vertex count, so it has to run before isEmpty() reads it
         buffer.upload();
         if (!draw.isEmpty()) {
-            // the camera matrix is already popped by this stage, so restore it or the vertices project to nowhere
             CameraRenderState camera = event.getLevelRenderState().cameraRenderState;
             Matrix4fStack mvStack = RenderSystem.getModelViewStack();
             mvStack.pushMatrix();
@@ -166,11 +150,11 @@ public class WavifyClient {
     }
 
     private void onPlayerLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
-        SOUND_MANAGER.hardReset();
+        ClientState.SOUND.hardReset();
     }
 
     private void onGameShuttingDown(GameShuttingDownEvent event) {
-        WAVIFY_SPRITE_HANDLER.clearAtlas();
+        ClientState.SPRITES.clearAtlas();
         if (waveBuffer != null) {
             waveBuffer.close();
             waveBuffer = null;
