@@ -10,9 +10,9 @@ import java.util.Set;
 public class WaterSiteChunk {
     public final long chunkPos;
     public Map<BlockPos, SitePos> waterSiteMap = new Object2ObjectOpenHashMap<>();
-    public Map<Integer, Set<BlockPos>> distWaterMap = new Int2ObjectOpenHashMap<>();
+    public Int2ObjectOpenHashMap<Set<BlockPos>> distWaterMap = new Int2ObjectOpenHashMap<>();
 
-    public WaterSiteChunk(long chunkPos, Map<BlockPos, SitePos> waterSiteMap, Map<Integer, Set<BlockPos>> distWaterMap) {
+    public WaterSiteChunk(long chunkPos, Map<BlockPos, SitePos> waterSiteMap, Int2ObjectOpenHashMap<Set<BlockPos>> distWaterMap) {
         this.chunkPos = chunkPos;
         this.waterSiteMap = waterSiteMap;
         this.distWaterMap = distWaterMap;

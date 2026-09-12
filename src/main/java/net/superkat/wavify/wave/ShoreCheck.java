@@ -42,9 +42,18 @@ public final class ShoreCheck {
         int prefY = from.getY() - 1;
         boolean ocean = world.getBiome(from).isIn(BiomeTags.IS_OCEAN);
 
+        int cellX = Integer.MIN_VALUE;
+        int cellZ = Integer.MIN_VALUE;
+
         for (int i = 0; i < steps; i++) {
             x += dirX * STEP;
             z += dirZ * STEP;
+
+            int stepX = MathHelper.floor(x);
+            int stepZ = MathHelper.floor(z);
+            if (stepX == cellX && stepZ == cellZ) continue;
+            cellX = stepX;
+            cellZ = stepZ;
 
             BlockPos water = nearestSurfaceWater(world, x, z, prefY);
             if (water == null) return new Walk(false, ocean);
@@ -60,23 +69,28 @@ public final class ShoreCheck {
     private static BlockPos nearestSurfaceWater(ClientWorld world, double x, double z, int prefY) {
         int baseX = MathHelper.floor(x);
         int baseZ = MathHelper.floor(z);
-        BlockPos best = null;
+        BlockPos.Mutable cursor = new BlockPos.Mutable();
+        int bestX = 0;
+        int bestZ = 0;
+        boolean found = false;
         double bestDistance = Double.MAX_VALUE;
 
         for (int y = prefY + 1; y >= prefY - 2; y--) {
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dz = -1; dz <= 1; dz++) {
-                    BlockPos check = new BlockPos(baseX + dx, y, baseZ + dz);
-                    if (!RiverFlow.isSurfaceWater(world, check)) continue;
+                    cursor.set(baseX + dx, y, baseZ + dz);
+                    if (!RiverFlow.isSurfaceWater(world, cursor)) continue;
 
-                    double dist = MathHelper.square(check.getX() + 0.5 - x) + MathHelper.square(check.getZ() + 0.5 - z);
+                    double dist = MathHelper.square(cursor.getX() + 0.5 - x) + MathHelper.square(cursor.getZ() + 0.5 - z);
                     if (dist < bestDistance) {
                         bestDistance = dist;
-                        best = check;
+                        bestX = cursor.getX();
+                        bestZ = cursor.getZ();
+                        found = true;
                     }
                 }
             }
-            if (best != null) return best;
+            if (found) return new BlockPos(bestX, y, bestZ);
         }
 
         return null;

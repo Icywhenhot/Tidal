@@ -14,7 +14,6 @@ import net.minecraft.world.LightType;
 import net.superkat.wavify.WavifyParticles;
 import net.superkat.wavify.particles.SprayParticleEffect;
 import net.superkat.wavify.util.WavifyColors;
-import org.joml.Vector3f;
 import org.jetbrains.annotations.Range;
 
 import java.util.List;
@@ -22,6 +21,9 @@ import java.util.Set;
 
 public class Wave {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = MathHelper.square(100.0);
+
+    public static final int SMALL_WAVE_MAX_AGE = 250;
+    public static final int BIG_WAVE_MAX_AGE = 300;
 
     public ClientWorld world;
     public BlockPos spawnPos;
@@ -77,12 +79,12 @@ public class Wave {
             this.scale = 3f;
             this.length = 1.5f;
             this.width = 1f;
-            this.maxAge = 300;
+            this.maxAge = BIG_WAVE_MAX_AGE;
         } else {
             this.scale = 2f;
             this.length = 1f;
             this.width = 2f;
-            this.maxAge = 250;
+            this.maxAge = SMALL_WAVE_MAX_AGE;
         }
 
         this.x = spawnPos.getX() + 0.5f;
@@ -171,23 +173,23 @@ public class Wave {
         this.updateBeneathBlock();
     }
 
-    public void move(float velX, float velY, float velZ) {
-        float initVelX = velX;
-        float initVelY = velY;
-        float initVelZ = velZ;
-        if ((velX != 0.0 || velY != 0.0 || velZ != 0.0) && velX * velX + velY * velY + velZ * velZ < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
-            Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(velX, velY, velZ), this.getHitBox(), this.world, List.of());
-            velX = (float) vec3d.x;
-            velY = (float) vec3d.y;
-            velZ = (float) vec3d.z;
+    public void move(float requestedX, float requestedY, float requestedZ) {
+        float movedX = requestedX;
+        float movedY = requestedY;
+        float movedZ = requestedZ;
+        if ((movedX != 0.0 || movedY != 0.0 || movedZ != 0.0) && movedX * movedX + movedY * movedY + movedZ * movedZ < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
+            Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(movedX, movedY, movedZ), this.getHitBox(), this.world, List.of());
+            movedX = (float) vec3d.x;
+            movedY = (float) vec3d.y;
+            movedZ = (float) vec3d.z;
         }
 
-        if (initVelX != velX || initVelZ != velZ) {
+        if (requestedX != movedX || requestedZ != movedZ) {
             this.spray();
         }
 
-        if (velX != 0.0 || velY != 0.0 || velZ != 0.0) {
-            this.box = this.box.offset(velX, velY, velZ);
+        if (movedX != 0.0 || movedY != 0.0 || movedZ != 0.0) {
+            this.box = this.box.offset(movedX, movedY, movedZ);
             this.prevX = this.x;
             this.prevY = this.y;
             this.prevZ = this.z;
@@ -202,26 +204,20 @@ public class Wave {
 
         if (!drowningAway) {
             int sprayAmount = this.bigWave ? 3 : 1;
-            float sprayIntensity;
-            if (this.isWashingUp()) {
-                sprayIntensity = getWashingAge() / 128f;
-                if (washBounce()) sprayIntensity *= 2f;
-            } else {
-                sprayIntensity = (float) this.age / this.maxAge;
-            }
-            sprayIntensity = MathHelper.clamp(sprayIntensity, 0.15f, 0.45f);
+            float sprayIntensity = sprayIntensity();
 
-            double splashX = this.x + this.velX * 10;
-            double splashZ = this.z + this.velZ * 10;
+            Vec3d splash = sprayPosition();
+            double splashX = splash.x;
+            double splashZ = splash.z;
 
             for (int i = 0; i < sprayAmount; i++) {
-                this.world.addParticle(WavifyParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.world.random.nextGaussian() * 0.1f, Math.abs(this.world.random.nextGaussian()) * 0.1f + 0.1f, this.world.random.nextGaussian() * 0.1f);
+                this.world.addParticle(WavifyParticles.SPLASH_PARTICLE, splashX, splash.y, splashZ, this.world.random.nextGaussian() * 0.1f, Math.abs(this.world.random.nextGaussian()) * 0.1f + 0.1f, this.world.random.nextGaussian() * 0.1f);
                 if (this.bigWave) {
-                    this.world.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE, splashX + this.world.random.nextGaussian() / 2f, this.y, splashZ + this.world.random.nextGaussian() / 2f, 0, 0.01, 0);
+                    this.world.addParticle(WavifyParticles.BIG_SPLASH_PARTICLE, splashX + this.world.random.nextGaussian() / 2f, splash.y, splashZ + this.world.random.nextGaussian() / 2f, 0, 0.01, 0);
                 }
             }
 
-            this.world.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale, true), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
+            this.world.addParticle(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale, false), splashX, splash.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;
@@ -230,6 +226,23 @@ public class Wave {
 
         this.hitBlockAge = this.age;
         this.hitBlock = true;
+    }
+
+    protected Vec3d sprayPosition() {
+        return new Vec3d(this.x + this.velX * 10, this.y, this.z + this.velZ * 10);
+    }
+
+    protected float sprayIntensity() {
+        if (this.isWashingUp()) {
+            float intensity = getWashingAge() / 128f;
+            if (washBounce()) intensity *= 2f;
+            return intensity;
+        }
+        return ((float) this.age / sprayMaxAge()) * 2.5f / (this.age / 16f);
+    }
+
+    protected int sprayMaxAge() {
+        return this.maxAge;
     }
 
     public boolean updateWashingUp() {
@@ -305,8 +318,8 @@ public class Wave {
     }
 
     public void updateWaterColor() {
-        Vector3f color = WavifyColors.getWaterColorVec(this.world, this.getBlockPos());
-        this.setColor(color.x, color.y, color.z);
+        int color = WavifyColors.getWaterColor(this.world, this.getBlockPos());
+        this.setColor(WavifyColors.red(color), WavifyColors.green(color), WavifyColors.blue(color));
     }
 
     public void setColor(@Range(from = 0, to = 1) float red, @Range(from = 0, to = 1) float green, @Range(from = 0, to = 1) float blue) {

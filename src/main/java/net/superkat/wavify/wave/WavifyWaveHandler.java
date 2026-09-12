@@ -29,7 +29,6 @@ import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.river.RiverFlowField;
 import net.superkat.wavify.scan.SitePos;
 import net.superkat.wavify.scan.WaterHandler;
-import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -135,13 +134,13 @@ public class WavifyWaveHandler {
             if (visited.contains(water)) continue;
             SitePos site = this.waterHandler.getSiteForPos(water);
             if (site == null || !site.yawCalculated) continue;
-            if (site.xList.size() < 50) continue;
+            if (site.posCount() < 50) continue;
 
             float yaw = site.getYaw();
             Set<BlockPos> connected = findConnected(water, yaw, waterBlocks, visited);
             visited.addAll(connected);
 
-            boolean bigWave = site.xList.size() >= 100;
+            boolean bigWave = site.posCount() >= 100;
 
             spawned++;
             float yOffset = MathHelper.sin(spawned) / 16f + 0.65f;
@@ -173,12 +172,12 @@ public class WavifyWaveHandler {
             BlockPos water = stack.poll();
             connected.add(water);
             for (BlockPos check : BlockPos.iterate(water.add(-1, 0, -1), water.add(1, 0, 1))) {
-                if (water == check) continue;
+                if (check.equals(water)) continue;
                 if (ignoreSet.contains(check)) continue;
                 if (!waterBlocks.contains(check)) continue;
 
                 SitePos site = this.waterHandler.getSiteForPos(check);
-                if (site == null || !site.yawCalculated || site.xList.size() < 50) continue;
+                if (site == null || !site.yawCalculated || site.posCount() < 50) continue;
                 if (Math.abs(site.yaw - yaw) > 15) continue;
                 stack.add(new BlockPos(check));
             }

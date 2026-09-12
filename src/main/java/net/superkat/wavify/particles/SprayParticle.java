@@ -16,6 +16,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.superkat.wavify.WavifyParticles;
+import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.util.WavifyColors;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.joml.Quaternionf;
@@ -51,13 +52,12 @@ public class SprayParticle extends SpriteBillboardParticle {
 
         this.white = params.isWhite();
 
-        if(params.isWhite()) {
-            this.world.addParticle(new SprayParticleEffect(yaw, intensity, this.scale, false), x, y, z, velX, velY, velZ);
-        } else {
+        if(!this.white) {
+            this.world.addParticle(new SprayParticleEffect(yaw, intensity, this.scale, true), x, y, z, velX, velY, velZ);
             this.updateWaterColor();
         }
 
-        this.angle = 75f;
+        this.angle = 15 * intensity * 5f;
 
         this.setSpriteForAge(this.spriteProvider);
 
@@ -66,12 +66,15 @@ public class SprayParticle extends SpriteBillboardParticle {
     @Override
     public void tick() {
         super.tick();
+        if (!this.isAlive()) {
+            return;
+        }
         if(this.scale <= 0f) {
             this.markDead();
             return;
         }
 
-        if(WavifyWaveHandler.posIsWater(this.world, this.getPos().add(0, 1, 0))) {
+        if(enteredWater()) {
             this.x -= this.velocityX * 8;
             this.z -= this.velocityZ * 8f;
             for (int i = 0; i < 5; i++) {
@@ -90,16 +93,26 @@ public class SprayParticle extends SpriteBillboardParticle {
                         this.random.nextGaussian() / 8f);
             }
             this.markDead();
+            return;
         }
 
-        this.prevAngle = this.angle;
         if(this.velocityY != 0 && !onGround) {
             this.angle = this.angle + (float) this.velocityY * 35f;
         } else {
-            this.angle *= 0.7f;
+            this.angle = 0f;
         }
 
         this.setSpriteForAge(this.spriteProvider);
+    }
+
+    private boolean enteredWater() {
+        if (WavifyWaveHandler.posIsWater(this.world, this.getPos().add(0, 1, 0))) return true;
+
+        int surfaceY = RiverFlow.surfaceWaterY(this.world, this.x, this.z, MathHelper.floor(this.y));
+        if (surfaceY == Integer.MIN_VALUE) return false;
+
+        BlockPos surfacePos = BlockPos.ofFloored(this.x, surfaceY, this.z);
+        return this.y <= surfaceY + this.world.getFluidState(surfacePos).getHeight(this.world, surfacePos);
     }
 
     @Override
@@ -173,8 +186,8 @@ public class SprayParticle extends SpriteBillboardParticle {
     }
 
     public void updateWaterColor() {
-        Vector3f color = WavifyColors.getWaterColorVec(this.world, this.getPos());
-        this.setColor(color.x, color.y, color.z);
+        int color = WavifyColors.getWaterColor(this.world, this.getPos());
+        this.setColor(WavifyColors.red(color), WavifyColors.green(color), WavifyColors.blue(color));
     }
 
     @Override

@@ -146,6 +146,7 @@ public final class RiverFlowField {
         double[] dist = new double[n];
         Arrays.fill(dist, Double.POSITIVE_INFINITY);
         boolean[] visited = new boolean[n];
+        boolean[] settled = new boolean[n];
         List<List<Integer>> components = new ArrayList<>();
 
         for (int start = 0; start < n; start++) {
@@ -153,7 +154,7 @@ public final class RiverFlowField {
             List<Integer> component = gatherComponent(start, cellWater, visited);
             components.add(component);
             int seed = chooseSeed(component);
-            geodesic(seed, cellWater, dist);
+            geodesic(seed, cellWater, dist, settled);
         }
 
         computeGradient(cellWater, dist);
@@ -249,14 +250,16 @@ public final class RiverFlowField {
         return seed;
     }
 
-    private void geodesic(int seed, boolean[] cellWater, double[] dist) {
+    private record Step(int index, double distance) {
+    }
+
+    private void geodesic(int seed, boolean[] cellWater, double[] dist, boolean[] settled) {
         dist[seed] = 0;
-        boolean[] settled = new boolean[this.gridW * this.gridH];
-        PriorityQueue<Integer> pq = new PriorityQueue<>(Comparator.comparingDouble(idx -> dist[idx]));
-        pq.add(seed);
+        PriorityQueue<Step> pq = new PriorityQueue<>(Comparator.comparingDouble(Step::distance));
+        pq.add(new Step(seed, 0));
 
         while (!pq.isEmpty()) {
-            int i = pq.poll();
+            int i = pq.poll().index();
             if (settled[i]) continue;
             settled[i] = true;
             int ix = i % this.gridW;
@@ -273,7 +276,7 @@ public final class RiverFlowField {
                     double cost = (ddx != 0 && ddz != 0) ? SQRT2 : 1.0;
                     if (dist[i] + cost < dist[ni]) {
                         dist[ni] = dist[i] + cost;
-                        pq.add(ni);
+                        pq.add(new Step(ni, dist[ni]));
                     }
                 }
             }

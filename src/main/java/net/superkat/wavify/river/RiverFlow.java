@@ -43,8 +43,14 @@ public final class RiverFlow {
 
     public static boolean isRiverWater(ClientWorld world, BlockPos pos) {
         if (world.getBiome(pos).isIn(BiomeTags.IS_RIVER)) return true;
-        for (BlockPos check : BlockPos.iterate(pos.add(-1, 0, -1), pos.add(1, 0, 1))) {
-            if (world.getBiome(check).isIn(BiomeTags.IS_RIVER)) return true;
+
+        BlockPos.Mutable check = new BlockPos.Mutable();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) continue;
+                check.set(pos.getX() + dx, pos.getY(), pos.getZ() + dz);
+                if (world.getBiome(check).isIn(BiomeTags.IS_RIVER)) return true;
+            }
         }
         return false;
     }

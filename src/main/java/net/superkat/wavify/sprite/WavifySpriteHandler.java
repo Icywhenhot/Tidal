@@ -12,6 +12,8 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.profiler.Profiler;
 import net.superkat.wavify.Wavify;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -25,8 +27,10 @@ public class WavifySpriteHandler implements SimpleResourceReloadListener<SpriteL
 
     public SpriteAtlasTexture atlas;
 
+    private final Map<Identifier, WaveSprite> waveSprites = new HashMap<>();
+
     public WaveSprite getWaveSprite(Identifier id) {
-        return WaveSprite.of(getSprite(id));
+        return this.waveSprites.computeIfAbsent(id, key -> WaveSprite.of(getSprite(key)));
     }
 
     public Sprite getSprite(Identifier id) {
@@ -50,12 +54,14 @@ public class WavifySpriteHandler implements SimpleResourceReloadListener<SpriteL
             profiler.startTick();
             profiler.push("upload");
             this.atlas.upload(stitchResult);
+            this.waveSprites.clear();
             profiler.pop();
             profiler.endTick();
         }, executor);
     }
 
     public void clearAtlas() {
+        this.waveSprites.clear();
         this.atlas.clear();
     }
 

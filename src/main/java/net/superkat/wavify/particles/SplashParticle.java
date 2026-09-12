@@ -10,7 +10,6 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.SimpleParticleType;
 import net.minecraft.util.math.BlockPos;
 import net.superkat.wavify.util.WavifyColors;
-import org.joml.Vector3f;
 
 public class SplashParticle extends RainSplashParticle {
     public SplashParticle(ClientWorld clientWorld, double x, double y, double z, double velX, double velY, double velZ) {
@@ -23,8 +22,8 @@ public class SplashParticle extends RainSplashParticle {
     }
 
     public void updateWaterColor() {
-        Vector3f color = WavifyColors.getWaterColorVec(this.world, this.getPos());
-        this.setColor(color.x, color.y, color.z);
+        int color = WavifyColors.getWaterColor(this.world, this.getPos());
+        this.setColor(WavifyColors.red(color), WavifyColors.green(color), WavifyColors.blue(color));
     }
 
     public BlockPos getPos() {

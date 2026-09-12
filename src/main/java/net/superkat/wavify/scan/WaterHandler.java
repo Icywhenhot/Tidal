@@ -25,7 +25,6 @@ import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.apache.commons.compress.utils.Lists;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -41,17 +40,17 @@ public class WaterHandler {
     public final WavifyWaveHandler wavifyWaveHandler;
     public final ClientWorld world;
 
-    public Map<Long, Integer> chunkUpdates = new Long2IntOpenHashMap(81, 0.25f);
+    public Long2IntOpenHashMap chunkUpdates = new Long2IntOpenHashMap(81, 0.25f);
 
-    public Map<Long, ObjectOpenHashSet<SitePos>> sites = new Long2ObjectOpenHashMap<>(81, 0.25f);
+    public Long2ObjectOpenHashMap<ObjectOpenHashSet<SitePos>> sites = new Long2ObjectOpenHashMap<>(81, 0.25f);
 
     public Set<SitePos> cachedSiteSet = new ObjectOpenHashSet<>();
 
-    public Map<Long, Map<BlockPos, SitePos>> waterCache = new Long2ObjectOpenHashMap<>();
+    public Long2ObjectOpenHashMap<Map<BlockPos, SitePos>> waterCache = new Long2ObjectOpenHashMap<>();
 
-    public Map<Long, Map<Integer, Set<BlockPos>>> waterDistCache = new Long2ObjectOpenHashMap<>();
+    public Long2ObjectOpenHashMap<Int2ObjectOpenHashMap<Set<BlockPos>>> waterDistCache = new Long2ObjectOpenHashMap<>();
 
-    public Map<Long, Set<BlockPos>> shoreBlocks = new Long2ObjectOpenHashMap<>(81, 0.25f);
+    public Long2ObjectOpenHashMap<Set<BlockPos>> shoreBlocks = new Long2ObjectOpenHashMap<>(81, 0.25f);
 
     public boolean built = false;
 
@@ -83,7 +82,7 @@ public class WaterHandler {
         if (!this.unscannedChunkQueue.isEmpty() && wavifyWaveHandler.nearbyChunksLoaded) {
             if (this.chunkScanFuture == null) {
                 this.chunkScanFuture = scheduleChunkScans();
-                this.chunkScanFuture.thenCompose(chunks -> {
+                this.chunkScanFuture.thenComposeAsync(chunks -> {
                     for (ScannedChunk chunk : chunks) {
                         long chunkPosL = chunk.chunkPos;
                         if (chunk.rivers != null && !chunk.rivers.isEmpty()) {
@@ -106,7 +105,7 @@ public class WaterHandler {
                     this.cacheSiteSet();
 
                     return this.scheduleWaterCache();
-                }).thenAccept(waterCacheResult -> {
+                }, client).thenAcceptAsync(waterCacheResult -> {
                     this.waterCache = waterCacheResult.waterCache;
 
                     this.sites.values().forEach(siteSet -> siteSet.forEach(SitePos::clearPositions));
@@ -120,14 +119,12 @@ public class WaterHandler {
                     }
 
                     this.waterDistCache = waterCacheResult.distCache;
-                }).thenRun(() -> {
+                }, client).thenRunAsync(() -> {
                     calcAllSiteCenters();
                     this.built = true;
-                });
+                }, client);
 
-                this.chunkScanFuture.whenComplete((chunks, throwable) -> {
-                                        this.chunkScanFuture = null;
-                });
+                this.chunkScanFuture.whenCompleteAsync((chunks, throwable) -> this.chunkScanFuture = null, client);
             }
         }
 
@@ -154,8 +151,8 @@ public class WaterHandler {
         }, executor);
     }
 
-    public record WaterCacheResult(Map<Long, Map<BlockPos, SitePos>> waterCache,
-                                   Map<Long, Map<Integer, Set<BlockPos>>> distCache) {
+    public record WaterCacheResult(Long2ObjectOpenHashMap<Map<BlockPos, SitePos>> waterCache,
+                                   Long2ObjectOpenHashMap<Int2ObjectOpenHashMap<Set<BlockPos>>> distCache) {
     }
 
     public CompletableFuture<WaterCacheResult> scheduleWaterCache() {
@@ -170,8 +167,8 @@ public class WaterHandler {
         }
 
         return Util.combineSafe(futures).thenApply(chunks -> {
-            Map<Long, Map<BlockPos, SitePos>> waterCache = new Long2ObjectOpenHashMap<>();
-            Map<Long, Map<Integer, Set<BlockPos>>> distCache = new Long2ObjectOpenHashMap<>();
+            Long2ObjectOpenHashMap<Map<BlockPos, SitePos>> waterCache = new Long2ObjectOpenHashMap<>();
+            Long2ObjectOpenHashMap<Int2ObjectOpenHashMap<Set<BlockPos>>> distCache = new Long2ObjectOpenHashMap<>();
 
             for (WaterSiteChunk chunk : chunks) {
                 long chunkPosL = chunk.chunkPos;
@@ -186,7 +183,7 @@ public class WaterHandler {
     private CompletableFuture<WaterSiteChunk> scheduleWaterScan(long chunkPosL, Set<BlockPos> waters) {
         return CompletableFuture.supplyAsync(() -> {
             Map<BlockPos, SitePos> siteMap = new Object2ObjectOpenHashMap<>();
-            Map<Integer, Set<BlockPos>> distMap = new Int2ObjectOpenHashMap<>();
+            Int2ObjectOpenHashMap<Set<BlockPos>> distMap = new Int2ObjectOpenHashMap<>();
             for (BlockPos water : waters) {
                 IntObjectPair<SitePos> closestSite = calcClosestSite(water);
                 if (closestSite == null) continue;
@@ -222,8 +219,8 @@ public class WaterHandler {
     @Nullable
     public Set<BlockPos> getWaterCacheAtDistance(ChunkPos chunkPos, int distance) {
         long chunkPosL = chunkPos.toLong();
-        if (this.waterDistCache.containsKey(chunkPosL)) return this.waterDistCache.get(chunkPosL).get(distance);
-        return null;
+        Int2ObjectOpenHashMap<Set<BlockPos>> byDistance = this.waterDistCache.get(chunkPosL);
+        return byDistance == null ? null : byDistance.get(distance);
     }
 
     public SitePos getSiteForPos(BlockPos pos) {
@@ -334,10 +331,11 @@ public class WaterHandler {
         this.shoreBlocks.remove(chunkPosL);
         this.waterCache.remove(chunkPosL);
         this.waterDistCache.remove(chunkPosL);
-        this.sites.remove(chunkPosL);
         this.waters.remove(chunkPosL);
         this.riverWaters.remove(chunkPosL);
-        this.cachedSiteSet.clear();
+
+        ObjectOpenHashSet<SitePos> dropped = this.sites.remove(chunkPosL);
+        if (dropped != null) this.cachedSiteSet.removeAll(dropped);
     }
 
     public void clear() {

@@ -1,10 +1,15 @@
 package net.superkat.wavify.wave;
 
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.Entity;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.river.RiverFlowField;
+
+import java.util.List;
 
 public class RiverWave extends Wave {
 
@@ -18,6 +23,7 @@ public class RiverWave extends Wave {
     protected final float travelSpeed;
     protected final double distanceBudget;
     protected double distanceTraveled = 0.0;
+    protected float fadeShrink = 0f;
     protected int waterY;
     protected boolean fading = false;
 
@@ -108,23 +114,26 @@ public class RiverWave extends Wave {
 
     @Override
     public void tick() {
-        if (this.age++ >= this.maxAge) {
+        if (this.age++ >= this.maxAge || this.hitBlock && this.age - this.hitBlockAge >= 2) {
             this.markDead();
             return;
         }
 
         capturePreviousState();
-        updateWaterColor();
-
-        int surfaceY = RiverFlow.surfaceWaterY(this.world, this.x, this.z, this.waterY);
-        if (surfaceY == Integer.MIN_VALUE) {
-            this.fading = true;
-        } else {
-            this.waterY = surfaceY;
-        }
 
         if (!this.fading) {
-            steerAndAdvance();
+            updateWaterColor();
+            int surfaceY = RiverFlow.surfaceWaterY(this.world, this.x, this.z, this.waterY);
+            if (surfaceY == Integer.MIN_VALUE) {
+                this.fading = true;
+            } else {
+                if (this.waterY != surfaceY) {
+                    this.waterY = surfaceY;
+                    this.y = this.waterY + BODY_HEIGHT;
+                    syncBoxToCurrentPosition();
+                }
+                steerAndAdvance();
+            }
         }
 
         updateShapeAndOpacity();
@@ -157,22 +166,40 @@ public class RiverWave extends Wave {
             }
         }
 
-        double nextX = this.x + this.dirX * this.travelSpeed;
-        double nextZ = this.z + this.dirZ * this.travelSpeed;
-        if (!waterAt(nextX, nextZ)) {
-            this.fading = true;
-            return;
-        }
-
+        this.yaw = (float) Math.toDegrees(Math.atan2(this.dirZ, this.dirX));
         this.velX = (float) (this.dirX * this.travelSpeed);
         this.velY = 0f;
         this.velZ = (float) (this.dirZ * this.travelSpeed);
-        this.x += this.velX;
-        this.z += this.velZ;
+
+        this.move(this.velX, this.velY, this.velZ);
+        if (this.hitBlock || !waterAt(this.x, this.z)) {
+            this.fading = true;
+            return;
+        }
         this.distanceTraveled += this.travelSpeed;
         if (this.distanceTraveled >= this.distanceBudget) {
             this.fading = true;
         }
+    }
+
+    @Override
+    public Box getHitBox() {
+        return this.box.expand(0.5, 0, 0.5);
+    }
+
+    @Override
+    protected Vec3d sprayPosition() {
+        double sprayY = this.waterY + 1.8;
+        Box bounds = new Box(this.x - 0.1, sprayY - 0.2, this.z - 0.1,
+                this.x + 0.1, sprayY + 0.3, this.z + 0.1);
+        Vec3d offset = Entity.adjustMovementForCollisions(null, new Vec3d(this.velX * 10, 0, this.velZ * 10),
+                bounds, this.world, List.of());
+        return new Vec3d(this.x + offset.x, sprayY, this.z + offset.z);
+    }
+
+    @Override
+    protected int sprayMaxAge() {
+        return SMALL_WAVE_MAX_AGE;
     }
 
     private boolean waterAt(double wx, double wz) {
@@ -184,14 +211,15 @@ public class RiverWave extends Wave {
         float crest = Math.abs(pulse);
         this.pitch = pulse * 2.4f;
         this.scale = this.baseScale + crest * 0.05f;
-        this.length = this.baseLength + crest * 0.08f;
 
         if (this.fading) {
             this.alpha = Math.max(0f, this.alpha - 0.05f);
-            this.length = Math.max(0f, this.length - 0.02f);
+            this.fadeShrink = Math.min(this.baseLength, this.fadeShrink + 0.02f);
         } else {
             this.alpha = Math.min(this.maxAlpha, this.alpha + 0.06f);
         }
+
+        this.length = Math.max(0f, this.baseLength + crest * 0.08f - this.fadeShrink);
     }
 
     protected float normalizedColumn(int columnIndex, int columnCount) {

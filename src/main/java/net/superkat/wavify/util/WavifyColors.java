@@ -9,7 +9,6 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.biome.Biome;
 import net.superkat.wavify.config.WavifyConfig;
-import org.joml.Vector3f;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -67,12 +66,16 @@ public class WavifyColors {
         return BiomeColors.getWaterColor(world, pos);
         }
 
-    public static Vector3f getWaterColorVec(ClientWorld world, BlockPos pos) {
-        int color = getWaterColor(world, pos);
-        float r = (color >> 16 & 0xFF) / 255.0F;
-        float g = (color >> 8 & 0xFF) / 255.0F;
-        float b = (color & 0xFF) / 255.0F;
-        return new Vector3f(r, g, b);
+    public static float red(int color) {
+        return (color >> 16 & 0xFF) / 255.0F;
+    }
+
+    public static float green(int color) {
+        return (color >> 8 & 0xFF) / 255.0F;
+    }
+
+    public static float blue(int color) {
+        return (color & 0xFF) / 255.0F;
     }
 
     private static int lookupBiomeOverride(ClientWorld world, BlockPos pos) {
