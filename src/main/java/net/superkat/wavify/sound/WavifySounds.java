@@ -17,6 +17,6 @@ public class WavifySounds {
     }
 
     public static void init() {
-        // Class-load side-effect: forces the static fields above to register.
+
     }
 }

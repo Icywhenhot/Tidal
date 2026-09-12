@@ -2,7 +2,6 @@ package net.superkat.wavify.particles;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.color.world.BiomeColors;
 import net.minecraft.client.particle.BillboardParticle;
 import net.minecraft.client.particle.BillboardParticleSubmittable;
 import net.minecraft.client.particle.Particle;
@@ -17,12 +16,15 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.superkat.wavify.WavifyParticles;
+import net.superkat.wavify.river.RiverFlow;
+import net.superkat.wavify.util.WavifyColors;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.joml.Quaternionf;
 
 import java.util.List;
 
 public class SprayParticle extends BillboardParticle {
+    private final boolean white;
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = MathHelper.square(100.0);
     protected final SpriteProvider spriteProvider;
 
@@ -47,9 +49,11 @@ public class SprayParticle extends BillboardParticle {
         this.collidesWithWorld = true;
         this.gravityStrength = 0.5f;
 
-        if(spawnWhite()) {
-            this.world.addParticleClient(new WhiteSprayParticleEffect(yaw, intensity, this.scale), x, y, z, velX, velY, velZ);
-            this.updateWaterColor(); //only need to update on spawn because it lasts for so little time
+        this.white = params.isWhite();
+
+        if(!this.white) {
+            this.world.addParticleClient(new SprayParticleEffect(yaw, intensity, this.scale, true), x, y, z, velX, velY, velZ);
+            this.updateWaterColor();
         }
 
         this.zRotation = 15 * intensity * 5f;
@@ -60,12 +64,15 @@ public class SprayParticle extends BillboardParticle {
     @Override
     public void tick() {
         super.tick();
+        if (!this.isAlive()) {
+            return;
+        }
         if(this.scale <= 0f) {
             this.markDead();
             return;
         }
 
-        if(WavifyWaveHandler.posIsWater(this.world, this.getPos().add(0, 1, 0))) {
+        if(enteredWater()) {
             this.x -= this.velocityX * 8;
             this.z -= this.velocityZ * 8f;
             for (int i = 0; i < 5; i++) {
@@ -84,6 +91,7 @@ public class SprayParticle extends BillboardParticle {
                         this.random.nextGaussian() / 8f);
             }
             this.markDead();
+            return;
         }
 
         this.lastZRotation = this.zRotation;
@@ -96,6 +104,16 @@ public class SprayParticle extends BillboardParticle {
         this.updateSprite(this.spriteProvider);
     }
 
+    private boolean enteredWater() {
+        if (WavifyWaveHandler.posIsWater(this.world, this.getPos().add(0, 1, 0))) return true;
+
+        int surfaceY = RiverFlow.surfaceWaterY(this.world, this.x, this.z, MathHelper.floor(this.y));
+        if (surfaceY == Integer.MIN_VALUE) return false;
+
+        BlockPos surfacePos = BlockPos.ofFloored(this.x, surfaceY, this.z);
+        return this.y <= surfaceY + this.world.getFluidState(surfacePos).getHeight(this.world, surfacePos);
+    }
+
     @Override
     public void render(BillboardParticleSubmittable submittable, Camera camera, float tickDelta) {
         Quaternionf quaternionf = new Quaternionf();
@@ -103,9 +121,18 @@ public class SprayParticle extends BillboardParticle {
         quaternionf.rotateZ((float) Math.toRadians(-90f - this.yaw));
         float angle = MathHelper.lerp(tickDelta, this.lastZRotation, this.zRotation);
         quaternionf.rotateX((float) Math.toRadians(angle));
-        super.render(submittable, camera, quaternionf, tickDelta);
+        this.render(submittable, camera, quaternionf, tickDelta);
         quaternionf.rotateY((float) Math.toRadians(180f));
-        super.render(submittable, camera, quaternionf, tickDelta);
+        this.render(submittable, camera, quaternionf, tickDelta);
+    }
+
+    @Override
+    protected void render(BillboardParticleSubmittable submittable, Camera camera, Quaternionf quaternionf, float tickDelta) {
+        Vec3d cameraPos = camera.getCameraPos();
+        float x = (float) (MathHelper.lerp(tickDelta, this.lastX, this.x) - cameraPos.getX());
+        float y = (float) (MathHelper.lerp(tickDelta, this.lastY, this.y) - cameraPos.getY()) + (this.white ? 0.125f : 0.025f);
+        float z = (float) (MathHelper.lerp(tickDelta, this.lastZ, this.z) - cameraPos.getZ());
+        this.renderVertex(submittable, quaternionf, x, y, z, tickDelta);
     }
 
     @Override
@@ -113,7 +140,7 @@ public class SprayParticle extends BillboardParticle {
         if (!this.stopped) {
             double e = dy;
             if (this.collidesWithWorld && (dx != 0.0 || dy != 0.0 || dz != 0.0) && dx * dx + dy * dy + dz * dz < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
-                //expanding bounding box to specifically account for mud and I guess soul sand too?
+
                 Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(dx, dy, dz), this.getBoundingBox().expand(0, 0.15, 0), this.world, List.of());
                 dx = vec3d.x;
                 dy = vec3d.y;
@@ -134,15 +161,8 @@ public class SprayParticle extends BillboardParticle {
     }
 
     public void updateWaterColor() {
-        int color = BiomeColors.getWaterColor(this.world, this.getPos());
-        float r = (float) (color >> 16 & 0xFF) / 255.0F;
-        float g = (float) (color >> 8 & 0xFF) / 255.0F;
-        float b = (float) (color & 0xFF) / 255.0F;
-        this.setColor(r, g, b);
-    }
-
-    protected boolean spawnWhite() {
-        return true;
+        int color = WavifyColors.getWaterColor(this.world, this.getPos());
+        this.setColor(WavifyColors.red(color), WavifyColors.green(color), WavifyColors.blue(color));
     }
 
     @Override

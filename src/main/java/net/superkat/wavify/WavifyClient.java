@@ -21,29 +21,11 @@ import net.superkat.wavify.event.ClientBlockUpdateEvent;
 import net.superkat.wavify.particles.BigSplashParticle;
 import net.superkat.wavify.particles.SplashParticle;
 import net.superkat.wavify.particles.SprayParticle;
-import net.superkat.wavify.particles.WhiteSprayParticle;
-import net.superkat.wavify.particles.debug.DebugShoreParticle;
-import net.superkat.wavify.particles.debug.DebugWaterParticle;
-import net.superkat.wavify.particles.debug.DebugWaveMovementParticle;
-import net.superkat.wavify.sound.WaveAmbientSoundManager;
 import net.superkat.wavify.sound.WavifySounds;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
 
 public class WavifyClient implements ClientModInitializer {
 
-    public static WavifySpriteHandler WAVIFY_SPRITE_HANDLER = new WavifySpriteHandler();
-    public static final WaveAmbientSoundManager SOUND_MANAGER = new WaveAmbientSoundManager();
-
-    // Using entityTranslucent: maps to gbuffers_entities_translucent under
-    // shaderpacks, gives consistent blending + depth-test-on/write-off. Picked
-    // over weather (gbuffers_weather) because several packs (Continuum, Helian,
-    // Photon) treat weather very differently from translucent geometry.
-    //
-    // Shader-mode behavior is handled at vertex level in WaveRenderer:
-    // IrisCompat.isShaderPackActive() lowers wave Y slightly so vanilla water
-    // (which the shaderpack reflects/refracts) renders on top of the wave,
-    // giving the wave color/foam the same shader-water treatment as the rest
-    // of the surface. See WaveRenderer#shaderYOffset.
     private static RenderLayer waveRenderLayer;
 
     private static RenderLayer getWaveRenderLayer() {
@@ -56,70 +38,46 @@ public class WavifyClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         ParticleFactoryRegistry.getInstance().register(WavifyParticles.SPRAY_PARTICLE, SprayParticle.Factory::new);
-        ParticleFactoryRegistry.getInstance().register(WavifyParticles.WHITE_SPRAY_PARTICLE, WhiteSprayParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(WavifyParticles.WHITE_SPRAY_PARTICLE, SprayParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(WavifyParticles.SPLASH_PARTICLE, SplashParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(WavifyParticles.BIG_SPLASH_PARTICLE, BigSplashParticle.Factory::new);
 
-        ParticleFactoryRegistry.getInstance().register(WavifyParticles.DEBUG_WATERBODY_PARTICLE, DebugWaterParticle.Factory::new);
-        ParticleFactoryRegistry.getInstance().register(WavifyParticles.DEBUG_SHORELINE_PARTICLE, DebugShoreParticle.Factory::new);
-        ParticleFactoryRegistry.getInstance().register(WavifyParticles.DEBUG_WAVEMOVEMENT_PARTICLE, DebugWaveMovementParticle.Factory::new);
-
-        //Called after joining a world, or changing dimensions
-        ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> {
-            WavifyWorld wavifyWorld = (WavifyWorld) world;
-            wavifyWorld.wavify$wavifyWaveHandler().reloadNearbyChunks();
-            SOUND_MANAGER.hardReset();
-        });
+        ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> ClientState.worldChanged(world));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.world == null || client.player == null) {
-                SOUND_MANAGER.hardReset();
+                ClientState.SOUND.hardReset();
                 return;
             }
-            SOUND_MANAGER.tick();
+            ClientState.SOUND.tick();
         });
 
-        ClientChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
-            WavifyWorld wavifyWorld = (WavifyWorld) world;
-            wavifyWorld.wavify$wavifyWaveHandler().waterHandler.loadChunk(chunk);
-        });
+        ClientChunkEvents.CHUNK_LOAD.register((world, chunk) -> ClientState.wavesIn(world).waterHandler.loadChunk(chunk));
 
-        ClientChunkEvents.CHUNK_UNLOAD.register((world, chunk) -> {
-            WavifyWorld wavifyWorld = (WavifyWorld) world;
-            wavifyWorld.wavify$wavifyWaveHandler().waterHandler.unloadChunk(chunk);
-        });
+        ClientChunkEvents.CHUNK_UNLOAD.register((world, chunk) -> ClientState.wavesIn(world).waterHandler.unloadChunk(chunk));
 
-        //Called when an individual block is updated(placed, broken, state changed, etc.)
         ClientBlockUpdateEvent.BLOCK_UPDATE.register((pos, state) -> {
             MinecraftClient client = MinecraftClient.getInstance();
             if(client.world == null || client.player == null) return;
-            WavifyWorld wavifyWorld = (WavifyWorld) client.world;
-            wavifyWorld.wavify$wavifyWaveHandler().waterHandler.onBlockUpdate(pos, state);
+            ClientState.wavesIn(client.world).waterHandler.onBlockUpdate(pos, state);
         });
 
-        //Called when the chunks are reloaded(f3+a, resource pack change, etc.)
         InvalidateRenderStateCallback.EVENT.register(() -> {
-            //actually have to check for null stuff here because this could be in the title screen I think
+
             MinecraftClient client = MinecraftClient.getInstance();
             if(client.world == null || client.player == null) return;
-            WavifyWorld wavifyWorld = (WavifyWorld) client.world;
-            wavifyWorld.wavify$wavifyWaveHandler().reloadNearbyChunks();
-            wavifyWorld.wavify$wavifyWaveHandler().waterHandler.rebuild();
+            ClientState.cachesInvalidated(client.world);
         });
 
-        // Render at END_MAIN (after the main world pass, including translucent
-        // water) so waves overlay water properly. The new entityTranslucent
-        // layer writes depth, and rendering before water caused fade-in quads
-        // to punch a hole through the water surface.
         WorldRenderEvents.END_MAIN.register(context -> {
             MinecraftClient mc = MinecraftClient.getInstance();
             if(mc.world == null) return;
-            WavifyWorld wavifyWorld = (WavifyWorld) mc.world;
             RenderLayer layer = getWaveRenderLayer();
             Tessellator tessellator = Tessellator.getInstance();
+
             BufferBuilder buffer = tessellator.begin(layer.getDrawMode(), layer.getVertexFormat());
 
-            wavifyWorld.wavify$wavifyWaveHandler().render(buffer, context);
+            ClientState.wavesIn(mc.world).render(buffer, context);
 
             BuiltBuffer builtBuffer = buffer.endNullable();
             if(builtBuffer == null) return;
@@ -127,10 +85,10 @@ public class WavifyClient implements ClientModInitializer {
             layer.draw(builtBuffer);
         });
 
-        ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(WAVIFY_SPRITE_HANDLER);
+        ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(ClientState.SPRITES);
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-            WAVIFY_SPRITE_HANDLER.clearAtlas();
+            ClientState.SPRITES.clearAtlas();
         });
 
     }

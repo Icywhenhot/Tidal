@@ -7,14 +7,8 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.math.MathHelper;
 
-/**
- * Looping ambient sound attached to the player. {@link WaveAmbientSoundManager}
- * sets {@link #targetVolume} each tick; this instance lerps {@code volume}
- * toward it for smooth fades, and self-discards once volume reaches 0 with a
- * zero target (true fade-out).
- */
 public class WaveAmbientSoundInstance extends MovingSoundInstance {
-    private static final float FADE_PER_TICK = 1f / 70f; // ~3.5 seconds 0 -> 1 at 20 tps
+    private static final float FADE_PER_TICK = 1f / 70f;
 
     public float targetVolume = 0f;
     private boolean done = false;
@@ -25,10 +19,10 @@ public class WaveAmbientSoundInstance extends MovingSoundInstance {
                 : MinecraftClient.getInstance().world.random);
         this.repeat = true;
         this.repeatDelay = 0;
-        this.volume = 0.0001f; // start near silence; lerp up
+        this.volume = 0.0001f;
         this.pitch = 1.0f;
-        this.attenuationType = AttenuationType.NONE; // ambient, not positional
-        // Position is set in tick() to follow the player.
+        this.attenuationType = AttenuationType.NONE;
+
     }
 
     public void requestStop() {
@@ -56,11 +50,11 @@ public class WaveAmbientSoundInstance extends MovingSoundInstance {
         } else if (this.volume > this.targetVolume) {
             this.volume = Math.max(this.targetVolume, this.volume - FADE_PER_TICK);
         }
-        // Once volume + target both reach 0, the manager will mark us done.
+
         if (this.targetVolume <= 0f && this.volume <= 0.001f) {
             this.done = true;
         }
-        // Clamp for safety.
+
         this.volume = MathHelper.clamp(this.volume, 0f, 1f);
     }
 }

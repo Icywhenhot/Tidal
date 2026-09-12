@@ -1,5 +1,6 @@
 package net.superkat.wavify.util;
 
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import net.minecraft.client.color.world.BiomeColors;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.registry.RegistryKey;
@@ -8,56 +9,86 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.biome.Biome;
 import net.superkat.wavify.config.WavifyConfig;
-import org.joml.Vector3f;
 
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Central source for wave / splash water colour. Honours the config:
- *   - BIOME: vanilla {@link BiomeColors#getWaterColor}
- *   - CUSTOM: a single global hex color
- * Per-biome overrides (when non-empty) always win, regardless of mode.
- */
 public class WavifyColors {
+
+    private static final int NO_OVERRIDE = Integer.MIN_VALUE;
+    private static final int CACHE_CAP = 8192;
+
+    private static final Long2IntOpenHashMap cache = new Long2IntOpenHashMap();
+
+    static {
+        cache.defaultReturnValue(NO_OVERRIDE);
+    }
+
+    private static int lastSource = -1;
+    private static int lastCustom = -1;
+
+    public static void forget() {
+        cache.clear();
+    }
 
     private static Map<Identifier, Integer> parsedOverrides = null;
     private static String lastOverrideSource = null;
 
     public static int getWaterColor(ClientWorld world, BlockPos pos) {
+        dropStaleCache();
+
+        long key = pos.asLong();
+        int hit = cache.get(key);
+        if (hit != NO_OVERRIDE) return hit;
+
+        int color = computeWaterColor(world, pos) & 0xFFFFFF;
+        if (cache.size() >= CACHE_CAP) cache.clear();
+        cache.put(key, color);
+        return color;
+    }
+
+    private static void dropStaleCache() {
+        int source = WavifyConfig.colorSource.ordinal();
+        int custom = WavifyConfig.customColor;
+        if (source == lastSource && custom == lastCustom) return;
+        lastSource = source;
+        lastCustom = custom;
+        cache.clear();
+    }
+
+    private static int computeWaterColor(ClientWorld world, BlockPos pos) {
         int override = lookupBiomeOverride(world, pos);
-        if (override != Integer.MIN_VALUE) return override;
+        if (override != NO_OVERRIDE) return override;
 
         if (WavifyConfig.colorSource == WavifyConfig.ColorSource.CUSTOM) {
             return WavifyConfig.customColor & 0xFFFFFF;
         }
         return BiomeColors.getWaterColor(world, pos);
+        }
+
+    public static float red(int color) {
+        return (color >> 16 & 0xFF) / 255.0F;
     }
 
-    public static Vector3f getWaterColorVec(ClientWorld world, BlockPos pos) {
-        int color = getWaterColor(world, pos);
-        float r = (color >> 16 & 0xFF) / 255.0F;
-        float g = (color >> 8 & 0xFF) / 255.0F;
-        float b = (color & 0xFF) / 255.0F;
-        return new Vector3f(r, g, b);
+    public static float green(int color) {
+        return (color >> 8 & 0xFF) / 255.0F;
+    }
+
+    public static float blue(int color) {
+        return (color & 0xFF) / 255.0F;
     }
 
     private static int lookupBiomeOverride(ClientWorld world, BlockPos pos) {
         Map<Identifier, Integer> overrides = getParsedOverrides();
-        if (overrides.isEmpty()) return Integer.MIN_VALUE;
+        if (overrides.isEmpty()) return NO_OVERRIDE;
 
         RegistryEntry<Biome> entry = world.getBiome(pos);
         return entry.getKey()
                 .map(RegistryKey::getValue)
-                .map(id -> overrides.getOrDefault(id, Integer.MIN_VALUE))
-                .orElse(Integer.MIN_VALUE);
+                .map(id -> overrides.getOrDefault(id, NO_OVERRIDE))
+                .orElse(NO_OVERRIDE);
     }
 
-    /**
-     * Parses {@link WavifyConfig#biomeColorOverrides} from a simple
-     * "namespace:biome=RRGGBB,..." string into a cached map. Re-parses when the
-     * raw string changes.
-     */
     private static Map<Identifier, Integer> getParsedOverrides() {
         String raw = WavifyConfig.biomeColorOverrides;
         if (raw == null) raw = "";
@@ -83,6 +114,7 @@ public class WavifyColors {
 
         parsedOverrides = map;
         lastOverrideSource = raw;
+        cache.clear();
         return map;
     }
 }

@@ -14,27 +14,20 @@ import net.minecraft.world.LightType;
 import net.superkat.wavify.WavifyParticles;
 import net.superkat.wavify.particles.SprayParticleEffect;
 import net.superkat.wavify.util.WavifyColors;
-import org.joml.Vector3f;
 import org.jetbrains.annotations.Range;
 
 import java.util.List;
 import java.util.Set;
 
-/**
- * A total mess of a class which handles wave position/movement, scale, color, and lifecycle of waves.<br><br>
- * <p>
- * i actually dislike this class a lot it is very incomprehensible
- */
 public class Wave {
     private static final double MAX_SQUARED_COLLISION_CHECK_DISTANCE = MathHelper.square(100.0);
 
-    //TODO - wave scales
-    //TODO - spary particle width
-    //TODO - fix fall washing up
+    public static final int SMALL_WAVE_MAX_AGE = 250;
+    public static final int BIG_WAVE_MAX_AGE = 300;
 
     public ClientWorld world;
     public BlockPos spawnPos;
-    public float yaw; //wave's yaw in degrees (in theory)
+    public float yaw;
     public boolean bigWave;
 
     public Box box;
@@ -66,7 +59,6 @@ public class Wave {
     public boolean washingUp = false;
     public boolean hitBlock = false;
     public int hitBlockAge;
-    public boolean ending = false;
 
     public boolean waterfallMode = false;
     public boolean waterfallSplashed = false;
@@ -87,23 +79,20 @@ public class Wave {
             this.scale = 3f;
             this.length = 1.5f;
             this.width = 1f;
-            this.maxAge = 300;
+            this.maxAge = BIG_WAVE_MAX_AGE;
         } else {
             this.scale = 2f;
             this.length = 1f;
             this.width = 2f;
-            this.maxAge = 250;
+            this.maxAge = SMALL_WAVE_MAX_AGE;
         }
 
         this.x = spawnPos.getX() + 0.5f;
         this.y = spawnPos.getY() + Math.abs(yOffset) + 0.15f;
         this.z = spawnPos.getZ() + 0.5f;
 
-        float f = 0.2f / 2.0F;
-        float g = 0.2f;
-        this.box = (new Box(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f)).expand(this.scale / 4f, 0, this.scale / 4f);
+        syncBoxToCurrentPosition();
         float speed = 0.115f;
-
 
         this.velX = (float) (Math.cos(Math.toRadians(yaw)) * speed);
         this.velZ = (float) (Math.sin(Math.toRadians(yaw)) * speed);
@@ -147,20 +136,18 @@ public class Wave {
             return;
         }
 
-        if (updateWashingUp()) { // wave has hit shore
-            if (this.getWashingAge() <= 10) { // just hit shore - immediate slowdown
+        if (updateWashingUp()) {
+            if (this.getWashingAge() <= 10) {
                 this.velX *= 0.875f;
                 this.velY = -0.0005f;
                 this.velZ *= 0.875f;
-            } else if (washBounce()) { // sometime after shore - slight bounce
+            } else if (washBounce()) {
                 this.velX *= 1.2f;
                 this.velZ *= 1.2f;
-            } else { // remaining time in shore - continue slowing down until despawn
+            } else {
                 this.velX *= 0.9f;
                 this.velZ *= 0.9f;
             }
-
-            this.ending = Math.abs(this.velX) <= 0.03f && Math.abs(this.velZ) <= 0.3f;
 
             float addedLength = Math.abs(velX) * (this.bigWave ? 1 : 0.75f);
             this.length += addedLength;
@@ -169,13 +156,13 @@ public class Wave {
             }
         } else {
             this.updateWaterColor();
-            if (drowningAway) { // wave is despawning in water because it didn't hit shore within reasonable time
+            if (drowningAway) {
                 this.length -= 0.1f;
                 this.velY -= 0.005f;
                 if (this.length <= 0f) this.markDead();
             }
 
-            if (this.alpha < 1f) this.alpha += 0.05f; //fade in
+            if (this.alpha < 1f) this.alpha += 0.05f;
         }
 
         if (this.hitBlock && this.age - this.hitBlockAge >= 2) {
@@ -186,23 +173,23 @@ public class Wave {
         this.updateBeneathBlock();
     }
 
-    public void move(float velX, float velY, float velZ) {
-        float initVelX = velX;
-        float initVelY = velY;
-        float initVelZ = velZ;
-        if ((velX != 0.0 || velY != 0.0 || velZ != 0.0) && velX * velX + velY * velY + velZ * velZ < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
-            Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(velX, velY, velZ), this.getHitBox(), this.world, List.of());
-            velX = (float) vec3d.x;
-            velY = (float) vec3d.y;
-            velZ = (float) vec3d.z;
+    public void move(float requestedX, float requestedY, float requestedZ) {
+        float movedX = requestedX;
+        float movedY = requestedY;
+        float movedZ = requestedZ;
+        if ((movedX != 0.0 || movedY != 0.0 || movedZ != 0.0) && movedX * movedX + movedY * movedY + movedZ * movedZ < MAX_SQUARED_COLLISION_CHECK_DISTANCE) {
+            Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(movedX, movedY, movedZ), this.getHitBox(), this.world, List.of());
+            movedX = (float) vec3d.x;
+            movedY = (float) vec3d.y;
+            movedZ = (float) vec3d.z;
         }
 
-        if (initVelX != velX || initVelZ != velZ) {
+        if (requestedX != movedX || requestedZ != movedZ) {
             this.spray();
         }
 
-        if (velX != 0.0 || velY != 0.0 || velZ != 0.0) {
-            this.box = this.box.offset(velX, velY, velZ);
+        if (movedX != 0.0 || movedY != 0.0 || movedZ != 0.0) {
+            this.box = this.box.offset(movedX, movedY, movedZ);
             this.prevX = this.x;
             this.prevY = this.y;
             this.prevZ = this.z;
@@ -212,41 +199,50 @@ public class Wave {
         }
     }
 
-    // wave hit block and should spray - intensity depends on current speed & and if it was washing up
     public void spray() {
         if (this.hitBlock) return;
 
         if (!drowningAway) {
             int sprayAmount = this.bigWave ? 3 : 1;
-            float sprayIntensity;
-            if (this.isWashingUp()) {
-                sprayIntensity = getWashingAge() / 128f;
-                if (washBounce()) sprayIntensity *= 2f;
-            } else {
-                sprayIntensity = ((float) this.age / this.maxAge) * 2.5f / (this.age / 16f);
-            }
+            float sprayIntensity = sprayIntensity();
 
-            double splashX = this.x + this.velX * 10;
-            double splashZ = this.z + this.velZ * 10;
+            Vec3d splash = sprayPosition();
+            double splashX = splash.x;
+            double splashZ = splash.z;
 
             for (int i = 0; i < sprayAmount; i++) {
-                this.world.addParticleClient(WavifyParticles.SPLASH_PARTICLE, splashX, this.y, splashZ, this.world.random.nextGaussian() * 0.1f, Math.abs(this.world.random.nextGaussian()) * 0.1f + 0.1f, this.world.random.nextGaussian() * 0.1f);
+                this.world.addParticleClient(WavifyParticles.SPLASH_PARTICLE, splashX, splash.y, splashZ, this.world.random.nextGaussian() * 0.1f, Math.abs(this.world.random.nextGaussian()) * 0.1f + 0.1f, this.world.random.nextGaussian() * 0.1f);
                 if (this.bigWave) {
-                    this.world.addParticleClient(WavifyParticles.BIG_SPLASH_PARTICLE, splashX + this.world.random.nextGaussian() / 2f, this.y, splashZ + this.world.random.nextGaussian() / 2f, 0, 0.01, 0);
+                    this.world.addParticleClient(WavifyParticles.BIG_SPLASH_PARTICLE, splashX + this.world.random.nextGaussian() / 2f, splash.y, splashZ + this.world.random.nextGaussian() / 2f, 0, 0.01, 0);
                 }
             }
 
-
-            this.world.addParticleClient(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale), splashX, this.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
+            this.world.addParticleClient(new SprayParticleEffect(this.yaw - 180f, sprayIntensity, this.scale, false), splashX, splash.y - 0.05f, splashZ, -this.velX, 0, -this.velZ);
 
             this.velX = 0;
             this.velY = 0;
             this.velZ = 0;
         }
 
-
         this.hitBlockAge = this.age;
         this.hitBlock = true;
+    }
+
+    protected Vec3d sprayPosition() {
+        return new Vec3d(this.x + this.velX * 10, this.y, this.z + this.velZ * 10);
+    }
+
+    protected float sprayIntensity() {
+        if (this.isWashingUp()) {
+            float intensity = getWashingAge() / 128f;
+            if (washBounce()) intensity *= 2f;
+            return intensity;
+        }
+        return ((float) this.age / sprayMaxAge()) * 2.5f / (this.age / 16f);
+    }
+
+    protected int sprayMaxAge() {
+        return this.maxAge;
     }
 
     public boolean updateWashingUp() {
@@ -282,8 +278,6 @@ public class Wave {
                 }
             }
 
-            for (int i = 0; i < splashAmount; i++) {
-            }
         }
 
         if (!drowningAway && !washingUp && this.age >= this.maxWaterAge) {
@@ -312,7 +306,7 @@ public class Wave {
 
     public Box getHitBox() {
         if (this.isWashingUp()) {
-            float yawRadians = (float) Math.toRadians(this.yaw); // this took way to long to figure out ( ͡ಠ ʖ̯ ͡ಠ)
+            float yawRadians = (float) Math.toRadians(this.yaw);
             float usedLength = this.bigWave ? this.length * 1.5f : this.length / 16f;
             return this.getBoundingBox().stretch(usedLength * Math.cos(yawRadians), 0, usedLength * Math.sin(yawRadians));
         }
@@ -323,22 +317,11 @@ public class Wave {
         this.width = width;
     }
 
-    public void offsetVertical(float offset) {
-        this.y += offset;
-        this.prevY += offset;
-        syncBoxToCurrentPosition();
-    }
-
     public void updateWaterColor() {
-        Vector3f color = WavifyColors.getWaterColorVec(this.world, this.getBlockPos());
-        this.setColor(color.x, color.y, color.z);
+        int color = WavifyColors.getWaterColor(this.world, this.getBlockPos());
+        this.setColor(WavifyColors.red(color), WavifyColors.green(color), WavifyColors.blue(color));
     }
 
-    /**
-     * @param red   Float 0f through 1f
-     * @param green Float 0f through 1f
-     * @param blue  Float 0f through 255f - nah I'm just kidding its 0f through 1f
-     */
     public void setColor(@Range(from = 0, to = 1) float red, @Range(from = 0, to = 1) float green, @Range(from = 0, to = 1) float blue) {
         this.red = red;
         this.green = green;
@@ -370,7 +353,7 @@ public class Wave {
     }
 
     public int getLight() {
-        //emissive during full moon :)
+
         if (canFullMoonGlow() && (int)(this.world.getTimeOfDay() / 24000L % 8L) == 0 && this.world.getTimeOfDay() >= 12000)
             return LightmapTextureManager.pack(15, 15);
         BlockPos pos = this.getBlockPos().add(0, 1, 0);
@@ -381,6 +364,10 @@ public class Wave {
 
     protected boolean canFullMoonGlow() {
         return true;
+    }
+
+    public float getRenderYSink() {
+        return -0.5f;
     }
 
     public int getRenderColumnCount() {
