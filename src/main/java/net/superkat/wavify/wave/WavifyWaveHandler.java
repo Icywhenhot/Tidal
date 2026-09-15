@@ -174,7 +174,7 @@ public class WavifyWaveHandler {
                 SitePos site = this.waterHandler.getSiteForPos(check);
                 if (site == null || !site.yawCalculated || site.posCount() < 50) continue;
                 if (Math.abs(site.yaw - yaw) > 15) continue;
-                stack.add(new BlockPos(check));
+                stack.add(check.immutable());
             }
 
             if (stack.isEmpty()) break;

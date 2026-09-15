@@ -130,7 +130,7 @@ public class Wave {
         int usedWidth = (int) (this.width - (this.bigWave ? 0 : 1)) + extra;
         for (BlockPos pos : BlockPos.betweenClosed(currentPos.offset(-usedWidth, -1, -usedWidth), currentPos.offset(usedWidth, -1, usedWidth))) {
             if (WavifyWaveHandler.posIsWater(this.level, pos) || this.level.isEmptyBlock(pos)) continue;
-            set.add(new BlockPos(pos));
+            set.add(pos.immutable());
         }
         return set;
     }
@@ -166,9 +166,9 @@ public class Wave {
                 this.velY -= 0.005f;
                 if (this.length <= 0f) this.markDead();
             }
-
-            if (this.alpha < 1f) this.alpha += 0.05f;
         }
+
+        if (this.alpha < 1f) this.alpha += 0.05f;
 
         if (this.hitBlock && this.age - this.hitBlockAge >= 2) {
             this.markDead();

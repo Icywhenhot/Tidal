@@ -84,8 +84,8 @@ public class WaveRenderer {
         Vec3 cameraPos = camera.position();
 
         matrices.translate(wave.getX(delta) - cameraPos.x, wave.getY(delta) - cameraPos.y, wave.getZ(delta) - cameraPos.z);
-        matrices.mulPose(Axis.YP.rotationDegrees(-wave.getYaw(delta) + 90));
-        matrices.mulPose(Axis.XP.rotationDegrees(wave.pitch));
+        matrices.rotateDegrees(Axis.YP, -wave.getYaw(delta) + 90);
+        matrices.rotateDegrees(Axis.XP, wave.pitch);
         matrices.scale(wave.scale, 1, wave.scale);
 
         boolean washingUp = wave.isWashingUp();
