@@ -5,6 +5,7 @@ import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
+import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -68,6 +69,8 @@ public class WaterHandler {
 
     public Map<Long, Set<BlockPos>> riverWaters = Maps.newHashMap();
 
+    public final Long2ByteOpenHashMap seaWater = new Long2ByteOpenHashMap();
+
     public WaterHandler(WavifyWaveHandler wavifyWaveHandler, ClientWorld world) {
         this.wavifyWaveHandler = wavifyWaveHandler;
         this.world = world;
@@ -109,6 +112,7 @@ public class WaterHandler {
                     this.waterCache = waterCacheResult.waterCache;
 
                     this.sites.values().forEach(siteSet -> siteSet.forEach(SitePos::clearPositions));
+                    this.seaWater.clear();
 
                     for (Map<BlockPos, SitePos> waterSiteMap : this.waterCache.values()) {
                         for (Map.Entry<BlockPos, SitePos> entry : waterSiteMap.entrySet()) {
@@ -346,6 +350,7 @@ public class WaterHandler {
         this.waters.clear();
         this.riverWaters.clear();
         this.cachedSiteSet.clear();
+        this.seaWater.clear();
         this.unscannedChunks.clear();
         this.chunkUpdates.clear();
     }

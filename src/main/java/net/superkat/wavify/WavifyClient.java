@@ -13,7 +13,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.render.OutputTarget;
+import net.minecraft.client.render.RenderSetup;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.resource.ResourceType;
 import net.superkat.wavify.duck.WavifyWorld;
@@ -30,7 +32,13 @@ public class WavifyClient implements ClientModInitializer {
 
     private static RenderLayer getWaveRenderLayer() {
         if (waveRenderLayer == null) {
-            waveRenderLayer = RenderLayers.entityTranslucent(WavifySpriteHandler.WAVE_ATLAS_ID, false);
+            waveRenderLayer = RenderLayer.of("wavify_waves", RenderSetup.builder(RenderPipelines.ENTITY_TRANSLUCENT)
+                    .texture("Sampler0", WavifySpriteHandler.WAVE_ATLAS_ID)
+                    .useLightmap()
+                    .useOverlay()
+                    .translucent()
+                    .outputTarget(new OutputTarget("wavify_translucent", () -> MinecraftClient.getInstance().worldRenderer.getTranslucentFramebuffer()))
+                    .build());
         }
         return waveRenderLayer;
     }

@@ -8,7 +8,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
-import net.superkat.wavify.compat.DynamicWatersCompat;
+import net.superkat.wavify.compat.FlowMods;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,7 +31,7 @@ public final class RiverFlow {
 
     @Nullable
     public static Flow dynamicFlowAt(World world, double x, int y, double z) {
-        if (!DynamicWatersCompat.isLoaded()) return null;
+        if (!FlowMods.isLoaded()) return null;
         BlockPos pos = new BlockPos(MathHelper.floor(x), y, MathHelper.floor(z));
         FluidState fluid = world.getFluidState(pos);
         if (fluid.isEmpty()) return null;

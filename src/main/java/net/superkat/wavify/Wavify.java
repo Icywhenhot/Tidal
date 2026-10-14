@@ -1,6 +1,5 @@
 package net.superkat.wavify;
 
-import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.superkat.wavify.config.WavifyConfig;
@@ -15,7 +14,7 @@ public class Wavify implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		MidnightConfig.init(MOD_ID, WavifyConfig.class);
+		WavifyConfig.load();
 
 		ClientTickEvents.END_WORLD_TICK.register(clientWorld -> {
 			WavifyWorld wavifyWorld = (WavifyWorld) clientWorld;

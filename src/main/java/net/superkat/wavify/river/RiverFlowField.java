@@ -6,6 +6,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
+import net.superkat.wavify.compat.FlowMods;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
@@ -50,7 +51,7 @@ public final class RiverFlowField {
     private long builtTick = Long.MIN_VALUE;
     private boolean built = false;
 
-    public void ensureBuilt(Map<Long, Set<BlockPos>> riverWaters, double px, double pz, long tick) {
+    public void ensureBuilt(World world, Map<Long, Set<BlockPos>> riverWaters, double px, double pz, long tick) {
         int cx = MathHelper.floor(px);
         int cz = MathHelper.floor(pz);
         if (built
@@ -59,15 +60,9 @@ public final class RiverFlowField {
                 && tick - builtTick < REBUILD_INTERVAL) {
             return;
         }
-        build(riverWaters, cx, cz, tick);
+        build(world, riverWaters, cx, cz, tick);
     }
 
-    @Nullable
-    public RiverFlow.Flow flowAt(World world, double x, int y, double z) {
-        RiverFlow.Flow dyn = RiverFlow.dynamicFlowAt(world, x, y, z);
-        if (dyn != null) return dyn;
-        return flowAt(x, z);
-    }
 
     @Nullable
     public RiverFlow.Flow flowAt(double x, double z) {
@@ -95,7 +90,7 @@ public final class RiverFlowField {
         return embedded;
     }
 
-    private void build(Map<Long, Set<BlockPos>> riverWaters, int cx, int cz, long tick) {
+    private void build(World world, Map<Long, Set<BlockPos>> riverWaters, int cx, int cz, long tick) {
         this.oceanRiverCache.clear();
 
         boolean hadPrev = this.built;
@@ -112,6 +107,12 @@ public final class RiverFlowField {
         this.blockH = this.blockW;
         this.water = new boolean[this.blockW * this.blockH];
 
+        this.gridW = this.blockW / CELL;
+        this.gridH = this.blockH / CELL;
+        int n = this.gridW * this.gridH;
+        float[] pullX = FlowMods.isLoaded() ? new float[n] : null;
+        float[] pullZ = FlowMods.isLoaded() ? new float[n] : null;
+
         int chunkRadius = (WINDOW_RADIUS >> 4) + 1;
         int playerChunkX = cx >> 4;
         int playerChunkZ = cz >> 4;
@@ -126,13 +127,19 @@ public final class RiverFlowField {
                     int lz = w.getZ() - this.originZ;
                     if (lx < 0 || lz < 0 || lx >= this.blockW || lz >= this.blockH) continue;
                     this.water[lz * this.blockW + lx] = true;
+
+                    if (pullX == null || ((w.getX() | w.getZ()) & 1) != 0) continue;
+                    int gx = lx / CELL;
+                    int gz = lz / CELL;
+                    if (gx >= this.gridW || gz >= this.gridH) continue;
+                    RiverFlow.Flow current = RiverFlow.dynamicFlowAt(world, w.getX() + 0.5, w.getY(), w.getZ() + 0.5);
+                    if (current == null) continue;
+                    pullX[gz * this.gridW + gx] += (float) current.dirX();
+                    pullZ[gz * this.gridW + gx] += (float) current.dirZ();
                 }
             }
         }
 
-        this.gridW = this.blockW / CELL;
-        this.gridH = this.blockH / CELL;
-        int n = this.gridW * this.gridH;
         this.dirX = new float[n];
         this.dirZ = new float[n];
 
@@ -161,6 +168,7 @@ public final class RiverFlowField {
         if (hadPrev) {
             reconcileOrientation(components, prevOriginX, prevOriginZ, prevGridW, prevGridH, prevDirX, prevDirZ);
         }
+        if (pullX != null) followCurrent(components, pullX, pullZ);
         fillGaps(cellWater);
         smoothOnce(cellWater);
 
@@ -333,6 +341,20 @@ public final class RiverFlowField {
                     this.dirX[i] = -this.dirX[i];
                     this.dirZ[i] = -this.dirZ[i];
                 }
+            }
+        }
+    }
+
+    private void followCurrent(List<List<Integer>> components, float[] pullX, float[] pullZ) {
+        for (List<Integer> component : components) {
+            double dot = 0;
+            for (int i : component) {
+                dot += this.dirX[i] * pullX[i] + this.dirZ[i] * pullZ[i];
+            }
+            if (dot >= 0) continue;
+            for (int i : component) {
+                this.dirX[i] = -this.dirX[i];
+                this.dirZ[i] = -this.dirZ[i];
             }
         }
     }

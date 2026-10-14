@@ -2,11 +2,16 @@ package net.superkat.wavify.wave;
 
 import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
+import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.tag.BiomeTags;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.biome.Biome;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.scan.SitePos;
 
@@ -21,12 +26,65 @@ public final class ShoreCheck {
 
     private static final int LANDMASS_CAP = 768;
 
+    private static final int SEA_CAP = 2048;
+
     private record Walk(boolean river, boolean ocean) {
     }
 
-    public static boolean isOceanConnected(ClientWorld world, BlockPos spawn, float yaw) {
+    public static boolean isOceanConnected(ClientWorld world, BlockPos spawn, float yaw, BlockPos shore, Long2ByteOpenHashMap seaWater) {
         Walk w = walk(world, spawn, yaw, -1, 96);
-        return !w.river() && w.ocean();
+        if (w.river()) return false;
+        return w.ocean() || reachesSea(world, shore, seaWater);
+    }
+
+    private static boolean reachesSea(ClientWorld world, BlockPos start, Long2ByteOpenHashMap seaWater) {
+        byte known = seaWater.get(packXZ(start.getX(), start.getZ()));
+        if (known != 0) return known == 1;
+
+        LongOpenHashSet visited = new LongOpenHashSet();
+        LongArrayList body = new LongArrayList();
+        Queue<BlockPos> queue = Queues.newArrayDeque();
+        queue.add(start);
+        visited.add(packXZ(start.getX(), start.getZ()));
+        boolean sea = false;
+
+        flood:
+        while (!queue.isEmpty()) {
+            BlockPos current = queue.poll();
+            RegistryEntry<Biome> biome = world.getBiome(current);
+            if (biome.isIn(BiomeTags.IS_OCEAN)) {
+                sea = true;
+                break;
+            }
+            if (biome.isIn(BiomeTags.IS_RIVER)) continue;
+
+            long key = packXZ(current.getX(), current.getZ());
+            if (seaWater.get(key) == 1) {
+                sea = true;
+                break;
+            }
+            body.add(key);
+            if (body.size() > SEA_CAP) {
+                sea = true;
+                break;
+            }
+
+            for (Direction dir : Direction.Type.HORIZONTAL) {
+                int nx = current.getX() + dir.getOffsetX();
+                int nz = current.getZ() + dir.getOffsetZ();
+                if (!visited.add(packXZ(nx, nz))) continue;
+                if (!world.getChunkManager().isChunkLoaded(nx >> 4, nz >> 4)) {
+                    sea = true;
+                    break flood;
+                }
+                int y = RiverFlow.surfaceWaterY(world, nx + 0.5, nz + 0.5, current.getY());
+                if (y != Integer.MIN_VALUE) queue.add(new BlockPos(nx, y, nz));
+            }
+        }
+
+        byte result = (byte) (sea ? 1 : 2);
+        for (int i = 0; i < body.size(); i++) seaWater.put(body.getLong(i), result);
+        return sea;
     }
 
     public static boolean isPathSafe(ClientWorld world, BlockPos spawn, float yaw) {

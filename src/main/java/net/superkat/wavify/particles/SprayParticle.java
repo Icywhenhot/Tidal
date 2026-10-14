@@ -16,6 +16,7 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.superkat.wavify.WavifyParticles;
+import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.util.WavifyColors;
 import net.superkat.wavify.wave.WavifyWaveHandler;
@@ -50,6 +51,7 @@ public class SprayParticle extends BillboardParticle {
         this.gravityStrength = 0.5f;
 
         this.white = params.isWhite();
+        this.alpha = (float) (this.white ? WavifyConfig.foamOpacity : WavifyConfig.waveOpacity);
 
         if(!this.white) {
             this.world.addParticleClient(new SprayParticleEffect(yaw, intensity, this.scale, true), x, y, z, velX, velY, velZ);

@@ -3,7 +3,7 @@
 
 Wavify adds ambient water waves! They are most noticeable at beaches & shores where they get really big, but can also spawn around islands to help make the water feel more alive.  
 
-Waves can also crash against blocks if they're in the way, making rocky cliffs next to water even more dramatic! During full moons, the waves glow at night too.
+Waves can also crash against blocks if they're in the way, making rocky cliffs next to water even more dramatic! Turn on Full Moon Glow in the config and the waves glow at night during full moons too.
 
 **Note: Wavify is currently in alpha!** There's plenty of known bugs and plans for optimizations, some include:
 - Waves "wash up" in midair instead of falling.

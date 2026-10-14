@@ -6,6 +6,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.river.RiverFlowField;
 
@@ -73,7 +74,7 @@ public class RiverWave extends Wave {
 
     @Override
     public float getRenderYSink() {
-        return 0f;
+        return (float) WavifyConfig.riverWaveYOffset;
     }
 
     @Override
@@ -147,13 +148,17 @@ public class RiverWave extends Wave {
     }
 
     protected void steerAndAdvance() {
-
-        RiverFlow.Flow flow = this.field.flowAt(this.world, this.x, this.waterY, this.z);
+        RiverFlow.Flow current = RiverFlow.dynamicFlowAt(this.world, this.x, this.waterY, this.z);
+        RiverFlow.Flow flow = current != null ? current : this.field.flowAt(this.x, this.z);
         if (flow != null) {
             double tx = flow.dirX();
             double tz = flow.dirZ();
 
             if (tx * this.dirX + tz * this.dirZ < 0.0) {
+                if (current != null) {
+                    this.fading = true;
+                    return;
+                }
                 tx = -tx;
                 tz = -tz;
             }

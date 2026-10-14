@@ -37,7 +37,7 @@ public class RiverSpawner {
     public void tick(List<Wave> waves, @Nullable ClientPlayerEntity player, long time) {
         if (player == null || !WavifyConfig.enableRiverWaves) return;
 
-        this.field.ensureBuilt(this.water.riverWaters, player.getX(), player.getZ(), time);
+        this.field.ensureBuilt(this.world, this.water.riverWaters, player.getX(), player.getZ(), time);
         if (time % 40 == 0) spawn(waves, player);
     }
 
