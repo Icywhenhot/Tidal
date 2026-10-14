@@ -38,3 +38,10 @@ type="optional"
 versionRange="[0,)"
 ordering="AFTER"
 side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="streamsreflowing"
+type="optional"
+versionRange="[0,)"
+ordering="AFTER"
+side="BOTH"

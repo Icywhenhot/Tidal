@@ -20,8 +20,9 @@ public final class WavifyConfig {
     private static final ModConfigSpec.IntValue CHUNK_RADIUS_VALUE;
     private static final ModConfigSpec.IntValue CHUNK_UPDATES_RESCAN_AMOUNT_VALUE;
     private static final ModConfigSpec.IntValue SPAWN_DISTANCE_VALUE;
-    private static final ModConfigSpec.DoubleValue TRANSPARENCY_VALUE;
-    private static final ModConfigSpec.BooleanValue APPLY_TRANSPARENCY_TO_FOAM_VALUE;
+    private static final ModConfigSpec.DoubleValue WAVE_OPACITY_VALUE;
+    private static final ModConfigSpec.DoubleValue FOAM_OPACITY_VALUE;
+    private static final ModConfigSpec.BooleanValue FULL_MOON_GLOW_VALUE;
     private static final ModConfigSpec.EnumValue<ColorSource> COLOR_SOURCE_VALUE;
     private static final ModConfigSpec.IntValue CUSTOM_COLOR_VALUE;
     private static final ModConfigSpec.ConfigValue<String> BIOME_COLOR_OVERRIDES_VALUE;
@@ -31,6 +32,7 @@ public final class WavifyConfig {
     private static final ModConfigSpec.DoubleValue RIVER_WAVE_DENSITY_VALUE;
     private static final ModConfigSpec.IntValue RIVER_WAVE_TRAVEL_BLOCKS_VALUE;
     private static final ModConfigSpec.DoubleValue WAVE_Y_OFFSET_VALUE;
+    private static final ModConfigSpec.DoubleValue RIVER_WAVE_Y_OFFSET_VALUE;
     private static final ModConfigSpec.DoubleValue SHADER_WAVE_Y_SINK_VALUE;
     private static final ModConfigSpec.BooleanValue ENABLE_WAVE_SOUNDS_VALUE;
     private static final ModConfigSpec.DoubleValue WAVE_SOUND_VOLUME_VALUE;
@@ -54,12 +56,12 @@ public final class WavifyConfig {
         BUILDER.pop();
 
         BUILDER.translation("wavify.configuration." + APPEARANCE).push(APPEARANCE);
-        TRANSPARENCY_VALUE = BUILDER.comment("Overall wave body transparency.")
-                .translation("wavify.configuration.transparency")
-                .defineInRange("transparency", 1.0D, 0.0D, 1.0D);
-        APPLY_TRANSPARENCY_TO_FOAM_VALUE = BUILDER.comment("Applies the transparency slider to foam as well.")
-                .translation("wavify.configuration.apply_transparency_to_foam")
-                .define("applyTransparencyToFoam", false);
+        WAVE_OPACITY_VALUE = BUILDER.comment("Opacity of the colored wave body. Lower it to see through the waves.")
+                .translation("wavify.configuration.wave_opacity")
+                .defineInRange("waveOpacity", 1.0D, 0.0D, 1.0D);
+        FOAM_OPACITY_VALUE = BUILDER.comment("Opacity of the white foam on top of the waves.")
+                .translation("wavify.configuration.foam_opacity")
+                .defineInRange("foamOpacity", 1.0D, 0.0D, 1.0D);
         COLOR_SOURCE_VALUE = BUILDER.comment("Whether wave tinting uses biome water colors or the custom color below.")
                 .translation("wavify.configuration.color_source")
                 .defineEnum("colorSource", ColorSource.BIOME);
@@ -69,15 +71,18 @@ public final class WavifyConfig {
         BIOME_COLOR_OVERRIDES_VALUE = BUILDER.comment("Comma-separated biome=color overrides, for example minecraft:luke_warm_ocean=3F76E4.")
                 .translation("wavify.configuration.biome_color_overrides")
                 .define("biomeColorOverrides", "");
-        WAVE_Y_OFFSET_VALUE = BUILDER.comment("Offsets both the wave body and foam vertically.")
+        WAVE_Y_OFFSET_VALUE = BUILDER.comment("Moves ocean and shoreline waves up or down. Negative = lower, closer to the water.")
                 .translation("wavify.configuration.wave_y_offset")
-                .defineInRange("waveYOffset", 0.0D, -0.5D, 0.5D);
+                .defineInRange("waveYOffset", 0.0D, -1.0D, 1.0D);
         SHADER_WAVE_Y_SINK_VALUE = BUILDER.comment("Extra downward offset applied to the wave body while shaders are active.")
                 .translation("wavify.configuration.shader_wave_y_sink")
                 .defineInRange("shaderWaveYSink", -0.30D, -0.5D, 0.5D);
         ENABLE_WET_OVERLAY_VALUE = BUILDER.comment("Darkens the ground where a wave washes up, as if the sand got wet. Turn off to disable the effect entirely.")
                 .translation("wavify.configuration.enable_wet_overlay")
                 .define("enableWetOverlay", true);
+        FULL_MOON_GLOW_VALUE = BUILDER.comment("Makes ocean waves glow at full brightness on full moon nights.")
+                .translation("wavify.configuration.full_moon_glow")
+                .define("fullMoonGlow", false);
         BUILDER.pop();
 
         BUILDER.translation("wavify.configuration." + RIVERS).push(RIVERS);
@@ -93,6 +98,9 @@ public final class WavifyConfig {
         RIVER_WAVE_TRAVEL_BLOCKS_VALUE = BUILDER.comment("How far (in blocks) a river wave travels down the channel before fading out.")
                 .translation("wavify.configuration.river_wave_travel_blocks")
                 .defineInRange("riverWaveTravelBlocks", 11, 4, 32);
+        RIVER_WAVE_Y_OFFSET_VALUE = BUILDER.comment("Moves river waves up or down. Negative = lower, closer to the water.")
+                .translation("wavify.configuration.river_wave_y_offset")
+                .defineInRange("riverWaveYOffset", 0.0D, -1.0D, 1.0D);
         BUILDER.pop();
 
         BUILDER.translation("wavify.configuration." + SOUNDS).push(SOUNDS);
@@ -111,8 +119,9 @@ public final class WavifyConfig {
     public static int chunkRadius = 5;
     public static int chunkUpdatesRescanAmount = 50;
     public static int spawnDistance = 8;
-    public static double transparency = 1.0;
-    public static boolean applyTransparencyToFoam = false;
+    public static double waveOpacity = 1.0;
+    public static double foamOpacity = 1.0;
+    public static boolean fullMoonGlow = false;
     public static ColorSource colorSource = ColorSource.BIOME;
     public static int customColor = 0x3F76E4;
     public static String biomeColorOverrides = "";
@@ -122,6 +131,7 @@ public final class WavifyConfig {
     public static double riverWaveDensity = 4.0;
     public static int riverWaveTravelBlocks = 11;
     public static double waveYOffset = 0.0;
+    public static double riverWaveYOffset = 0.0;
     public static double shaderWaveYSink = -0.30;
     public static boolean enableWaveSounds = true;
     public static double waveSoundVolume = 1.0;
@@ -144,8 +154,9 @@ public final class WavifyConfig {
         chunkRadius = CHUNK_RADIUS_VALUE.get();
         chunkUpdatesRescanAmount = CHUNK_UPDATES_RESCAN_AMOUNT_VALUE.get();
         spawnDistance = SPAWN_DISTANCE_VALUE.get();
-        transparency = TRANSPARENCY_VALUE.get();
-        applyTransparencyToFoam = APPLY_TRANSPARENCY_TO_FOAM_VALUE.get();
+        waveOpacity = WAVE_OPACITY_VALUE.get();
+        foamOpacity = FOAM_OPACITY_VALUE.get();
+        fullMoonGlow = FULL_MOON_GLOW_VALUE.get();
         colorSource = COLOR_SOURCE_VALUE.get();
         customColor = CUSTOM_COLOR_VALUE.get();
         biomeColorOverrides = BIOME_COLOR_OVERRIDES_VALUE.get();
@@ -155,6 +166,7 @@ public final class WavifyConfig {
         riverWaveDensity = RIVER_WAVE_DENSITY_VALUE.get();
         riverWaveTravelBlocks = RIVER_WAVE_TRAVEL_BLOCKS_VALUE.get();
         waveYOffset = WAVE_Y_OFFSET_VALUE.get();
+        riverWaveYOffset = RIVER_WAVE_Y_OFFSET_VALUE.get();
         shaderWaveYSink = SHADER_WAVE_Y_SINK_VALUE.get();
         enableWaveSounds = ENABLE_WAVE_SOUNDS_VALUE.get();
         waveSoundVolume = WAVE_SOUND_VOLUME_VALUE.get();

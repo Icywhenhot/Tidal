@@ -8,7 +8,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec3;
-import net.superkat.wavify.compat.DynamicWatersCompat;
+import net.superkat.wavify.compat.FlowMods;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,7 +31,7 @@ public final class RiverFlow {
 
     @Nullable
     public static Flow dynamicFlowAt(Level level, double x, int y, double z) {
-        if (!DynamicWatersCompat.isLoaded()) return null;
+        if (!FlowMods.isLoaded()) return null;
         BlockPos pos = new BlockPos(Mth.floor(x), y, Mth.floor(z));
         FluidState fluid = level.getFluidState(pos);
         if (fluid.isEmpty()) return null;

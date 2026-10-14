@@ -58,9 +58,6 @@ public class WaveRenderer {
         VertexConsumer buffer = bufferSource.getBuffer(layer);
 
         float shaderSink = IrisCompat.isShaderPackActive() ? (float) WavifyConfig.shaderWaveYSink : 0f;
-        float baseOffset = (float) WavifyConfig.waveYOffset;
-        float foamBase = baseOffset;
-        float bodyBase = baseOffset + shaderSink;
 
         Sheets sheets = new Sheets(
                 this.spriteHandler.getWaveSprite(WavifySprites.MOVING_TEXTURE_ID),
@@ -75,14 +72,14 @@ public class WaveRenderer {
         for (Wave wave : waves) {
             if (wave == null) continue;
             matrices.pushPose();
-            renderWave(matrices, buffer, camera, wave, tickDelta, sheets, bodyBase, foamBase);
+            renderWave(matrices, buffer, camera, wave, tickDelta, sheets, shaderSink);
             matrices.popPose();
         }
 
         if (WavifyConfig.enableWetOverlay) renderOverlays(buffer, camera, handler.coveredBlocks);
     }
 
-    private void renderWave(PoseStack matrices, VertexConsumer buffer, Camera camera, Wave wave, float delta, Sheets sheets, float bodyBase, float foamBase) {
+    private void renderWave(PoseStack matrices, VertexConsumer buffer, Camera camera, Wave wave, float delta, Sheets sheets, float shaderSink) {
         Vec3 cameraPos = camera.getPosition();
 
         matrices.translate(wave.getX(delta) - cameraPos.x, wave.getY(delta) - cameraPos.y, wave.getZ(delta) - cameraPos.z);
@@ -94,17 +91,14 @@ public class WaveRenderer {
         WaveSprite colorable = washingUp ? sheets.topWashing() : sheets.moving();
         WaveSprite white = washingUp ? sheets.topWashingWhite() : sheets.movingWhite();
 
-        float transparency = (float) WavifyConfig.transparency;
-        float alpha = wave.alpha * transparency;
-        Paint paint = new Paint(wave.red, wave.green, wave.blue, alpha,
-                WavifyConfig.applyTransparencyToFoam ? alpha : wave.alpha, wave.getLight());
+        Paint paint = new Paint(wave.red, wave.green, wave.blue, wave.alpha * (float) WavifyConfig.waveOpacity,
+                wave.alpha * (float) WavifyConfig.foamOpacity, wave.getLight());
 
         int age = wave.getAge();
         int maxAge = wave.getMaxAge();
 
-        float sink = wave.getRenderYSink();
-        float bodyYOffset = bodyBase + sink;
-        float foamYOffset = foamBase + sink;
+        float foamYOffset = wave.getRenderYSink();
+        float bodyYOffset = foamYOffset + shaderSink;
 
         renderWaveColumns(matrices.last().pose(), buffer, wave, colorable, white, age, maxAge, paint, bodyYOffset, foamYOffset);
 

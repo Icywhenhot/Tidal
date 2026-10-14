@@ -14,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.superkat.wavify.WavifyParticles;
+import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.util.WavifyColors;
 import net.superkat.wavify.wave.WavifyWaveHandler;
@@ -37,6 +38,7 @@ public class SprayParticle extends TextureSheetParticle {
         super(level, x, y, z, velX, velY, velZ);
         this.spriteProvider = spriteProvider;
         this.white = params.isWhite();
+        this.alpha = (float) (this.white ? WavifyConfig.foamOpacity : WavifyConfig.waveOpacity);
 
         this.yaw = params.getYaw();
         this.intensity = params.getIntensity();

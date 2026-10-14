@@ -146,7 +146,7 @@ public class WavifyWaveHandler {
 
             if (RiverFlow.isRiverWater(this.level, spawnPos)) continue;
 
-            if (!ShoreCheck.isOceanConnected(this.level, spawnPos, yaw)) continue;
+            if (!ShoreCheck.isOceanConnected(this.level, spawnPos, yaw, site.getPos(), this.waterHandler.seaWater)) continue;
             if (!ShoreCheck.isPathSafe(this.level, spawnPos, yaw)) continue;
             if (ShoreCheck.isIsolatedObject(this.level, site)) continue;
 

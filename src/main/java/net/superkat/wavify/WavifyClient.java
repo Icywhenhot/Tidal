@@ -1,9 +1,12 @@
 package net.superkat.wavify;
 
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
@@ -33,7 +36,16 @@ public class WavifyClient {
 
     public static RenderType getWaveRenderLayer() {
         if (waveRenderLayer == null) {
-            waveRenderLayer = RenderType.entityTranslucent(WavifySpriteHandler.WAVE_ATLAS_ID);
+            waveRenderLayer = RenderType.create("wavify_waves", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, true,
+                    RenderType.CompositeState.builder()
+                            .setShaderState(RenderStateShard.RENDERTYPE_ENTITY_TRANSLUCENT_SHADER)
+                            .setTextureState(new RenderStateShard.TextureStateShard(WavifySpriteHandler.WAVE_ATLAS_ID, false, false))
+                            .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                            .setCullState(RenderStateShard.NO_CULL)
+                            .setLightmapState(RenderStateShard.LIGHTMAP)
+                            .setOverlayState(RenderStateShard.OVERLAY)
+                            .setOutputState(RenderStateShard.TRANSLUCENT_TARGET)
+                            .createCompositeState(true));
         }
         return waveRenderLayer;
     }

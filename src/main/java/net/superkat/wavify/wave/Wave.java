@@ -12,6 +12,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.LightLayer;
 import net.superkat.wavify.WavifyParticles;
+import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.particles.SprayParticleEffect;
 import net.superkat.wavify.util.WavifyColors;
 import org.jetbrains.annotations.Range;
@@ -352,9 +353,7 @@ public class Wave {
     }
 
     public int getLight() {
-
-        long dayTime = this.level.getGameTime();
-        if (canFullMoonGlow() && (int)(dayTime / 24000L % 8L) == 0 && dayTime % 24000L >= 12000)
+        if (WavifyConfig.fullMoonGlow && canFullMoonGlow() && this.level.getMoonPhase() == 0 && this.level.getDayTime() % 24000L >= 12000)
             return LightTexture.pack(15, 15);
         BlockPos pos = this.getBlockPos().offset(0, 1, 0);
         int blockLight = this.level.getBrightness(LightLayer.BLOCK, pos);
@@ -367,7 +366,7 @@ public class Wave {
     }
 
     public float getRenderYSink() {
-        return -0.5f;
+        return -0.5f + (float) WavifyConfig.waveYOffset;
     }
 
     public int getRenderColumnCount() {

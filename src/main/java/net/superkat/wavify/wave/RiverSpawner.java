@@ -39,7 +39,7 @@ public class RiverSpawner {
             return;
         }
 
-        this.field.ensureBuilt(this.water.riverWaters, player.getX(), player.getZ(), time);
+        this.field.ensureBuilt(this.level, this.water.riverWaters, player.getX(), player.getZ(), time);
         if (time % 40 == 0) spawn(waves, player);
     }
 
