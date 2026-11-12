@@ -2,7 +2,7 @@ package net.superkat.wavify.river;
 
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.fluid.FluidState;
-import net.minecraft.registry.tag.BiomeTags;
+import net.superkat.wavify.util.WaterBiomes;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
@@ -42,14 +42,14 @@ public final class RiverFlow {
     }
 
     public static boolean isRiverWater(ClientWorld world, BlockPos pos) {
-        if (world.getBiome(pos).isIn(BiomeTags.IS_RIVER)) return true;
+        if (WaterBiomes.isRiver(world.getBiome(pos))) return true;
 
         BlockPos.Mutable check = new BlockPos.Mutable();
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 if (dx == 0 && dz == 0) continue;
                 check.set(pos.getX() + dx, pos.getY(), pos.getZ() + dz);
-                if (world.getBiome(check).isIn(BiomeTags.IS_RIVER)) return true;
+                if (WaterBiomes.isRiver(world.getBiome(check))) return true;
             }
         }
         return false;
@@ -125,8 +125,8 @@ public final class RiverFlow {
             preferredY = y;
             sample.set(MathHelper.floor(x), y, MathHelper.floor(z));
             var biome = world.getBiome(sample);
-            if (biome.isIn(BiomeTags.IS_OCEAN)) return RAY_OCEAN;
-            if (!biome.isIn(BiomeTags.IS_RIVER)) return RAY_LAND;
+            if (WaterBiomes.isOcean(biome)) return RAY_OCEAN;
+            if (!WaterBiomes.isRiver(biome)) return RAY_LAND;
         }
         return RAY_RIVER;
     }

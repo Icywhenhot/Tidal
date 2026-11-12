@@ -7,10 +7,14 @@ import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.tag.TagKey;
 import net.minecraft.world.biome.Biome;
 import net.superkat.wavify.config.WavifyConfig;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class WavifyColors {
@@ -31,7 +35,11 @@ public class WavifyColors {
         cache.clear();
     }
 
+    private record TagColor(TagKey<Biome> tag, int color) {
+    }
+
     private static Map<Identifier, Integer> parsedOverrides = null;
+    private static List<TagColor> tagOverrides = List.of();
     private static String lastOverrideSource = null;
 
     public static int getWaterColor(ClientWorld world, BlockPos pos) {
@@ -80,13 +88,19 @@ public class WavifyColors {
 
     private static int lookupBiomeOverride(ClientWorld world, BlockPos pos) {
         Map<Identifier, Integer> overrides = getParsedOverrides();
-        if (overrides.isEmpty()) return NO_OVERRIDE;
+        if (overrides.isEmpty() && tagOverrides.isEmpty()) return NO_OVERRIDE;
 
         RegistryEntry<Biome> entry = world.getBiome(pos);
-        return entry.getKey()
+        int byId = entry.getKey()
                 .map(RegistryKey::getValue)
                 .map(id -> overrides.getOrDefault(id, NO_OVERRIDE))
                 .orElse(NO_OVERRIDE);
+        if (byId != NO_OVERRIDE) return byId;
+
+        for (TagColor tc : tagOverrides) {
+            if (entry.isIn(tc.tag())) return tc.color();
+        }
+        return NO_OVERRIDE;
     }
 
     private static Map<Identifier, Integer> getParsedOverrides() {
@@ -95,6 +109,7 @@ public class WavifyColors {
         if (parsedOverrides != null && raw.equals(lastOverrideSource)) return parsedOverrides;
 
         Map<Identifier, Integer> map = new HashMap<>();
+        List<TagColor> tags = new ArrayList<>();
         for (String entry : raw.split(",")) {
             String trimmed = entry.trim();
             if (trimmed.isEmpty()) continue;
@@ -106,13 +121,17 @@ public class WavifyColors {
             if (hexPart.startsWith("0x") || hexPart.startsWith("0X")) hexPart = hexPart.substring(2);
             try {
                 int color = Integer.parseInt(hexPart, 16) & 0xFFFFFF;
-                Identifier id = Identifier.tryParse(idPart);
-                if (id != null) map.put(id, color);
+                boolean tag = idPart.startsWith("#");
+                Identifier id = Identifier.tryParse(tag ? idPart.substring(1) : idPart);
+                if (id == null) continue;
+                if (tag) tags.add(new TagColor(TagKey.of(RegistryKeys.BIOME, id), color));
+                else map.put(id, color);
             } catch (NumberFormatException ignored) {
             }
         }
 
         parsedOverrides = map;
+        tagOverrides = tags;
         lastOverrideSource = raw;
         cache.clear();
         return map;

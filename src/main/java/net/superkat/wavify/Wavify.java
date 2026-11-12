@@ -7,6 +7,7 @@ import net.superkat.wavify.duck.WavifyWorld;
 import net.superkat.wavify.sound.WavifySounds;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import net.superkat.wavify.util.FrameWatch;
 
 public class Wavify implements ModInitializer {
 	public static final String MOD_ID = "wavify";
@@ -18,7 +19,9 @@ public class Wavify implements ModInitializer {
 
 		ClientTickEvents.END_WORLD_TICK.register(clientWorld -> {
 			WavifyWorld wavifyWorld = (WavifyWorld) clientWorld;
+			FrameWatch.begin();
 			wavifyWorld.wavify$wavifyWaveHandler().tick();
+			FrameWatch.end();
 		});
 
 		WavifyParticles.registerParticles();

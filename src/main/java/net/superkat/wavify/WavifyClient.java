@@ -25,6 +25,7 @@ import net.superkat.wavify.particles.SplashParticle;
 import net.superkat.wavify.particles.SprayParticle;
 import net.superkat.wavify.sound.WavifySounds;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
+import net.superkat.wavify.util.FrameWatch;
 
 public class WavifyClient implements ClientModInitializer {
 
@@ -53,6 +54,7 @@ public class WavifyClient implements ClientModInitializer {
         ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> ClientState.worldChanged(world));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            FrameWatch.tick(client);
             if (client.world == null || client.player == null) {
                 ClientState.SOUND.hardReset();
                 return;
@@ -80,6 +82,7 @@ public class WavifyClient implements ClientModInitializer {
         WorldRenderEvents.END_MAIN.register(context -> {
             MinecraftClient mc = MinecraftClient.getInstance();
             if(mc.world == null) return;
+            FrameWatch.begin();
             RenderLayer layer = getWaveRenderLayer();
             Tessellator tessellator = Tessellator.getInstance();
 
@@ -88,9 +91,8 @@ public class WavifyClient implements ClientModInitializer {
             ClientState.wavesIn(mc.world).render(buffer, context);
 
             BuiltBuffer builtBuffer = buffer.endNullable();
-            if(builtBuffer == null) return;
-
-            layer.draw(builtBuffer);
+            if (builtBuffer != null) layer.draw(builtBuffer);
+            FrameWatch.end();
         });
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(ClientState.SPRITES);

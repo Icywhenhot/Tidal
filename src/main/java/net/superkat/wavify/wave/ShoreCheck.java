@@ -7,7 +7,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.BiomeTags;
+import net.superkat.wavify.util.WaterBiomes;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
@@ -52,11 +52,11 @@ public final class ShoreCheck {
         while (!queue.isEmpty()) {
             BlockPos current = queue.poll();
             RegistryEntry<Biome> biome = world.getBiome(current);
-            if (biome.isIn(BiomeTags.IS_OCEAN)) {
+            if (WaterBiomes.isOcean(biome)) {
                 sea = true;
                 break;
             }
-            if (biome.isIn(BiomeTags.IS_RIVER)) continue;
+            if (WaterBiomes.isRiver(biome)) continue;
 
             long key = packXZ(current.getX(), current.getZ());
             if (seaWater.get(key) == 1) {
@@ -98,7 +98,7 @@ public final class ShoreCheck {
         double x = from.getX() + 0.5;
         double z = from.getZ() + 0.5;
         int prefY = from.getY() - 1;
-        boolean ocean = world.getBiome(from).isIn(BiomeTags.IS_OCEAN);
+        boolean ocean = WaterBiomes.isOcean(world.getBiome(from));
 
         int cellX = Integer.MIN_VALUE;
         int cellZ = Integer.MIN_VALUE;
@@ -118,7 +118,7 @@ public final class ShoreCheck {
             prefY = water.getY();
 
             if (RiverFlow.isRiverWater(world, water)) return new Walk(true, ocean);
-            if (world.getBiome(water).isIn(BiomeTags.IS_OCEAN)) ocean = true;
+            if (WaterBiomes.isOcean(world.getBiome(water))) ocean = true;
         }
 
         return new Walk(false, ocean);

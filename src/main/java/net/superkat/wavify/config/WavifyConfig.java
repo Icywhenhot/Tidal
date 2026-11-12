@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.fabricmc.loader.api.FabricLoader;
 import net.superkat.wavify.Wavify;
+import net.superkat.wavify.wave.RiverStyle;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -23,10 +24,55 @@ public final class WavifyConfig {
         CUSTOM
     }
 
+    public enum Quality {
+        PERFORMANCE(3, 32, 2.0, 0.4),
+        BALANCED(5, 56, 4.0, 1.0),
+        FANCY(6, 72, 5.0, 1.4),
+        ULTRA(8, 96, 7.0, 2.0),
+        CUSTOM(0, 0, 0, 0);
+
+        final int chunks;
+        final int riverRadius;
+        final double riverDensity;
+        final double effects;
+
+        Quality(int chunks, int riverRadius, double riverDensity, double effects) {
+            this.chunks = chunks;
+            this.riverRadius = riverRadius;
+            this.riverDensity = riverDensity;
+            this.effects = effects;
+        }
+
+        boolean matches() {
+            return chunkRadius == chunks
+                    && riverWaveSpawnRadius == riverRadius
+                    && Math.abs(riverWaveDensity - riverDensity) < 1.0e-4
+                    && Math.abs(effectsAmount - effects) < 1.0e-4;
+        }
+
+        void write() {
+            chunkRadius = chunks;
+            riverWaveSpawnRadius = riverRadius;
+            riverWaveDensity = riverDensity;
+            effectsAmount = effects;
+        }
+    }
+
+    public static Quality quality = Quality.BALANCED;
+    public static boolean autoPerformance = true;
+    public static double effectsAmount = 1.0;
+    public static boolean boatWakes = true;
+    public static boolean entityRipples = true;
+    public static boolean waterfallMist = true;
+    public static boolean rainRipples = true;
+    public static boolean iceAndSlush = true;
+    public static boolean autoShaderOffsets = true;
+
     public static boolean enableOceanWaves = true;
     public static int chunkRadius = 5;
     public static int chunkUpdatesRescanAmount = 50;
     public static int spawnDistance = 8;
+    public static double weatherIntensity = 1.0;
     public static double waveOpacity = 1.0;
     public static double foamOpacity = 1.0;
     public static boolean fullMoonGlow = false;
@@ -34,10 +80,12 @@ public final class WavifyConfig {
     public static int customColor = 0x3F76E4;
     public static String biomeColorOverrides = "";
     public static boolean enableWetOverlay = true;
+    public static int wetSandDryTime = 100;
     public static boolean enableRiverWaves = true;
+    public static RiverStyle riverWaveStyle = RiverStyle.CREST;
     public static int riverWaveSpawnRadius = 56;
     public static double riverWaveDensity = 4.0;
-    public static int riverWaveTravelBlocks = 11;
+    public static int riverWaveTravelBlocks = 18;
     public static double waveYOffset = 0.0;
     public static double riverWaveYOffset = 0.0;
     public static double shaderWaveYSink = -0.30;
@@ -66,7 +114,17 @@ public final class WavifyConfig {
                 Wavify.LOGGER.warn("could not read {}, keeping defaults", path, e);
             }
         }
+        settleQuality(quality);
         save();
+    }
+
+    public static void settleQuality(Quality before) {
+        if (quality == Quality.CUSTOM) return;
+        if (quality != before) {
+            quality.write();
+        } else if (!quality.matches()) {
+            quality = Quality.CUSTOM;
+        }
     }
 
     public static void save() {
