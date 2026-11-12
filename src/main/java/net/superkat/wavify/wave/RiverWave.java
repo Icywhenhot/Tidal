@@ -3,9 +3,11 @@ package net.superkat.wavify.wave;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.superkat.wavify.WavifyParticles;
 import net.superkat.wavify.config.WavifyConfig;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.river.RiverFlowField;
@@ -16,9 +18,10 @@ public class RiverWave extends Wave {
 
     private static final float BODY_HEIGHT = 1.15f;
 
-    private static final double STEER_BLEND = 0.18;
+    private static final double STEER_BLEND = 0.1;
 
     protected final RiverFlowField field;
+    protected final RiverStyle style;
 
     protected double dirX;
     protected double dirZ;
@@ -28,6 +31,13 @@ public class RiverWave extends Wave {
     protected float fadeShrink = 0f;
     protected int waterY;
     protected boolean fading = false;
+    protected float coastSpeed;
+
+    protected final float fadeStart;
+    protected final double wobbleAmp;
+    protected final double wobbleFreq;
+    protected final double wobblePhase;
+    protected final double curl;
 
     protected final float baseScale;
     protected final float baseLength;
@@ -36,9 +46,10 @@ public class RiverWave extends Wave {
     protected final float curvatureFactor;
     protected final float lateralFactor;
 
-    public RiverWave(ClientLevel world, BlockPos spawnWater, RiverFlowField field, double dirX, double dirZ, float travelBlocks) {
+    public RiverWave(ClientLevel world, BlockPos spawnWater, RiverFlowField field, RiverStyle style, double dirX, double dirZ, float travelBlocks, float storm) {
         super(world, spawnWater.above(), (float) Math.toDegrees(Math.atan2(dirZ, dirX)), 0.4f, false);
         this.field = field;
+        this.style = style;
         this.dirX = dirX;
         this.dirZ = dirZ;
         this.waterY = spawnWater.getY();
@@ -49,22 +60,30 @@ public class RiverWave extends Wave {
         this.setWidth(width);
 
         int depth = RiverFlow.depthAt(world, spawnWater, 4);
-        this.travelSpeed = (float) Mth.clamp((0.072 + depth * 0.012) * 1.2, 0.090, 0.150);
+        this.travelSpeed = (float) Mth.clamp((0.072 + depth * 0.012) * 1.2, 0.090, 0.150) * style.speed * (1f + 0.3f * storm);
 
         float sizeJitter = 0.82f + world.getRandom().nextFloat() * 0.36f;
         this.scale = Math.max(1.7f, (1.55f + this.width * 0.24f) * sizeJitter);
         this.length = Math.max(1.05f, (1.0f + this.width * 0.11f) * sizeJitter);
         this.baseScale = this.scale;
         this.baseLength = this.length;
-        this.maxAlpha = 0.78f;
+        this.maxAlpha = 0.78f * Math.min(1f, 0.5f + style.foam * 0.5f);
         this.motionPhase = world.getRandom().nextFloat() * 24f;
 
         this.curvatureFactor = 0.65f + world.getRandom().nextFloat() * 0.95f;
         this.lateralFactor = 0.85f + world.getRandom().nextFloat() * 0.35f;
 
-        double budgetJitter = 0.85 + world.getRandom().nextDouble() * 0.30;
-        this.distanceBudget = Math.max(4.0, travelBlocks * budgetJitter);
-        this.maxAge = (int) (this.distanceBudget / this.travelSpeed) + 40;
+        RandomSource rand = world.getRandom();
+        double budgetJitter = 0.7 + rand.nextDouble() * 0.6;
+        this.distanceBudget = Math.max(4.0, travelBlocks * style.travel * budgetJitter);
+        this.maxAge = (int) (this.distanceBudget / this.travelSpeed) + 80;
+        this.coastSpeed = this.travelSpeed;
+
+        this.fadeStart = 0.45f + rand.nextFloat() * 0.25f;
+        this.wobbleAmp = Math.toRadians(7 + rand.nextDouble() * 10);
+        this.wobbleFreq = Math.PI * 2 / (7 + rand.nextDouble() * 7);
+        this.wobblePhase = rand.nextDouble() * Math.PI * 2;
+        this.curl = Math.toRadians((rand.nextDouble() - 0.5) * 8);
         this.maxWaterAge = this.maxAge;
         this.bigWave = false;
 
@@ -80,38 +99,45 @@ public class RiverWave extends Wave {
 
     @Override
     public int getRenderColumnCount() {
-        int columns = Math.max(5, Math.round(this.width) + 2);
-        if ((columns & 1) == 0) columns++;
-        return Math.min(columns, 11);
+        int columns = Mth.clamp(Math.round(this.width) + 2, this.style.minColumns, this.style.maxColumns);
+        if ((columns & 1) == 0) columns = columns < this.style.maxColumns ? columns + 1 : columns - 1;
+        return columns;
     }
 
     @Override
     public float getRenderColumnLateralOffset(int columnIndex, int columnCount) {
-        return normalizedColumn(columnIndex, columnCount) * (0.68f + this.width * 0.05f) * this.lateralFactor;
+        return normalizedColumn(columnIndex, columnCount) * (0.68f + this.width * 0.05f) * this.lateralFactor * this.style.spread;
     }
 
     @Override
     public float getRenderColumnForwardOffset(int columnIndex, int columnCount) {
         float normalized = Math.abs(normalizedColumn(columnIndex, columnCount));
-        return -(0.16f + normalized * normalized * 0.54f) * this.curvatureFactor;
+        float off = -(0.16f + normalized * normalized * 0.54f) * this.curvatureFactor * this.style.curve;
+        if (this.style == RiverStyle.SWELL) off += Mth.sin(this.age * 0.05f + columnIndex * 0.9f) * 0.15f;
+        return off;
     }
 
     @Override
     public float getRenderColumnVerticalOffset(int columnIndex, int columnCount) {
         float normalized = Math.abs(normalizedColumn(columnIndex, columnCount));
-        return (1f - normalized) * 0.055f;
+        return (1f - normalized) * this.style.lift;
     }
 
     @Override
     public float getRenderColumnWidth(int columnIndex, int columnCount) {
         float normalized = Math.abs(normalizedColumn(columnIndex, columnCount));
-        return Mth.lerp(normalized, 0.62f, 1.0f);
+        return Mth.lerp(normalized, this.style.widthIn, this.style.widthOut);
     }
 
     @Override
     public float getRenderColumnLength(int columnIndex, int columnCount) {
         float normalized = Math.abs(normalizedColumn(columnIndex, columnCount));
-        return this.length * Mth.lerp(normalized, 0.64f, 1.12f);
+        return this.length * Mth.lerp(normalized, this.style.lengthIn, this.style.lengthOut);
+    }
+
+    @Override
+    public float getFoamAlpha() {
+        return this.style.foam;
     }
 
     @Override
@@ -123,7 +149,9 @@ public class RiverWave extends Wave {
 
         capturePreviousState();
 
-        if (!this.fading) {
+        if (this.fading) {
+            coast();
+        } else {
             updateWaterColor();
             int surfaceY = RiverFlow.surfaceWaterY(this.level, this.x, this.z, this.waterY);
             if (surfaceY == Integer.MIN_VALUE) {
@@ -135,6 +163,7 @@ public class RiverWave extends Wave {
                     syncBoxToCurrentPosition();
                 }
                 steerAndAdvance();
+                if (!this.fading && this.level.getRandom().nextFloat() < this.style.sprayChance) splash();
             }
         }
 
@@ -143,7 +172,7 @@ public class RiverWave extends Wave {
         this.yaw = (float) Math.toDegrees(Math.atan2(this.dirZ, this.dirX));
         syncBoxToCurrentPosition();
 
-        if (this.fading && this.alpha <= 0.02f) {
+        if (this.alpha <= 0.01f && (this.fading || this.distanceTraveled >= this.distanceBudget)) {
             this.markDead();
         }
     }
@@ -154,6 +183,9 @@ public class RiverWave extends Wave {
         if (flow != null) {
             double tx = flow.dirX();
             double tz = flow.dirZ();
+            double turn = this.curl + this.wobbleAmp * Math.sin(this.distanceTraveled * this.wobbleFreq + this.wobblePhase);
+            double cos = Math.cos(turn);
+            double sin = Math.sin(turn);
 
             if (tx * this.dirX + tz * this.dirZ < 0.0) {
                 if (current != null) {
@@ -163,6 +195,9 @@ public class RiverWave extends Wave {
                 tx = -tx;
                 tz = -tz;
             }
+            double rx = tx * cos - tz * sin;
+            tz = tx * sin + tz * cos;
+            tx = rx;
             double nx = this.dirX + (tx - this.dirX) * STEER_BLEND;
             double nz = this.dirZ + (tz - this.dirZ) * STEER_BLEND;
             double len = Math.sqrt(nx * nx + nz * nz);
@@ -177,15 +212,30 @@ public class RiverWave extends Wave {
         this.velY = 0f;
         this.velZ = (float) (this.dirZ * this.travelSpeed);
 
+        if (!waterAt(this.x + this.dirX * 0.8, this.z + this.dirZ * 0.8)) {
+            this.fading = true;
+            return;
+        }
         this.move(this.velX, this.velY, this.velZ);
         if (this.hitBlock || !waterAt(this.x, this.z)) {
             this.fading = true;
             return;
         }
         this.distanceTraveled += this.travelSpeed;
-        if (this.distanceTraveled >= this.distanceBudget) {
-            this.fading = true;
+    }
+
+    private void coast() {
+        this.coastSpeed *= 0.9f;
+        if (this.coastSpeed < 0.005f) return;
+        double nx = this.x + this.dirX * this.coastSpeed;
+        double nz = this.z + this.dirZ * this.coastSpeed;
+        if (!waterAt(nx, nz)) {
+            this.coastSpeed = 0f;
+            return;
         }
+        this.velX = (float) (this.dirX * this.coastSpeed);
+        this.velZ = (float) (this.dirZ * this.coastSpeed);
+        this.move(this.velX, 0f, this.velZ);
     }
 
     @Override
@@ -208,6 +258,13 @@ public class RiverWave extends Wave {
         return SMALL_WAVE_MAX_AGE;
     }
 
+    private void splash() {
+        RandomSource rand = this.level.getRandom();
+        this.level.addParticle(WavifyParticles.SPLASH_PARTICLE.get(),
+                this.x + rand.nextGaussian() * 0.4, this.waterY + 1.05, this.z + rand.nextGaussian() * 0.4,
+                this.dirX * 0.05 + rand.nextGaussian() * 0.03, 0.12 + rand.nextFloat() * 0.08, this.dirZ * 0.05 + rand.nextGaussian() * 0.03);
+    }
+
     private boolean waterAt(double wx, double wz) {
         return RiverFlow.surfaceWaterY(this.level, wx, wz, this.waterY) != Integer.MIN_VALUE;
     }
@@ -215,17 +272,24 @@ public class RiverWave extends Wave {
     protected void updateShapeAndOpacity() {
         float pulse = Mth.sin((this.age + this.motionPhase) * 0.18f);
         float crest = Math.abs(pulse);
-        this.pitch = pulse * 2.4f;
-        this.scale = this.baseScale + crest * 0.05f;
+        this.pitch = pulse * 2.4f * this.style.pulse;
+        this.scale = this.baseScale + crest * 0.05f * this.style.pulse;
 
         if (this.fading) {
-            this.alpha = Math.max(0f, this.alpha - 0.05f);
-            this.fadeShrink = Math.min(this.baseLength, this.fadeShrink + 0.02f);
+            this.alpha = Math.max(0f, this.alpha - 0.035f);
+            this.fadeShrink = Math.min(this.baseLength * 0.7f, this.fadeShrink + 0.015f);
         } else {
-            this.alpha = Math.min(this.maxAlpha, this.alpha + 0.06f);
+            float p = (float) (this.distanceTraveled / this.distanceBudget);
+            float out = 1f;
+            if (p > this.fadeStart) {
+                float k = Mth.clamp(1f - (p - this.fadeStart) / (1f - this.fadeStart), 0f, 1f);
+                out = k * k * (3f - 2f * k);
+            }
+            this.alpha = Math.min(this.alpha + 0.03f, this.maxAlpha * out);
+            this.fadeShrink = Math.max(this.fadeShrink, this.baseLength * 0.6f * (1f - out));
         }
 
-        this.length = Math.max(0f, this.baseLength + crest * 0.08f - this.fadeShrink);
+        this.length = Math.max(0f, this.baseLength + crest * 0.08f * this.style.pulse - this.fadeShrink);
     }
 
     protected float normalizedColumn(int columnIndex, int columnCount) {

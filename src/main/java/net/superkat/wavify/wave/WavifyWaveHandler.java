@@ -4,6 +4,7 @@ import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import net.minecraft.world.level.block.state.BlockState;
@@ -19,11 +20,14 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.Vec3i;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.superkat.wavify.config.WavifyConfig;
+import net.superkat.wavify.fx.SurfaceFx;
 import net.superkat.wavify.mixin.OptionsAccessor;
 import net.superkat.wavify.renderer.WaveRenderer;
 import net.superkat.wavify.river.RiverFlow;
 import net.superkat.wavify.scan.SitePos;
 import net.superkat.wavify.scan.WaterHandler;
+import net.superkat.wavify.util.FrameWatch;
+import net.superkat.wavify.util.WaterBiomes;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -36,10 +40,14 @@ public class WavifyWaveHandler {
     public final ClientLevel level;
     public WaterHandler waterHandler;
     public WaveRenderer renderer;
+    public final SurfaceFx fx;
 
     public List<Wave> waves = new ObjectArrayList<>();
 
-    public Set<BlockPos> coveredBlocks = new ObjectArraySet<>();
+    public final Object2LongOpenHashMap<BlockPos> wetBlocks = new Object2LongOpenHashMap<>();
+
+    public float storm = 0f;
+    private int oceanTimer = 0;
 
     private final RiverSpawner rivers;
 
@@ -49,6 +57,7 @@ public class WavifyWaveHandler {
         this.level = level;
         this.waterHandler = new WaterHandler(this, level);
         this.renderer = new WaveRenderer(this, level);
+        this.fx = new SurfaceFx(level);
         this.rivers = new RiverSpawner(level, this.waterHandler);
     }
 
@@ -77,14 +86,19 @@ public class WavifyWaveHandler {
         if (Minecraft.getInstance().isPaused()) return;
         long time = this.level.getGameTime();
 
-        if (WavifyConfig.enableOceanWaves && time % 80 == 0) {
-            spawnAllWaves();
+        float stormTarget = (this.level.getRainLevel(1f) + this.level.getThunderLevel(1f)) * 0.5f * (float) WavifyConfig.weatherIntensity;
+        this.storm += (stormTarget - this.storm) * 0.02f;
+
+        int interval = Math.round((80 - 30 * Math.min(this.storm, 1f)) / FrameWatch.scale());
+        if (++this.oceanTimer >= interval) {
+            this.oceanTimer = 0;
+            if (WavifyConfig.enableOceanWaves) spawnAllWaves();
         }
 
-        this.rivers.tick(this.waves, Minecraft.getInstance().player, time);
+        this.rivers.tick(this.waves, Minecraft.getInstance().player, time, this.storm);
+        this.fx.tick(Minecraft.getInstance().player, time);
 
         boolean updateCoveredBlocks = WavifyConfig.enableWetOverlay && time % 10 == 0;
-        ObjectArraySet<BlockPos> updatedCovered = new ObjectArraySet<>();
 
         for (Iterator<Wave> iterator = waves.iterator(); iterator.hasNext(); ) {
             Wave wave = iterator.next();
@@ -93,14 +107,15 @@ public class WavifyWaveHandler {
             if (wave.isDead()) {
                 iterator.remove();
             } else if (updateCoveredBlocks) {
-                updatedCovered.addAll(wave.getCoveredBlocks());
+                for (BlockPos pos : wave.getCoveredBlocks()) this.wetBlocks.put(pos, time);
             }
         }
 
-        if (updateCoveredBlocks) {
-            this.coveredBlocks = updatedCovered;
-        } else if (!WavifyConfig.enableWetOverlay && !this.coveredBlocks.isEmpty()) {
-            this.coveredBlocks = updatedCovered;
+        if (!WavifyConfig.enableWetOverlay) {
+            this.wetBlocks.clear();
+        } else if (updateCoveredBlocks) {
+            long dry = WavifyConfig.wetSandDryTime;
+            this.wetBlocks.object2LongEntrySet().removeIf(e -> time - e.getLongValue() > dry);
         }
     }
 
@@ -135,7 +150,7 @@ public class WavifyWaveHandler {
             Set<BlockPos> connected = findConnected(water, yaw, waterBlocks, visited);
             visited.addAll(connected);
 
-            boolean bigWave = site.posCount() >= 100;
+            boolean bigWave = site.posCount() >= 100 - 50 * Math.min(this.storm, 1f);
 
             spawned++;
             float yOffset = Mth.sin(spawned) / 16f + 0.65f;
@@ -150,9 +165,16 @@ public class WavifyWaveHandler {
             if (!ShoreCheck.isPathSafe(this.level, spawnPos, yaw)) continue;
             if (ShoreCheck.isIsolatedObject(this.level, site)) continue;
 
+            if (WavifyConfig.iceAndSlush && WaterBiomes.isFrozen(this.level, beneath)) {
+                this.fx.slushSurf(beneath, yaw);
+                continue;
+            }
+
             Wave wave = new Wave(this.level, spawnPos, yaw, yOffset, bigWave);
             int width = (int) Mth.clamp(connected.size() * 1.5, 1, 3);
             wave.setWidth(width);
+            wave.velX *= 1f + 0.35f * this.storm;
+            wave.velZ *= 1f + 0.35f * this.storm;
             this.waves.add(wave);
         }
     }

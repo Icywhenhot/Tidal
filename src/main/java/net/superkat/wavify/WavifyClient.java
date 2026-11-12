@@ -28,6 +28,7 @@ import net.superkat.wavify.particles.BigSplashParticle;
 import net.superkat.wavify.particles.SplashParticle;
 import net.superkat.wavify.particles.SprayParticle;
 import net.superkat.wavify.sprite.WavifySpriteHandler;
+import net.superkat.wavify.util.FrameWatch;
 
 @Mod(value = Wavify.MOD_ID, dist = Dist.CLIENT)
 public class WavifyClient {
@@ -80,6 +81,7 @@ public class WavifyClient {
 
     private void onClientTick(ClientTickEvent.Post event) {
         Minecraft client = Minecraft.getInstance();
+        FrameWatch.tick(client);
         if (client.level == null || client.player == null) {
             ClientState.SOUND.hardReset();
             return;
@@ -90,7 +92,9 @@ public class WavifyClient {
     private void onLevelTick(LevelTickEvent.Post event) {
         if (event.getLevel() instanceof ClientLevel level) {
             if (Minecraft.getInstance().player == null) return;
+            FrameWatch.begin();
             ClientState.wavesIn(level).tick();
+            FrameWatch.end();
         }
     }
 
@@ -123,12 +127,14 @@ public class WavifyClient {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
 
+        FrameWatch.begin();
         RenderType layer = getWaveRenderLayer();
         MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
 
         ClientState.wavesIn(mc.level).render(bufferSource, layer);
 
         bufferSource.endBatch(layer);
+        FrameWatch.end();
     }
 
     private void onPlayerLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {

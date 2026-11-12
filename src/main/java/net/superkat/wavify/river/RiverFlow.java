@@ -2,7 +2,7 @@ package net.superkat.wavify.river;
 
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
-import net.minecraft.tags.BiomeTags;
+import net.superkat.wavify.util.WaterBiomes;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
@@ -42,14 +42,14 @@ public final class RiverFlow {
     }
 
     public static boolean isRiverWater(ClientLevel level, BlockPos pos) {
-        if (level.getBiome(pos).is(BiomeTags.IS_RIVER)) return true;
+        if (WaterBiomes.isRiver(level.getBiome(pos))) return true;
 
         BlockPos.MutableBlockPos check = new BlockPos.MutableBlockPos();
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 if (dx == 0 && dz == 0) continue;
                 check.set(pos.getX() + dx, pos.getY(), pos.getZ() + dz);
-                if (level.getBiome(check).is(BiomeTags.IS_RIVER)) return true;
+                if (WaterBiomes.isRiver(level.getBiome(check))) return true;
             }
         }
         return false;
@@ -125,8 +125,8 @@ public final class RiverFlow {
             preferredY = y;
             sample.set(Mth.floor(x), y, Mth.floor(z));
             var biome = level.getBiome(sample);
-            if (biome.is(BiomeTags.IS_OCEAN)) return RAY_OCEAN;
-            if (!biome.is(BiomeTags.IS_RIVER)) return RAY_LAND;
+            if (WaterBiomes.isOcean(biome)) return RAY_OCEAN;
+            if (!WaterBiomes.isRiver(biome)) return RAY_LAND;
         }
         return RAY_RIVER;
     }

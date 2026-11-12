@@ -9,7 +9,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
-import net.minecraft.tags.BiomeTags;
+import net.superkat.wavify.util.WaterBiomes;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.util.Mth;
 import net.superkat.wavify.river.RiverFlow;
@@ -52,11 +52,11 @@ public final class ShoreCheck {
         while (!queue.isEmpty()) {
             BlockPos current = queue.poll();
             Holder<Biome> biome = level.getBiome(current);
-            if (biome.is(BiomeTags.IS_OCEAN)) {
+            if (WaterBiomes.isOcean(biome)) {
                 sea = true;
                 break;
             }
-            if (biome.is(BiomeTags.IS_RIVER)) continue;
+            if (WaterBiomes.isRiver(biome)) continue;
 
             long key = packXZ(current.getX(), current.getZ());
             if (seaWater.get(key) == 1) {
@@ -98,7 +98,7 @@ public final class ShoreCheck {
         double x = from.getX() + 0.5;
         double z = from.getZ() + 0.5;
         int prefY = from.getY() - 1;
-        boolean ocean = level.getBiome(from).is(BiomeTags.IS_OCEAN);
+        boolean ocean = WaterBiomes.isOcean(level.getBiome(from));
 
         int cellX = Integer.MIN_VALUE;
         int cellZ = Integer.MIN_VALUE;
@@ -118,7 +118,7 @@ public final class ShoreCheck {
             prefY = water.getY();
 
             if (RiverFlow.isRiverWater(level, water)) return new Walk(true, ocean);
-            if (level.getBiome(water).is(BiomeTags.IS_OCEAN)) ocean = true;
+            if (WaterBiomes.isOcean(level.getBiome(water))) ocean = true;
         }
 
         return new Walk(false, ocean);

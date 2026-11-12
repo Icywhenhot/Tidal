@@ -15,4 +15,12 @@ public class WavifySprites {
     public static final ResourceLocation BOTTOM_WASHING_WHITE_ID = ResourceLocation.fromNamespaceAndPath(MOD_ID, "washing_bottom_white");
 
     public static final ResourceLocation WET_OVERLAY_TEXTURE_ID = ResourceLocation.fromNamespaceAndPath(MOD_ID, "wet_overlay");
+    public static final ResourceLocation RIPPLE_ID = ResourceLocation.fromNamespaceAndPath(MOD_ID, "ripple");
+    public static final ResourceLocation WAKE_LINE_ID = ResourceLocation.fromNamespaceAndPath(MOD_ID, "wake_line");
+    public static final ResourceLocation FOAM_PUFF_ID = ResourceLocation.fromNamespaceAndPath(MOD_ID, "foam_puff");
+    public static final ResourceLocation[] SLUSH_IDS = {
+            ResourceLocation.fromNamespaceAndPath(MOD_ID, "slush_1"),
+            ResourceLocation.fromNamespaceAndPath(MOD_ID, "slush_2"),
+            ResourceLocation.fromNamespaceAndPath(MOD_ID, "slush_3")
+    };
 }

@@ -22,10 +22,10 @@ import net.superkat.wavify.sprite.WaveSprite;
 import net.superkat.wavify.sprite.WavifySprites;
 import net.superkat.wavify.wave.WavifyWaveHandler;
 import net.superkat.wavify.wave.Wave;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import org.joml.Matrix4f;
 
 import java.util.List;
-import java.util.Set;
 
 public class WaveRenderer {
     private static final float WAVE_FOAM_Y_OFFSET = 0.08f;
@@ -49,15 +49,20 @@ public class WaveRenderer {
     }
 
     public void render(MultiBufferSource bufferSource, RenderType layer) {
-        List<Wave> waves = this.handler.getWaves();
-        if (waves == null || waves.isEmpty()) return;
-
         Minecraft mc = Minecraft.getInstance();
         float tickDelta = mc.getTimer().getGameTimeDeltaPartialTick(false);
         Camera camera = mc.gameRenderer.getMainCamera();
         VertexConsumer buffer = bufferSource.getBuffer(layer);
 
-        float shaderSink = IrisCompat.isShaderPackActive() ? (float) WavifyConfig.shaderWaveYSink : 0f;
+        List<Wave> waves = this.handler.getWaves();
+        if (!waves.isEmpty()) renderWaves(buffer, camera, waves, tickDelta);
+
+        if (WavifyConfig.enableWetOverlay) renderOverlays(buffer, camera, this.level.getGameTime() + tickDelta);
+        this.handler.fx.render(buffer, camera, tickDelta);
+    }
+
+    private void renderWaves(VertexConsumer buffer, Camera camera, List<Wave> waves, float tickDelta) {
+        float shaderSink = IrisCompat.waveSink();
 
         Sheets sheets = new Sheets(
                 this.spriteHandler.getWaveSprite(WavifySprites.MOVING_TEXTURE_ID),
@@ -75,8 +80,6 @@ public class WaveRenderer {
             renderWave(matrices, buffer, camera, wave, tickDelta, sheets, shaderSink);
             matrices.popPose();
         }
-
-        if (WavifyConfig.enableWetOverlay) renderOverlays(buffer, camera, handler.coveredBlocks);
     }
 
     private void renderWave(PoseStack matrices, VertexConsumer buffer, Camera camera, Wave wave, float delta, Sheets sheets, float shaderSink) {
@@ -92,7 +95,7 @@ public class WaveRenderer {
         WaveSprite white = washingUp ? sheets.topWashingWhite() : sheets.movingWhite();
 
         Paint paint = new Paint(wave.red, wave.green, wave.blue, wave.alpha * (float) WavifyConfig.waveOpacity,
-                wave.alpha * (float) WavifyConfig.foamOpacity, wave.getLight());
+                Math.min(1f, wave.alpha * (float) WavifyConfig.foamOpacity * wave.getFoamAlpha()), wave.getLight());
 
         int age = wave.getAge();
         int maxAge = wave.getMaxAge();
@@ -169,8 +172,8 @@ public class WaveRenderer {
                 .setColor(red, green, blue, alpha).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
     }
 
-    public void renderOverlays(VertexConsumer buffer, Camera camera, Set<BlockPos> coveredBlocks) {
-        if (coveredBlocks.isEmpty()) return;
+    public void renderOverlays(VertexConsumer buffer, Camera camera, float now) {
+        if (this.handler.wetBlocks.isEmpty()) return;
 
         TextureAtlasSprite sprite = getWetOverlaySprite();
         float u0 = sprite.getU0();
@@ -182,23 +185,34 @@ public class WaveRenderer {
         Vec3 cameraPos = camera.getPosition();
         Matrix4f matrix4f = new Matrix4f();
 
-        for (BlockPos covered : coveredBlocks) {
+        float dry = WavifyConfig.wetSandDryTime;
+        for (Object2LongMap.Entry<BlockPos> wet : this.handler.wetBlocks.object2LongEntrySet()) {
+            BlockPos covered = wet.getKey();
+            float since = Math.max(0f, now - wet.getLongValue() - 10f);
+            float left = dry <= 0f ? 1f : Mth.clamp(1f - since / dry, 0f, 1f);
+            float a = 0.25f * left * left;
+            if (a <= 0.005f) continue;
             float x = (float) (covered.getX() - cameraPos.x);
             float y = (float) (covered.getY() + 1.01 - cameraPos.y);
             float z = (float) (covered.getZ() - cameraPos.z);
 
             buffer.addVertex(matrix4f, x, y, z)
-                    .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+                    .setColor(0.1f, 0.1f, 0.25f, a).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
 
             buffer.addVertex(matrix4f, x, y, z + 1f)
-                    .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+                    .setColor(0.1f, 0.1f, 0.25f, a).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
 
             buffer.addVertex(matrix4f, x + 1f, y, z + 1f)
-                    .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+                    .setColor(0.1f, 0.1f, 0.25f, a).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
 
             buffer.addVertex(matrix4f, x + 1f, y, z)
-                    .setColor(0.1f, 0.1f, 0.25f, 0.25f).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
+                    .setColor(0.1f, 0.1f, 0.25f, a).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
         }
+    }
+
+    public static void foam(VertexConsumer buffer, float x, float y, float z, float u, float v, float alpha, int light) {
+        buffer.addVertex(x, y, z)
+                .setColor(1f, 1f, 1f, alpha).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(0f, 1f, 0f);
     }
 
     public TextureAtlasSprite getWetOverlaySprite() {

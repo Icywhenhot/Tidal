@@ -3,6 +3,7 @@ package net.superkat.wavify.wave;
 import com.google.common.collect.Sets;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.entity.Entity;
@@ -298,6 +299,10 @@ public class Wave {
     public void updateBeneathBlock() {
         this.beneathBlock = this.level.getBlockState(this.getBlockPos().offset(0, -1, 0));
         this.aboveWater = WavifyWaveHandler.stateIsWater(beneathBlock);
+        if (!this.aboveWater && !this.washingUp && WavifyConfig.iceAndSlush && this.beneathBlock.is(BlockTags.ICE)) {
+            this.drowningAway = true;
+            this.aboveWater = true;
+        }
     }
 
     public AABB getBoundingBox() {
@@ -363,6 +368,10 @@ public class Wave {
 
     protected boolean canFullMoonGlow() {
         return true;
+    }
+
+    public float getFoamAlpha() {
+        return 1f;
     }
 
     public float getRenderYSink() {
